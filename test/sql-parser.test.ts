@@ -10,4 +10,21 @@ describe('SQL Parser', () => {
     expect(result.type).toBe('SimpleSelectQuery');
     expect(result.ctes).toEqual([]);
   });
+
+  it('should parse query with single CTE', () => {
+    const sql = `
+      WITH user_stats AS (
+        SELECT user_id, COUNT(*) as count 
+        FROM orders 
+        GROUP BY user_id
+      )
+      SELECT * FROM user_stats
+    `;
+    const result = parseSQL(sql);
+    
+    expect(result).toBeDefined();
+    expect(result.type).toBe('SimpleSelectQuery');
+    expect(result.ctes).toHaveLength(1);
+    expect(result.ctes[0].name).toBe('user_stats');
+  });
 });

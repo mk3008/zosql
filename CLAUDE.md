@@ -8,9 +8,14 @@
 - 返されるオブジェクトは解析されたクエリオブジェクト
 
 ### 主なクエリタイプ
-- `SimpleSelectQuery` - 単一のSELECT文
+- `SimpleSelectQuery` - 単一のSELECT文（WITH句を含む場合はこの形式）
 - `BinarySelectQuery` - UNION/INTERSECT/EXCEPTで結合されたクエリ
 - `ValuesQuery` - VALUES句のクエリ
+
+**重要**: WITH句を扱う場合は必ず`toSimpleQuery()`で変換する必要がある
+```typescript
+const query = SelectQueryParser.parse(sql).toSimpleQuery();
+```
 
 ### 基本的な使用例
 ```typescript
@@ -48,3 +53,11 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
 - t-wada方式でTDD実践
 - テストが成功するたびにステージング・コミット
 - vitestを使用してテスト実行
+- 一時的な調査用ファイルは`.tmp/`ディレクトリに作成（gitignore済み）
+- `.tmp/`内のコードは機能化・テスト化を検討後、不要なら削除
+
+## CTE操作に関する調査結果
+- `withClause`プロパティにCTE情報が格納される
+- `withClause.tables`配列に各CTEが格納
+- `cteNameCache`にCTE名のSetが格納される
+- `getCTENames()`メソッドでCTE名一覧を取得可能
