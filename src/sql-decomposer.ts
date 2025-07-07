@@ -1,5 +1,6 @@
 import { SelectQueryParser, SqlFormatter } from 'rawsql-ts';
 import { parseSQL } from './sql-parser';
+import { FileManager } from './file-manager';
 
 export interface DecomposedFile {
   name: string;
@@ -8,11 +9,13 @@ export interface DecomposedFile {
 
 export interface DecomposeResult {
   files: DecomposedFile[];
+  fileManager: FileManager;
 }
 
 export function decomposeSQL(sql: string): DecomposeResult {
   const parsed = parseSQL(sql);
   const files: DecomposedFile[] = [];
+  const fileManager = new FileManager();
   
   // CTEファイルの生成
   for (const cte of parsed.ctes) {
@@ -20,10 +23,15 @@ export function decomposeSQL(sql: string): DecomposeResult {
     const formatter = new SqlFormatter();
     const formatResult = formatter.format(cteQuery);
     
+    const fileName = `${cte.name}.cte.sql`;
+    const content = formatResult.formattedSql;
+    
     files.push({
-      name: `${cte.name}.cte.sql`,
-      content: formatResult.formattedSql
+      name: fileName,
+      content
     });
+    
+    fileManager.writeFile(fileName, content);
   }
   
   // メインファイルの生成（CTEの中身を空にして）
@@ -42,11 +50,16 @@ export function decomposeSQL(sql: string): DecomposeResult {
     const mainSelectMatch = sql.match(/\)\s*(SELECT[\s\S]*)/i);
     const mainSelect = mainSelectMatch ? mainSelectMatch[1] : 'SELECT * FROM ' + parsed.ctes[0].name;
     
+    const mainFileName = 'main.sql';
+    const mainContent = withClause + mainSelect;
+    
     files.push({
-      name: 'main.sql',
-      content: withClause + mainSelect
+      name: mainFileName,
+      content: mainContent
     });
+    
+    fileManager.writeFile(mainFileName, mainContent);
   }
   
-  return { files };
+  return { files, fileManager };
 }

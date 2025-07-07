@@ -56,6 +56,11 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
 - 一時的な調査用ファイルは`.tmp/`ディレクトリに作成（gitignore済み）
 - `.tmp/`内のコードは機能化・テスト化を検討後、不要なら削除
 
+## ファイル管理設計
+- `FileManager`クラスでメモリ上のファイル管理を実装
+- 実際のファイルシステムに書き出す前にメモリ上で検証可能
+- テスト時にファイルI/Oを避けて高速実行を実現
+
 ## CTE操作に関する調査結果
 - `withClause`プロパティにCTE情報が格納される
 - `withClause.tables`配列に各CTEが格納（CommonTableオブジェクト）
