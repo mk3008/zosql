@@ -7,7 +7,7 @@ describe('SQL Parser', () => {
     const result = parseSQL(sql);
     
     expect(result).toBeDefined();
-    expect(result.type).toBe('simple');
+    expect(result.type).toBe('SimpleSelectQuery');
     expect(result.ctes).toEqual([]);
   });
 });

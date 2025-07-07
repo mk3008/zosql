@@ -1,11 +1,17 @@
+import { SelectQueryParser } from 'rawsql-ts';
+
 export interface ParseResult {
-  type: 'simple' | 'with_cte';
+  type: string;
   ctes: any[];
+  query: any;
 }
 
 export function parseSQL(sql: string): ParseResult {
+  const query = SelectQueryParser.parse(sql);
+  
   return {
-    type: 'simple',
-    ctes: []
+    type: query.constructor.name,
+    ctes: [],
+    query
   };
 }
