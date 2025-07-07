@@ -1,6 +1,7 @@
 import { SelectQueryParser, SqlFormatter } from 'rawsql-ts';
 import { parseSQL } from './sql-parser';
 import { FileManager } from './file-manager';
+import { applyFormatterConfig, DEFAULT_FORMATTER_CONFIG, FormatterConfig } from './formatter-config';
 
 export interface DecomposedFile {
   name: string;
@@ -12,10 +13,11 @@ export interface DecomposeResult {
   fileManager: FileManager;
 }
 
-export function decomposeSQL(sql: string): DecomposeResult {
+export function decomposeSQL(sql: string, formatterConfig?: FormatterConfig): DecomposeResult {
   const parsed = parseSQL(sql);
   const files: DecomposedFile[] = [];
   const fileManager = new FileManager();
+  const config = formatterConfig || DEFAULT_FORMATTER_CONFIG;
   
   // CTEファイルの生成
   for (const cte of parsed.ctes) {
@@ -24,14 +26,14 @@ export function decomposeSQL(sql: string): DecomposeResult {
     const formatResult = formatter.format(cteQuery);
     
     const fileName = `${cte.name}.cte.sql`;
-    const content = formatResult.formattedSql;
+    const formattedContent = applyFormatterConfig(formatResult.formattedSql, config);
     
     files.push({
       name: fileName,
-      content
+      content: formattedContent
     });
     
-    fileManager.writeFile(fileName, content);
+    fileManager.writeFile(fileName, formattedContent);
   }
   
   // メインファイルの生成（CTEの中身を空にして）

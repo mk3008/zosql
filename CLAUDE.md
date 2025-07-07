@@ -61,6 +61,15 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
 - 実際のファイルシステムに書き出す前にメモリ上で検証可能
 - テスト時にファイルI/Oを避けて高速実行を実現
 
+## フォーマッター設定
+- デフォルトフォーマットスタイルを実装
+  - 識別子クォートなし
+  - キーワード小文字
+  - パラメータスタイル: named
+  - インデント: 4スペース
+- `FormatterConfig`インターフェースで設定をカスタマイズ可能
+- 将来的にユーザー設定ファイルからの読み込みに対応予定
+
 ## CTE操作に関する調査結果
 - `withClause`プロパティにCTE情報が格納される
 - `withClause.tables`配列に各CTEが格納（CommonTableオブジェクト）

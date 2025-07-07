@@ -25,8 +25,8 @@ describe('Integration Test - Decompose and Compose', () => {
     // 合成後のSQLに必要な要素が含まれていることを確認
     expect(composed.sql).toContain('WITH');
     expect(composed.sql).toContain('user_stats AS (');
-    expect(composed.sql).toContain('select "user_id", count(*) as "count"');
-    expect(composed.sql).toContain('from "orders" group by "user_id"');
+    expect(composed.sql).toContain('select user_id, count(*) as count');
+    expect(composed.sql).toContain('from orders group by user_id');
     expect(composed.sql).toContain('SELECT * FROM user_stats');
     
     // 元のSQLと機能的に同等であることを確認（フォーマットは異なる可能性がある）

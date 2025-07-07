@@ -23,7 +23,7 @@ describe('SQL Decomposer', () => {
     expect(result.files[0].content).toContain('select');
     expect(result.files[0].content).toContain('user_id');
     expect(result.files[0].content).toContain('count(*)');
-    expect(result.files[0].content).toContain('from "orders"');
+    expect(result.files[0].content).toContain('from orders');
     
     // メインファイル
     expect(result.files[1].name).toBe('main.sql');
