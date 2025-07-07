@@ -36,24 +36,11 @@ export function decomposeSQL(sql: string, formatterConfig?: FormatterConfig): De
     fileManager.writeFile(fileName, formattedContent);
   }
   
-  // メインファイルの生成（CTEの中身を空にして）
+  // メインファイルの生成（元のSQLをそのまま保存）
   if (parsed.ctes.length > 0) {
-    // WITH句を含むメインクエリ
-    let withClause = 'WITH\n';
-    parsed.ctes.forEach((cte, index) => {
-      withClause += `  ${cte.name} AS ()`;
-      if (index < parsed.ctes.length - 1) {
-        withClause += ',';
-      }
-      withClause += '\n';
-    });
-    
-    // メインクエリ部分を抽出（簡易実装）
-    const mainSelectMatch = sql.match(/\)\s*(SELECT[\s\S]*)/i);
-    const mainSelect = mainSelectMatch ? mainSelectMatch[1] : 'SELECT * FROM ' + parsed.ctes[0].name;
-    
     const mainFileName = 'main.sql';
-    const mainContent = withClause + mainSelect;
+    // TODO: 将来的にCTEのワンライナー整形を実装
+    const mainContent = sql.trim();
     
     files.push({
       name: mainFileName,

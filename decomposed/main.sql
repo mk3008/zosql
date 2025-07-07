@@ -1,6 +1,17 @@
-WITH
-  user_stats AS (),
-  active_users AS ()
+WITH user_stats AS (
+  SELECT 
+    user_id, 
+    COUNT(*) as order_count,
+    SUM(amount) as total_amount
+  FROM orders 
+  WHERE created_at >= '2024-01-01'
+  GROUP BY user_id
+),
+active_users AS (
+  SELECT user_id
+  FROM users 
+  WHERE last_login >= CURRENT_DATE - INTERVAL '30 days'
+)
 SELECT 
   u.user_id,
   u.order_count,

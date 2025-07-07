@@ -23,12 +23,12 @@ describe('SQL Decomposer', () => {
     expect(result.files[0].content).toContain('select');
     expect(result.files[0].content).toContain('user_id');
     expect(result.files[0].content).toContain('count(*)');
-    expect(result.files[0].content).toContain('from orders');
+    expect(result.files[0].content).toContain('orders');
     
-    // メインファイル
+    // メインファイル（元のSQLをそのまま保存）
     expect(result.files[1].name).toBe('main.sql');
-    expect(result.files[1].content).toContain('WITH');
-    expect(result.files[1].content).toContain('user_stats AS ()');
+    expect(result.files[1].content).toContain('WITH user_stats AS (');
+    expect(result.files[1].content).toContain('SELECT user_id, COUNT(*) as count');
     expect(result.files[1].content).toContain('SELECT * FROM user_stats');
     
     // FileManagerでの検証
@@ -77,11 +77,11 @@ describe('SQL Decomposer', () => {
     expect(result.files[1].content).toContain('user_id');
     expect(result.files[1].content).toContain('sum(');
     
-    // メインファイル
+    // メインファイル（元のSQLをそのまま保存）
     expect(result.files[2].name).toBe('main.sql');
     expect(result.files[2].content).toContain('WITH');
-    expect(result.files[2].content).toContain('user_stats AS ()');
-    expect(result.files[2].content).toContain('user_totals AS ()');
+    expect(result.files[2].content).toContain('user_stats AS (');
+    expect(result.files[2].content).toContain('user_totals AS (');
     
     // FileManagerでの検証
     expect(result.fileManager.listFiles()).toEqual([

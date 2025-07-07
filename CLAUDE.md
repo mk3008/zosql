@@ -70,6 +70,11 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
 - `FormatterConfig`インターフェースで設定をカスタマイズ可能
 - 将来的にユーザー設定ファイルからの読み込みに対応予定
 
+## SqlFormatterオプション（rawsql-ts）
+- `cteOneline: true` - CTEをワンライナーでフォーマット
+- `indentChar`, `indentSize`, `newline` - インデント・改行設定
+- `commaBreak`, `andBreak`, `keywordCase` - 構造設定
+
 ## CTE操作に関する調査結果
 - `withClause`プロパティにCTE情報が格納される
 - `withClause.tables`配列に各CTEが格納（CommonTableオブジェクト）
