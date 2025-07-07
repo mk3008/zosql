@@ -58,6 +58,7 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
 
 ## CTE操作に関する調査結果
 - `withClause`プロパティにCTE情報が格納される
-- `withClause.tables`配列に各CTEが格納
+- `withClause.tables`配列に各CTEが格納（CommonTableオブジェクト）
+- CTE名は`cte.aliasExpression.table.name`でアクセス
 - `cteNameCache`にCTE名のSetが格納される
 - `getCTENames()`メソッドでCTE名一覧を取得可能
