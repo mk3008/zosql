@@ -1,0 +1,20 @@
+{
+  "name": "zosql",
+  "version": "1.0.0",
+  "description": "SQL decomposition and composition tool using CTE-based modularization",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "vitest",
+    "test:once": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
