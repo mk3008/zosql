@@ -3,9 +3,14 @@
   "version": "1.0.0",
   "description": "SQL decomposition and composition tool using CTE-based modularization",
   "main": "dist/index.js",
+  "bin": {
+    "zosql": "dist/index.js"
+  },
   "scripts": {
     "test": "vitest",
-    "test:once": "vitest run"
+    "test:once": "vitest run",
+    "build": "tsc",
+    "dev": "tsx src/index.ts"
   },
   "keywords": [],
   "author": "",
