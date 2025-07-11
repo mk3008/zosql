@@ -963,16 +963,22 @@ export class WebServer {
                         endColumn: position.column
                       });
                       
+                      // Check if we're in a FROM clause context
+                      const fullText = model.getValue();
+                      const isInFromClause = checkFromClauseContext(fullText, position);
+                      
                       console.log('Position details:');
                       console.log('- lineNumber:', position.lineNumber);
                       console.log('- column:', position.column);
                       console.log('- textBeforeCursor:', JSON.stringify(textBeforeCursor));
+                      console.log('- isInFromClause:', isInFromClause);
                       
                       // 詳細ログを送信
                       logToServer('IntelliSense detailed analysis', {
                         position: { line: position.lineNumber, column: position.column },
                         textBeforeCursor: textBeforeCursor,
-                        fullLine: model.getLineContent(position.lineNumber)
+                        fullLine: model.getLineContent(position.lineNumber),
+                        isInFromClause: isInFromClause
                       });
                       
                       // Send debug info to server for logging (同期的に送信)
@@ -1212,68 +1218,86 @@ export class WebServer {
                         updateDebugPanel(debugInfo);
                       }
                       
-                      // Add table names
-                      data.tables.forEach(table => {
-                        suggestions.push({
-                          label: table,
-                          kind: monaco.languages.CompletionItemKind.Class,
-                          documentation: \`Table: \${table}\`,
-                          insertText: table,
-                          range: range
-                        });
-                      });
-                      
-                      // Add column names for each table
-                      Object.keys(data.columns).forEach(tableName => {
-                        data.columns[tableName].forEach(column => {
+                      // If we're in a FROM clause context, only show table names
+                      if (isInFromClause) {
+                        // Add table names only
+                        data.tables.forEach(table => {
                           suggestions.push({
-                            label: \`\${tableName}.\${column}\`,
-                            kind: monaco.languages.CompletionItemKind.Field,
-                            documentation: \`Column: \${column} in table \${tableName}\`,
-                            insertText: \`\${tableName}.\${column}\`,
-                            range: range
-                          });
-                          
-                          // Also add column without table prefix
-                          suggestions.push({
-                            label: column,
-                            kind: monaco.languages.CompletionItemKind.Field,
-                            documentation: \`Column: \${column}\`,
-                            insertText: column,
+                            label: table,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            documentation: \`Table: \${table}\`,
+                            insertText: table,
                             range: range
                           });
                         });
-                      });
-                      
-                      // Add function names
-                      data.functions.forEach(func => {
-                        suggestions.push({
-                          label: func,
-                          kind: monaco.languages.CompletionItemKind.Function,
-                          documentation: \`Function: \${func}\`,
-                          insertText: \`\${func}()\`,
-                          range: range
-                        });
-                      });
-                      
-                      // Add common SQL keywords (only when not after a period)
-                      if (!periodMatch) {
-                        const sqlKeywords = [
-                          'SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING',
-                          'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN',
-                          'WITH', 'AS', 'AND', 'OR', 'NOT', 'IN', 'EXISTS',
-                          'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'DISTINCT'
-                        ];
                         
-                        sqlKeywords.forEach(keyword => {
+                        console.log('FROM clause context - showing only table names');
+                      } else {
+                        // Normal IntelliSense - show all items
+                        
+                        // Add table names
+                        data.tables.forEach(table => {
                           suggestions.push({
-                            label: keyword,
-                            kind: monaco.languages.CompletionItemKind.Keyword,
-                            documentation: \`SQL keyword: \${keyword}\`,
-                            insertText: keyword,
+                            label: table,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            documentation: \`Table: \${table}\`,
+                            insertText: table,
                             range: range
                           });
                         });
+                        
+                        // Add column names for each table
+                        Object.keys(data.columns).forEach(tableName => {
+                          data.columns[tableName].forEach(column => {
+                            suggestions.push({
+                              label: \`\${tableName}.\${column}\`,
+                              kind: monaco.languages.CompletionItemKind.Field,
+                              documentation: \`Column: \${column} in table \${tableName}\`,
+                              insertText: \`\${tableName}.\${column}\`,
+                              range: range
+                            });
+                            
+                            // Also add column without table prefix
+                            suggestions.push({
+                              label: column,
+                              kind: monaco.languages.CompletionItemKind.Field,
+                              documentation: \`Column: \${column}\`,
+                              insertText: column,
+                              range: range
+                            });
+                          });
+                        });
+                        
+                        // Add function names
+                        data.functions.forEach(func => {
+                          suggestions.push({
+                            label: func,
+                            kind: monaco.languages.CompletionItemKind.Function,
+                            documentation: \`Function: \${func}\`,
+                            insertText: \`\${func}()\`,
+                            range: range
+                          });
+                        });
+                        
+                        // Add common SQL keywords (only when not after a period)
+                        if (!periodMatch) {
+                          const sqlKeywords = [
+                            'SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING',
+                            'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN',
+                            'WITH', 'AS', 'AND', 'OR', 'NOT', 'IN', 'EXISTS',
+                            'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'DISTINCT'
+                          ];
+                          
+                          sqlKeywords.forEach(keyword => {
+                            suggestions.push({
+                              label: keyword,
+                              kind: monaco.languages.CompletionItemKind.Keyword,
+                              documentation: \`SQL keyword: \${keyword}\`,
+                              insertText: keyword,
+                              range: range
+                            });
+                          });
+                        }
                       }
                       
                       resolve({ suggestions });
@@ -1378,6 +1402,40 @@ export class WebServer {
                 });
               } catch (error) {
                 console.error('Initial parse setup failed:', error);
+              }
+            }
+            
+            // Helper function to check FROM clause context
+            function checkFromClauseContext(fullText, position) {
+              try {
+                // Get text up to current position
+                const lines = fullText.split('\\n');
+                let textUpToPosition = '';
+                
+                for (let i = 0; i < position.lineNumber; i++) {
+                  if (i < position.lineNumber - 1) {
+                    textUpToPosition += lines[i] + '\\n';
+                  } else {
+                    textUpToPosition += lines[i].substring(0, position.column - 1);
+                  }
+                }
+                
+                // Remove comments and strings to avoid false positives
+                const cleanedText = textUpToPosition
+                  .replace(/--.*$/gm, '') // Remove line comments
+                  .replace(/\\/\\*[\\s\\S]*?\\*\\//g, '') // Remove block comments
+                  .replace(/'[^']*'/g, "''") // Remove string literals
+                  .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
+                
+                // Check if we're in a FROM clause context
+                // Look for FROM keyword followed by optional whitespace and check if cursor is right after
+                const fromPattern = /\\bFROM\\s+$/i;
+                const joinPattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+$/i;
+                
+                return fromPattern.test(cleanedText) || joinPattern.test(cleanedText);
+              } catch (error) {
+                console.error('Error checking FROM clause context:', error);
+                return false;
               }
             }
             
