@@ -155,28 +155,140 @@ export class WebServer {
         this.log(`[PARSE-SQL] SQL lines: ${sql.split('\n').map((line: string, i: number) => `${i+1}: "${line}"`).join(' | ')}`);
 
         // Use rawsql-ts to parse SQL (dynamic import for ES modules)
-        const { SelectQueryParser } = await import('rawsql-ts');
+        const { SelectQueryParser, SelectableColumnCollector } = await import('rawsql-ts');
         
         try {
           const query = SelectQueryParser.parse(sql);
           this.log(`[PARSE-SQL] Parse successful`);
+          this.log(`[PARSE-SQL] Query type: ${query.constructor.name}`);
           
           // Extract table information with aliases for IntelliSense
           const tables: any[] = [];
           
-          // Log the raw query structure for debugging
-          const queryAny = query as any;
+          // Convert to SimpleSelectQuery if needed (for WITH clause support)
+          let queryAny = query as any;
+          if (query.constructor.name !== 'SimpleSelectQuery') {
+            this.log(`[PARSE-SQL] Converting to SimpleSelectQuery`);
+            queryAny = query.toSimpleQuery();
+            this.log(`[PARSE-SQL] Converted query type: ${queryAny.constructor.name}`);
+          }
           this.log(`[PARSE-SQL] Full query object keys: ${Object.keys(queryAny)}`);
           this.log(`[PARSE-SQL] Query structure: ${JSON.stringify({
             hasFromClause: !!queryAny.fromClause,
             fromClauseType: queryAny.fromClause?.constructor?.name,
             fromClauseTables: queryAny.fromClause?.tables?.length || 0,
-            fromClauseStructure: queryAny.fromClause ? Object.keys(queryAny.fromClause) : null
+            fromClauseStructure: queryAny.fromClause ? Object.keys(queryAny.fromClause) : null,
+            hasWithClause: !!queryAny.withClause,
+            withClauseStructure: queryAny.withClause ? Object.keys(queryAny.withClause) : null
           })}`);
           
           // Detailed fromClause investigation
           if (queryAny.fromClause) {
             this.log(`[PARSE-SQL] fromClause full structure: ${JSON.stringify(queryAny.fromClause, null, 2)}`);
+          }
+          
+          // Debug withClause explicitly - SIMPLE VERSION
+          this.log(`[PARSE-SQL] withClause check: ${queryAny.withClause ? 'EXISTS' : 'NULL'}`);
+          
+          if (queryAny.withClause) {
+            this.log(`[PARSE-SQL] withClause processing started`);
+            this.log(`[PARSE-SQL] withClause has tables: ${!!queryAny.withClause.tables}`);
+            this.log(`[PARSE-SQL] withClause tables length: ${queryAny.withClause.tables?.length || 0}`);
+          } else {
+            this.log(`[PARSE-SQL] withClause is falsy, not processing CTE tables`);
+          }
+          
+          // Extract CTE tables from withClause
+          if (queryAny.withClause) {
+            this.log(`[PARSE-SQL] withClause structure: ${JSON.stringify(queryAny.withClause, null, 2)}`);
+            
+            // Check for CTE tables in withClause.tables
+            if (queryAny.withClause.tables && Array.isArray(queryAny.withClause.tables)) {
+              queryAny.withClause.tables.forEach((cte: any, index: number) => {
+                let cteName = null;
+                let cteColumns: string[] = [];
+                
+                // Extract CTE name from aliasExpression
+                if (cte.aliasExpression && cte.aliasExpression.table) {
+                  cteName = cte.aliasExpression.table.name;
+                }
+                
+                // Extract columns from CTE definition if available
+                if (cte.aliasExpression && cte.aliasExpression.columns) {
+                  cteColumns = cte.aliasExpression.columns.map((col: any) => col.name || col);
+                }
+                
+                // Use SelectableColumnCollector to extract columns from CTE query
+                if (cte.query) {
+                  try {
+                    const collector = new SelectableColumnCollector();
+                    collector.collect(cte.query);
+                    const collectedColumns = collector.getValues();
+                    
+                    this.log(`[PARSE-SQL] CTE ${index} SelectableColumnCollector result: ${JSON.stringify(collectedColumns, null, 2)}`);
+                    
+                    // Extract column names from collected columns
+                    if (collectedColumns && Array.isArray(collectedColumns) && collectedColumns.length > 0) {
+                      collectedColumns.forEach((col: any) => {
+                        if (col.alias) {
+                          cteColumns.push(col.alias);
+                        } else if (col.name) {
+                          cteColumns.push(col.name);
+                        } else if (col.columnName) {
+                          cteColumns.push(col.columnName);
+                        } else if (typeof col === 'string') {
+                          cteColumns.push(col);
+                        }
+                      });
+                    } else {
+                      // If SelectableColumnCollector returned empty, use fallback
+                      this.log(`[PARSE-SQL] SelectableColumnCollector returned empty for CTE ${index}, using fallback`);
+                      throw new Error('Empty collector result, using fallback');
+                    }
+                  } catch (collectorError) {
+                    this.log(`[PARSE-SQL] SelectableColumnCollector failed for CTE ${index}: ${collectorError instanceof Error ? collectorError.message : 'Unknown error'}`);
+                    
+                    // Fallback to manual extraction
+                    if (cte.query.selectClause && cte.query.selectClause.items) {
+                      const selectItems = cte.query.selectClause.items;
+                      this.log(`[PARSE-SQL] CTE ${index} fallback selectClause.items: ${JSON.stringify(selectItems, null, 2)}`);
+                      
+                      selectItems.forEach((item: any) => {
+                        let columnName = null;
+                        
+                        // Check identifier first (for "SELECT 1 as value")
+                        if (item.identifier && item.identifier.name) {
+                          columnName = item.identifier.name;
+                        }
+                        // Check value.qualifiedName for column references
+                        else if (item.value && item.value.qualifiedName && item.value.qualifiedName.name) {
+                          columnName = item.value.qualifiedName.name.name;
+                        }
+                        // Check alias expressions
+                        else if (item.aliasExpression && item.aliasExpression.column) {
+                          columnName = item.aliasExpression.column.name;
+                        }
+                        
+                        if (columnName) {
+                          cteColumns.push(columnName);
+                        }
+                      });
+                    }
+                  }
+                }
+                
+                this.log(`[PARSE-SQL] Found CTE ${index}: name="${cteName}", columns=[${cteColumns.join(', ')}]`);
+                
+                if (cteName) {
+                  tables.push({
+                    name: cteName,
+                    alias: cteName, // CTE name serves as both table name and alias
+                    type: 'cte',
+                    columns: cteColumns
+                  });
+                }
+              });
+            }
           }
           
           // Extract tables from fromClause.source (not fromClause.tables)
@@ -189,28 +301,78 @@ export class WebServer {
               this.log(`[PARSE-SQL] Found table: name="${tableName}", alias="${tableAlias}"`);
               
               if (tableName) {
+                // Check if this is a CTE table and extract columns
+                let isCTE = false;
+                let cteColumns: string[] = [];
+                
+                if (queryAny.withClause && queryAny.withClause.tables) {
+                  queryAny.withClause.tables.forEach((cte: any) => {
+                    if (cte.aliasExpression && cte.aliasExpression.table && cte.aliasExpression.table.name === tableName) {
+                      isCTE = true;
+                      
+                      // Extract columns from CTE definition
+                      if (cte.query && cte.query.selectClause && cte.query.selectClause.items) {
+                        cte.query.selectClause.items.forEach((item: any) => {
+                          if (item.identifier && item.identifier.name) {
+                            cteColumns.push(item.identifier.name);
+                          }
+                        });
+                      }
+                    }
+                  });
+                }
+                
                 tables.push({
                   name: tableName,
-                  alias: tableAlias
+                  alias: tableAlias,
+                  type: isCTE ? 'cte' : 'regular',
+                  columns: isCTE ? cteColumns : undefined
                 });
               }
             }
           }
           
-          // Also check for JOIN tables if they exist
+          // Also check for JOIN tables if they exist (corrected to use join.source)
           if (queryAny.fromClause && queryAny.fromClause.joins) {
             queryAny.fromClause.joins.forEach((join: any, index: number) => {
-              if (join.right && join.right.datasource && join.right.datasource.qualifiedName) {
-                const tableName = join.right.datasource.qualifiedName.name?.name;
-                const tableAlias = join.right.aliasExpression?.table?.name;
+              if (join.source && join.source.datasource && join.source.datasource.qualifiedName) {
+                const tableName = join.source.datasource.qualifiedName.name?.name;
+                const tableAlias = join.source.aliasExpression?.table?.name;
                 
                 this.log(`[PARSE-SQL] Found JOIN table ${index}: name="${tableName}", alias="${tableAlias}"`);
                 
                 if (tableName) {
-                  tables.push({
-                    name: tableName,
-                    alias: tableAlias
-                  });
+                  // Check if this is a CTE table and extract columns
+                  let isCTE = false;
+                  let cteColumns: string[] = [];
+                  
+                  if (queryAny.withClause && queryAny.withClause.tables) {
+                    queryAny.withClause.tables.forEach((cte: any) => {
+                      if (cte.aliasExpression && cte.aliasExpression.table && cte.aliasExpression.table.name === tableName) {
+                        isCTE = true;
+                        
+                        // Extract columns from CTE definition
+                        if (cte.query && cte.query.selectClause && cte.query.selectClause.items) {
+                          cte.query.selectClause.items.forEach((item: any) => {
+                            if (item.identifier && item.identifier.name) {
+                              cteColumns.push(item.identifier.name);
+                            }
+                          });
+                        }
+                      }
+                    });
+                  }
+                  
+                  // Only add if not already added (to avoid duplicates)
+                  const alreadyExists = tables.some(t => t.name === tableName && t.alias === tableAlias);
+                  if (!alreadyExists) {
+                    tables.push({
+                      name: tableName,
+                      alias: tableAlias,
+                      type: isCTE ? 'cte' : 'regular',
+                      columns: isCTE ? cteColumns : undefined
+                    });
+                  }
                 }
               }
             });
@@ -528,7 +690,7 @@ export class WebServer {
               }
             }
             
-            // Helper function to find table name by alias
+            // Helper function to find table name by alias (with CTE support)
             function findTableByAlias(parseResult, alias) {
               try {
                 console.log('Finding table by alias:', alias);
@@ -540,11 +702,11 @@ export class WebServer {
                 
                 console.log('Available tables:', parseResult.tables);
                 
-                // Find table by alias
+                // Find table by alias (includes CTE tables)
                 for (const table of parseResult.tables) {
-                  console.log('Checking table:', table, 'alias:', table.alias);
+                  console.log('Checking table:', table, 'alias:', table.alias, 'type:', table.type);
                   if (table.alias && table.alias.toLowerCase() === alias.toLowerCase()) {
-                    console.log('Found matching table:', table.name);
+                    console.log('Found matching table:', table.name, 'type:', table.type || 'regular');
                     return table.name;
                   }
                 }
@@ -553,6 +715,26 @@ export class WebServer {
                 return null;
               } catch (error) {
                 console.error('Error finding table by alias:', error);
+                return null;
+              }
+            }
+            
+            // Helper function to find table object by alias (returns full table object)
+            function findTableObjectByAlias(parseResult, alias) {
+              try {
+                if (!parseResult || !parseResult.tables) {
+                  return null;
+                }
+                
+                for (const table of parseResult.tables) {
+                  if (table.alias && table.alias.toLowerCase() === alias.toLowerCase()) {
+                    return table;
+                  }
+                }
+                
+                return null;
+              } catch (error) {
+                console.error('Error finding table object by alias:', error);
                 return null;
               }
             }
@@ -823,22 +1005,25 @@ export class WebServer {
                           });
                           
                           if (parseResult.success) {
-                            // 成功した場合はキャッシュに保存
+                            // 成功した場合はキャッシュを完全に洗い替え
                             lastSuccessfulParseResult = parseResult;
                             lastValidQuery = parseResult;
                             
-                            console.log('Calling findTableByAlias with successful parse:', {
+                            console.log('Parse successful - cache refreshed completely');
+                            console.log('Calling findTableByAlias with fresh parse result:', {
                               parseResult: parseResult,
                               tables: parseResult.tables,
                               alias: alias
                             });
+                            // 新しいパース結果のみを使用（キャッシュは使わない）
                             tableName = findTableByAlias(parseResult, alias);
                             debugInfo.parseSuccess = true;
                             
-                            logToServer('Using fresh parse result', {
+                            logToServer('Using fresh parse result (cache refreshed)', {
                               alias: alias,
                               foundTableName: tableName,
-                              availableTables: parseResult.tables
+                              availableTables: parseResult.tables,
+                              cacheCleared: true
                             });
                           } else {
                             // パース失敗時は最後に成功したキャッシュを使用
@@ -886,25 +1071,48 @@ export class WebServer {
                         }
                         
                         // If we found the table, show only its columns
-                        if (tableName && data.columns[tableName]) {
-                          debugInfo.availableColumns = data.columns[tableName].join(', ');
-                          console.log('Columns for table:', data.columns[tableName]);
-                          data.columns[tableName].forEach(column => {
-                            suggestions.push({
-                              label: column,
-                              kind: monaco.languages.CompletionItemKind.Field,
-                              documentation: \`Column: \${column} in table \${tableName} (alias: \${alias})\`,
-                              insertText: column,
-                              range: range
-                            });
-                          });
+                        if (tableName) {
+                          let columns = [];
                           
-                          updateDebugPanel(debugInfo);
-                          resolve({ suggestions });
-                          return;
+                          // Check if it's a CTE table with columns in parse result
+                          const parseResult = lastSuccessfulParseResult || (parseResult && parseResult.success ? parseResult : null);
+                          if (parseResult) {
+                            const tableObject = findTableObjectByAlias(parseResult, alias);
+                            if (tableObject && tableObject.type === 'cte' && tableObject.columns && tableObject.columns.length > 0) {
+                              columns = tableObject.columns;
+                              console.log('Using CTE columns:', columns);
+                            } else if (data.columns[tableName]) {
+                              columns = data.columns[tableName];
+                              console.log('Using schema columns:', columns);
+                            }
+                          } else if (data.columns[tableName]) {
+                            columns = data.columns[tableName];
+                            console.log('Using schema columns (fallback):', columns);
+                          }
+                          
+                          if (columns.length > 0) {
+                            debugInfo.availableColumns = columns.join(', ');
+                            console.log('Columns for table:', columns);
+                            columns.forEach(column => {
+                              suggestions.push({
+                                label: column,
+                                kind: monaco.languages.CompletionItemKind.Field,
+                                documentation: \`Column: \${column} in table \${tableName} (alias: \${alias})\`,
+                                insertText: column,
+                                range: range
+                              });
+                            });
+                            
+                            updateDebugPanel(debugInfo);
+                            resolve({ suggestions });
+                            return;
+                          } else {
+                            debugInfo.availableColumns = 'none found';
+                            console.log('No columns found for table:', tableName);
+                          }
                         } else {
-                          debugInfo.availableColumns = 'none found';
-                          console.log('No columns found for table:', tableName);
+                          debugInfo.availableColumns = 'no table found';
+                          console.log('No table found for alias:', alias);
                         }
                         
                         updateDebugPanel(debugInfo);
@@ -1006,6 +1214,12 @@ export class WebServer {
                 .then(response => response.json())
                 .then(parseResult => {
                   const markers = [];
+                  
+                  // Update cache if parse was successful
+                  if (parseResult.success) {
+                    lastSuccessfulParseResult = parseResult;
+                    console.log('Cache updated from validation:', parseResult.tables?.length || 0, 'tables');
+                  }
                   
                   if (!parseResult.success) {
                     // Create error marker
