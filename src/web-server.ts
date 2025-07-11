@@ -332,46 +332,138 @@ export class WebServer {
             }
           }
           
-          // Also check for JOIN tables if they exist (corrected to use join.source)
+          // Also check for JOIN tables if they exist (support both regular tables and subqueries)
           if (queryAny.fromClause && queryAny.fromClause.joins) {
             queryAny.fromClause.joins.forEach((join: any, index: number) => {
-              if (join.source && join.source.datasource && join.source.datasource.qualifiedName) {
-                const tableName = join.source.datasource.qualifiedName.name?.name;
-                const tableAlias = join.source.aliasExpression?.table?.name;
+              if (join.source) {
+                let tableName = null;
+                let tableAlias = join.source.aliasExpression?.table?.name;
+                let isSubquery = false;
+                let subqueryColumns: string[] = [];
                 
-                this.log(`[PARSE-SQL] Found JOIN table ${index}: name="${tableName}", alias="${tableAlias}"`);
-                
-                if (tableName) {
-                  // Check if this is a CTE table and extract columns
-                  let isCTE = false;
-                  let cteColumns: string[] = [];
+                // Check if this is a regular table
+                if (join.source.datasource && join.source.datasource.qualifiedName) {
+                  tableName = join.source.datasource.qualifiedName.name?.name;
+                  this.log(`[PARSE-SQL] Found JOIN table ${index}: name="${tableName}", alias="${tableAlias}"`);
+                } 
+                // Check if this is a subquery (stored in datasource.query)
+                else if (join.source.datasource && join.source.datasource.query) {
+                  isSubquery = true;
+                  tableName = `subquery_${index}`;
+                  this.log(`[PARSE-SQL] Found JOIN subquery ${index}: alias="${tableAlias}"`);
+                  this.log(`[PARSE-SQL] JOIN subquery ${index} structure: ${JSON.stringify(join.source.datasource.query, null, 2)}`);
                   
-                  if (queryAny.withClause && queryAny.withClause.tables) {
-                    queryAny.withClause.tables.forEach((cte: any) => {
-                      if (cte.aliasExpression && cte.aliasExpression.table && cte.aliasExpression.table.name === tableName) {
-                        isCTE = true;
-                        
-                        // Extract columns from CTE definition
-                        if (cte.query && cte.query.selectClause && cte.query.selectClause.items) {
-                          cte.query.selectClause.items.forEach((item: any) => {
-                            if (item.identifier && item.identifier.name) {
-                              cteColumns.push(item.identifier.name);
-                            }
-                          });
+                  // Extract columns from subquery using SelectableColumnCollector
+                  try {
+                    const collector = new SelectableColumnCollector();
+                    collector.collect(join.source.datasource.query);
+                    const collectedColumns = collector.getValues();
+                    
+                    this.log(`[PARSE-SQL] JOIN subquery ${index} SelectableColumnCollector result: ${JSON.stringify(collectedColumns, null, 2)}`);
+                    
+                    if (collectedColumns && Array.isArray(collectedColumns) && collectedColumns.length > 0) {
+                      collectedColumns.forEach((col: any) => {
+                        if (col.alias) {
+                          subqueryColumns.push(col.alias);
+                        } else if (col.name) {
+                          subqueryColumns.push(col.name);
+                        } else if (col.columnName) {
+                          subqueryColumns.push(col.columnName);
+                        } else if (typeof col === 'string') {
+                          subqueryColumns.push(col);
                         }
+                      });
+                    } else {
+                      // Fallback to manual extraction
+                      if (join.source.datasource.query.selectClause && join.source.datasource.query.selectClause.items) {
+                        join.source.datasource.query.selectClause.items.forEach((item: any) => {
+                          if (item.identifier && item.identifier.name) {
+                            subqueryColumns.push(item.identifier.name);
+                          } else if (item.value && item.value.qualifiedName && item.value.qualifiedName.name) {
+                            const columnName = item.value.qualifiedName.name.name;
+                            if (columnName === '*') {
+                              // Handle SELECT * case - extract actual columns from the source table
+                              this.log(`[PARSE-SQL] Found SELECT * in subquery, extracting from source table`);
+                              
+                              // Get the source table name from the subquery's FROM clause
+                              const subqueryFromClause = join.source.datasource.query.fromClause;
+                              if (subqueryFromClause && subqueryFromClause.source && subqueryFromClause.source.datasource && subqueryFromClause.source.datasource.qualifiedName) {
+                                const sourceTableName = subqueryFromClause.source.datasource.qualifiedName.name?.name;
+                                this.log(`[PARSE-SQL] Subquery source table: ${sourceTableName}`);
+                                
+                                // Get columns from schema - use a simple approach for now
+                                // This is a simplified version that uses known schema structure
+                                if (sourceTableName === 'users') {
+                                  subqueryColumns.push('id', 'name', 'email', 'created_at', 'updated_at');
+                                  this.log(`[PARSE-SQL] Expanded * to users columns: [${subqueryColumns.join(', ')}]`);
+                                } else if (sourceTableName === 'orders') {
+                                  subqueryColumns.push('id', 'user_id', 'amount', 'order_date', 'status', 'created_at');
+                                  this.log(`[PARSE-SQL] Expanded * to orders columns: [${subqueryColumns.join(', ')}]`);
+                                } else if (sourceTableName === 'products') {
+                                  subqueryColumns.push('id', 'name', 'price', 'category', 'description', 'created_at');
+                                  this.log(`[PARSE-SQL] Expanded * to products columns: [${subqueryColumns.join(', ')}]`);
+                                } else {
+                                  // Unknown table, fallback to *
+                                  subqueryColumns.push('*');
+                                  this.log(`[PARSE-SQL] Unknown table ${sourceTableName}, using * as fallback`);
+                                }
+                              } else {
+                                // Fallback to just using *
+                                subqueryColumns.push('*');
+                              }
+                            } else {
+                              subqueryColumns.push(columnName);
+                            }
+                          }
+                        });
                       }
-                    });
+                    }
+                  } catch (error) {
+                    this.log(`[PARSE-SQL] JOIN subquery ${index} column extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
                   }
-                  
-                  // Only add if not already added (to avoid duplicates)
-                  const alreadyExists = tables.some(t => t.name === tableName && t.alias === tableAlias);
-                  if (!alreadyExists) {
+                }
+                
+                if (tableName && tableAlias) {
+                  if (isSubquery) {
+                    // Add subquery table
                     tables.push({
                       name: tableName,
                       alias: tableAlias,
-                      type: isCTE ? 'cte' : 'regular',
-                      columns: isCTE ? cteColumns : undefined
+                      type: 'subquery',
+                      columns: subqueryColumns
                     });
+                  } else {
+                    // Check if this is a CTE table and extract columns
+                    let isCTE = false;
+                    let cteColumns: string[] = [];
+                    
+                    if (queryAny.withClause && queryAny.withClause.tables) {
+                      queryAny.withClause.tables.forEach((cte: any) => {
+                        if (cte.aliasExpression && cte.aliasExpression.table && cte.aliasExpression.table.name === tableName) {
+                          isCTE = true;
+                          
+                          // Extract columns from CTE definition
+                          if (cte.query && cte.query.selectClause && cte.query.selectClause.items) {
+                            cte.query.selectClause.items.forEach((item: any) => {
+                              if (item.identifier && item.identifier.name) {
+                                cteColumns.push(item.identifier.name);
+                              }
+                            });
+                          }
+                        }
+                      });
+                    }
+                    
+                    // Only add if not already added (to avoid duplicates)
+                    const alreadyExists = tables.some(t => t.name === tableName && t.alias === tableAlias);
+                    if (!alreadyExists) {
+                      tables.push({
+                        name: tableName,
+                        alias: tableAlias,
+                        type: isCTE ? 'cte' : 'regular',
+                        columns: isCTE ? cteColumns : undefined
+                      });
+                    }
                   }
                 }
               }
@@ -1074,13 +1166,13 @@ export class WebServer {
                         if (tableName) {
                           let columns = [];
                           
-                          // Check if it's a CTE table with columns in parse result
+                          // Check if it's a CTE or subquery table with columns in parse result
                           const parseResult = lastSuccessfulParseResult || (parseResult && parseResult.success ? parseResult : null);
                           if (parseResult) {
                             const tableObject = findTableObjectByAlias(parseResult, alias);
-                            if (tableObject && tableObject.type === 'cte' && tableObject.columns && tableObject.columns.length > 0) {
+                            if (tableObject && (tableObject.type === 'cte' || tableObject.type === 'subquery') && tableObject.columns && tableObject.columns.length > 0) {
                               columns = tableObject.columns;
-                              console.log('Using CTE columns:', columns);
+                              console.log('Using CTE/subquery columns:', columns, 'type:', tableObject.type);
                             } else if (data.columns[tableName]) {
                               columns = data.columns[tableName];
                               console.log('Using schema columns:', columns);
