@@ -6,8 +6,8 @@ export interface FormatterConfig {
   parameterSymbol: string;
   parameterStyle: 'named' | 'positional';
   indentSize: number;
-  indentChar: string;
-  newline: string;
+  indentChar: ' ' | '\t';
+  newline: '\n' | '\r\n' | ' ';
   keywordCase: 'upper' | 'lower';
   commaBreak: 'before' | 'after';
   andBreak: 'before' | 'after';

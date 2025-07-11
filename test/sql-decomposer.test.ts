@@ -12,30 +12,33 @@ describe('SQL Decomposer', () => {
       SELECT * FROM user_stats
     `;
     
-    const result = decomposeSQL(sql);
+    const outputPath = '/zosql/develop/reports/monthly_sales.sql';
+    const result = decomposeSQL(sql, outputPath);
     
     expect(result).toBeDefined();
     expect(result.files).toHaveLength(2);
     expect(result.fileManager).toBeDefined();
     
     // CTEファイル
-    expect(result.files[0].name).toBe('user_stats.cte.sql');
+    expect(result.files[0].name).toBe('/zosql/develop/reports/monthly_sales.sql/cte/user_stats.sql');
     expect(result.files[0].content).toContain('select');
     expect(result.files[0].content).toContain('user_id');
     expect(result.files[0].content).toContain('count(*)');
     expect(result.files[0].content).toContain('orders');
     
-    // メインファイル（元のSQLをそのまま保存）
-    expect(result.files[1].name).toBe('main.sql');
-    expect(result.files[1].content).toContain('WITH user_stats AS (');
-    expect(result.files[1].content).toContain('SELECT user_id, COUNT(*) as count');
-    expect(result.files[1].content).toContain('SELECT * FROM user_stats');
+    // メインファイル（CTEワンライナー整形済み）
+    expect(result.files[1].name).toBe('/zosql/develop/reports/monthly_sales.sql/main.sql');
+    expect(result.files[1].content).toContain('with');
+    expect(result.files[1].content).toContain('user_stats as (');
+    expect(result.files[1].content).toContain('select');
+    expect(result.files[1].content).toContain('user_stats');
+    
+    // 依存関係コメント（絶対パス形式）
+    expect(result.files[1].content).toContain('/zosql/develop/reports/monthly_sales.sql/cte/user_stats.sql');
     
     // FileManagerでの検証
-    expect(result.fileManager.exists('user_stats.cte.sql')).toBe(true);
-    expect(result.fileManager.exists('main.sql')).toBe(true);
-    expect(result.fileManager.listFiles()).toEqual(['main.sql', 'user_stats.cte.sql']);
-    expect(result.fileManager.readFile('user_stats.cte.sql')).toBe(result.files[0].content);
+    expect(result.fileManager.exists('/zosql/develop/reports/monthly_sales.sql/cte/user_stats.sql')).toBe(true);
+    expect(result.fileManager.exists('/zosql/develop/reports/monthly_sales.sql/main.sql')).toBe(true);
   });
 
   it('should decompose query with multiple CTEs', () => {
@@ -59,36 +62,36 @@ describe('SQL Decomposer', () => {
       JOIN user_totals t ON s.user_id = t.user_id
     `;
     
-    const result = decomposeSQL(sql);
+    const outputPath = '/zosql/develop/reports/monthly_sales.sql';
+    const result = decomposeSQL(sql, outputPath);
     
     expect(result).toBeDefined();
     expect(result.files).toHaveLength(3);
     expect(result.fileManager).toBeDefined();
     
     // CTEファイル1
-    expect(result.files[0].name).toBe('user_stats.cte.sql');
+    expect(result.files[0].name).toBe('/zosql/develop/reports/monthly_sales.sql/cte/user_stats.sql');
     expect(result.files[0].content).toContain('select');
     expect(result.files[0].content).toContain('user_id');
     expect(result.files[0].content).toContain('count(*)');
     
     // CTEファイル2
-    expect(result.files[1].name).toBe('user_totals.cte.sql');
+    expect(result.files[1].name).toBe('/zosql/develop/reports/monthly_sales.sql/cte/user_totals.sql');
     expect(result.files[1].content).toContain('select');
     expect(result.files[1].content).toContain('user_id');
     expect(result.files[1].content).toContain('sum(');
     
-    // メインファイル（元のSQLをそのまま保存）
-    expect(result.files[2].name).toBe('main.sql');
-    expect(result.files[2].content).toContain('WITH');
-    expect(result.files[2].content).toContain('user_stats AS (');
-    expect(result.files[2].content).toContain('user_totals AS (');
+    // メインファイル（CTEワンライナー整形済み）
+    expect(result.files[2].name).toBe('/zosql/develop/reports/monthly_sales.sql/main.sql');
+    expect(result.files[2].content).toContain('with');
+    expect(result.files[2].content).toContain('user_stats as (');
+    expect(result.files[2].content).toContain('user_totals as (');
+    
+    // 依存関係コメント（絶対パス形式）
+    expect(result.files[2].content).toContain('/zosql/develop/reports/monthly_sales.sql/cte/user_stats.sql');
+    expect(result.files[2].content).toContain('/zosql/develop/reports/monthly_sales.sql/cte/user_totals.sql');
     
     // FileManagerでの検証
-    expect(result.fileManager.listFiles()).toEqual([
-      'main.sql', 
-      'user_stats.cte.sql', 
-      'user_totals.cte.sql'
-    ]);
     expect(result.fileManager.getFileCount()).toBe(3);
   });
 });

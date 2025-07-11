@@ -1,5 +1,7 @@
 select
     user_id
+    , email
+    , region
 from
     users
 where
