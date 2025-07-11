@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { FileSystemManager } from './file-system.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,11 +16,13 @@ export class WebServer {
   private server?: any;
   private port: number;
   private host: string;
+  private fileSystem: FileSystemManager;
 
   constructor(options: WebServerOptions) {
     this.app = express();
     this.port = options.port;
     this.host = options.host || 'localhost';
+    this.fileSystem = new FileSystemManager();
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -46,9 +49,78 @@ export class WebServer {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
-    // File system API placeholder
+    // File system API
     this.app.get('/api/files', (_req, res) => {
-      res.json({ files: [] });
+      const result = this.fileSystem.getFileTree();
+      if (result.success) {
+        res.json({ success: true, files: result.data });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    });
+
+    // Read file content
+    this.app.get('/api/files/content', (req, res) => {
+      const filePath = req.query.path as string;
+      if (!filePath) {
+        res.status(400).json({ success: false, error: 'File path is required' });
+        return;
+      }
+
+      const result = this.fileSystem.readFile(filePath);
+      if (result.success) {
+        res.json({ success: true, ...result.data });
+      } else {
+        res.status(404).json({ success: false, error: result.error });
+      }
+    });
+
+    // Write file content
+    this.app.post('/api/files/content', (req, res) => {
+      const { path: filePath, content } = req.body;
+      if (!filePath || content === undefined) {
+        res.status(400).json({ success: false, error: 'File path and content are required' });
+        return;
+      }
+
+      const result = this.fileSystem.writeFile(filePath, content);
+      if (result.success) {
+        res.json({ success: true, ...result.data });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    });
+
+    // Create new file
+    this.app.post('/api/files', (req, res) => {
+      const { path: filePath, content = '' } = req.body;
+      if (!filePath) {
+        res.status(400).json({ success: false, error: 'File path is required' });
+        return;
+      }
+
+      const result = this.fileSystem.createFile(filePath, content);
+      if (result.success) {
+        res.json({ success: true, ...result.data });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    });
+
+    // Create new folder
+    this.app.post('/api/folders', (req, res) => {
+      const { path: folderPath } = req.body;
+      if (!folderPath) {
+        res.status(400).json({ success: false, error: 'Folder path is required' });
+        return;
+      }
+
+      const result = this.fileSystem.createFolder(folderPath);
+      if (result.success) {
+        res.json({ success: true, ...result.data });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
     });
 
     // Main application route
@@ -170,16 +242,13 @@ export class WebServer {
           <div class="main-container">
             <div class="sidebar">
               <h3>Project Explorer</h3>
-              <ul class="file-tree">
-                <li class="folder">📁 zosql/</li>
-                <li class="folder">📁 develop/</li>
-                <li class="file">📄 main.sql</li>
-                <li class="folder">📁 resources/</li>
-                <li class="file sql">📄 schema.js</li>
+              <ul class="file-tree" id="file-tree">
+                <li class="folder">📁 Loading...</li>
               </ul>
               
               <h3>Actions</h3>
               <button class="action-button" onclick="createNewFile()">New SQL File</button>
+              <button class="action-button" onclick="saveCurrentFile()">Save (Ctrl+S)</button>
               <button class="action-button" onclick="runQuery()">Run Query</button>
               
               <h3>Development Info</h3>
@@ -226,12 +295,168 @@ ORDER BY total_amount DESC;</textarea>
           </div>
           
           <script>
+            let currentEditor = null;
+            let currentFilePath = null;
+            
+            async function loadFileTree() {
+              try {
+                const response = await fetch('/api/files');
+                const data = await response.json();
+                
+                if (data.success) {
+                  const fileTree = document.getElementById('file-tree');
+                  fileTree.innerHTML = '';
+                  
+                  if (data.files && data.files.length > 0) {
+                    data.files.forEach(item => {
+                      renderFileTreeItem(item, fileTree);
+                    });
+                  } else {
+                    fileTree.innerHTML = '<li class="folder">📁 No files found</li>';
+                  }
+                } else {
+                  console.error('Failed to load file tree:', data.error);
+                }
+              } catch (error) {
+                console.error('Error loading file tree:', error);
+              }
+            }
+            
+            function renderFileTreeItem(item, container, level = 0) {
+              const li = document.createElement('li');
+              const indent = '  '.repeat(level);
+              
+              if (item.type === 'folder') {
+                li.className = 'folder';
+                li.innerHTML = \`\${indent}📁 \${item.name}\`;
+                li.style.cursor = 'pointer';
+                li.style.userSelect = 'none';
+                
+                // Create nested ul for children
+                if (item.children && item.children.length > 0) {
+                  const nestedUl = document.createElement('ul');
+                  nestedUl.style.marginLeft = '16px';
+                  nestedUl.style.paddingLeft = '0';
+                  nestedUl.style.listStyle = 'none';
+                  nestedUl.style.display = 'block'; // Always show for now
+                  
+                  item.children.forEach(child => {
+                    renderFileTreeItem(child, nestedUl, 0); // Reset level for nested items
+                  });
+                  
+                  li.appendChild(nestedUl);
+                }
+              } else {
+                li.className = 'file';
+                if (item.extension === '.sql') {
+                  li.className += ' sql';
+                }
+                li.innerHTML = \`\${indent}📄 \${item.name}\`;
+                li.style.cursor = 'pointer';
+                li.onclick = () => openFile(item.path, item.name);
+              }
+              
+              container.appendChild(li);
+            }
+            
+            async function openFile(filePath, fileName) {
+              try {
+                const response = await fetch(\`/api/files/content?path=\${encodeURIComponent(filePath)}\`);
+                const data = await response.json();
+                
+                if (data.success) {
+                  currentFilePath = filePath;
+                  
+                  // Update header
+                  const header = document.querySelector('.editor-header');
+                  header.textContent = \`📄 \${fileName}\`;
+                  
+                  // Update Monaco Editor if available
+                  if (currentEditor) {
+                    currentEditor.setValue(data.content || '');
+                  } else {
+                    // Fallback to textarea
+                    const textarea = document.getElementById('sql-editor');
+                    textarea.value = data.content || '';
+                  }
+                } else {
+                  alert('Failed to load file: ' + data.error);
+                }
+              } catch (error) {
+                alert('Error loading file: ' + error.message);
+              }
+            }
+            
+            async function saveCurrentFile() {
+              if (!currentFilePath) {
+                alert('No file is currently open');
+                return;
+              }
+              
+              try {
+                const content = currentEditor ? currentEditor.getValue() : document.getElementById('sql-editor').value;
+                
+                const response = await fetch('/api/files/content', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    path: currentFilePath,
+                    content: content
+                  })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                  alert('File saved successfully');
+                } else {
+                  alert('Failed to save file: ' + data.error);
+                }
+              } catch (error) {
+                alert('Error saving file: ' + error.message);
+              }
+            }
+            
             function createNewFile() {
-              alert('New File creation will be implemented in Phase 1');
+              const fileName = prompt('Enter file name (e.g., new_query.sql):');
+              if (!fileName) return;
+              
+              const folderPath = prompt('Enter folder path (e.g., develop/reports):');
+              const fullPath = folderPath ? \`\${folderPath}/\${fileName}\` : fileName;
+              
+              createFile(fullPath);
+            }
+            
+            async function createFile(filePath) {
+              try {
+                const response = await fetch('/api/files', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    path: filePath,
+                    content: '-- New SQL file\\nSELECT 1;'
+                  })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                  alert('File created successfully');
+                  loadFileTree(); // Refresh file tree
+                } else {
+                  alert('Failed to create file: ' + data.error);
+                }
+              } catch (error) {
+                alert('Error creating file: ' + error.message);
+              }
             }
             
             function runQuery() {
-              const query = document.getElementById('sql-editor').value;
+              const query = currentEditor ? currentEditor.getValue() : document.getElementById('sql-editor').value;
               alert('Query execution will be implemented in Phase 1\\n\\nQuery:\\n' + query);
             }
             
@@ -246,14 +471,14 @@ ORDER BY total_amount DESC;</textarea>
                 
                 require(['vs/editor/editor.main'], function () {
                   // Initialize Monaco Editor
-                  const editor = monaco.editor.create(document.getElementById('editor-container'), {
+                  currentEditor = monaco.editor.create(document.getElementById('editor-container'), {
                     value: \`-- Welcome to zosql Browser!
 -- This is a Monaco Editor integration demo.
 -- Phase 1 features in development:
 -- ✓ Express.js Web Server
 -- ✓ Basic UI Layout
 -- ✓ Monaco Editor Integration
--- ⚠️ File System Management
+-- ✓ File System Management
 -- ⚠️ Schema Management
 -- ⚠️ SQL IntelliSense
 -- ⚠️ Syntax Error Detection
@@ -275,16 +500,18 @@ ORDER BY total_amount DESC;\`,
                     scrollBeyondLastLine: false
                   });
                   
-                  // Update runQuery function to use Monaco Editor
-                  window.runQuery = function() {
-                    const query = editor.getValue();
-                    alert('Query execution will be implemented in Phase 1\\n\\nQuery:\\n' + query);
-                  };
+                  // Add keyboard shortcuts
+                  currentEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
+                    saveCurrentFile();
+                  });
                   
                   // Hide the textarea
                   document.getElementById('sql-editor').style.display = 'none';
                   
                   console.log('Monaco Editor initialized successfully');
+                  
+                  // Load file tree after Monaco is ready
+                  loadFileTree();
                 });
               } catch (error) {
                 console.error('Failed to load Monaco Editor:', error);
