@@ -31,6 +31,15 @@ export class WebServer {
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
+    
+    // Clear log file on server start to reduce noise
+    const logFile = path.join(process.cwd(), '.tmp', 'debug.log');
+    try {
+      fs.writeFileSync(logFile, '');
+      console.log('[LOG] Debug log file cleared');
+    } catch (error) {
+      console.error('Failed to clear log file:', error);
+    }
   }
 
   private log(message: string): void {
@@ -74,36 +83,39 @@ export class WebServer {
     });
 
     // Schema API
-    this.app.get('/api/schema', (_req, res) => {
+    this.app.get('/api/schema', async (_req, res) => {
       try {
-        // Read schema from zosql.schema.js
-        const fs = require('fs');
-        const path = require('path');
         const schemaPath = path.join(process.cwd(), 'zosql.schema.js');
         
         if (fs.existsSync(schemaPath)) {
-          // Clear require cache to get fresh schema
-          delete require.cache[require.resolve(schemaPath)];
-          const schema = require(schemaPath);
+          // Use dynamic import for ES modules
+          const schemaModule = await import(schemaPath);
+          this.log(`[SCHEMA] Raw import result: ${JSON.stringify(Object.keys(schemaModule))}`);
+          this.log(`[SCHEMA] Module content: ${JSON.stringify(schemaModule, null, 2)}`);
+          
+          const schema = schemaModule.default || schemaModule;
+          this.log(`[SCHEMA] Final schema structure: ${JSON.stringify(Object.keys(schema))}`);
+          this.log(`[SCHEMA] Schema loaded successfully: ${schema.tables?.length || 0} tables`);
           res.json({ success: true, schema });
         } else {
+          this.log(`[SCHEMA] Schema file not found at: ${schemaPath}`);
           res.json({ success: false, error: 'Schema file not found' });
         }
       } catch (error) {
+        this.log(`[SCHEMA] Error loading schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
         res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     });
 
     // Schema completion API for IntelliSense
-    this.app.get('/api/schema/completion', (_req, res) => {
+    this.app.get('/api/schema/completion', async (_req, res) => {
       try {
-        const fs = require('fs');
-        const path = require('path');
         const schemaPath = path.join(process.cwd(), 'zosql.schema.js');
         
         if (fs.existsSync(schemaPath)) {
-          delete require.cache[require.resolve(schemaPath)];
-          const schema = require(schemaPath);
+          // Use dynamic import for ES modules
+          const schemaModule = await import(schemaPath);
+          const schema = schemaModule.default || schemaModule;
           
           // Format for IntelliSense completion
           const tables = schema.tables.map((t: any) => t.name);
@@ -112,6 +124,8 @@ export class WebServer {
             columns[table.name] = table.columns.map((col: any) => col.name);
           });
           
+          this.log(`[SCHEMA-COMPLETION] Provided ${tables.length} tables for IntelliSense`);
+          
           res.json({
             success: true,
             tables,
@@ -119,15 +133,17 @@ export class WebServer {
             functions: schema.functions
           });
         } else {
+          this.log(`[SCHEMA-COMPLETION] Schema file not found`);
           res.json({ success: false, error: 'Schema file not found' });
         }
       } catch (error) {
+        this.log(`[SCHEMA-COMPLETION] Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     });
 
-    // SQL parsing API for syntax checking
-    this.app.post('/api/parse-sql', (_req, res) => {
+    // SQL parsing API for syntax checking with detailed alias logging
+    this.app.post('/api/parse-sql', async (_req, res) => {
       try {
         const { sql } = _req.body;
         if (!sql) {
@@ -135,28 +151,80 @@ export class WebServer {
           return;
         }
 
-        // Use rawsql-ts to parse SQL
-        const { SelectQueryParser } = require('rawsql-ts');
+        this.log(`[PARSE-SQL] Parsing SQL (length: ${sql.length}): "${sql}"`);
+        this.log(`[PARSE-SQL] SQL lines: ${sql.split('\n').map((line: string, i: number) => `${i+1}: "${line}"`).join(' | ')}`);
+
+        // Use rawsql-ts to parse SQL (dynamic import for ES modules)
+        const { SelectQueryParser } = await import('rawsql-ts');
         
         try {
           const query = SelectQueryParser.parse(sql);
+          this.log(`[PARSE-SQL] Parse successful`);
           
           // Extract table information with aliases for IntelliSense
           const tables: any[] = [];
-          if (query.fromClause && query.fromClause.tables) {
-            query.fromClause.tables.forEach((table: any) => {
-              tables.push({
-                name: table.name || (table.table && table.table.name),
-                alias: table.alias || (table.aliasExpression && table.aliasExpression.table && table.aliasExpression.table.name)
-              });
+          
+          // Log the raw query structure for debugging
+          const queryAny = query as any;
+          this.log(`[PARSE-SQL] Full query object keys: ${Object.keys(queryAny)}`);
+          this.log(`[PARSE-SQL] Query structure: ${JSON.stringify({
+            hasFromClause: !!queryAny.fromClause,
+            fromClauseType: queryAny.fromClause?.constructor?.name,
+            fromClauseTables: queryAny.fromClause?.tables?.length || 0,
+            fromClauseStructure: queryAny.fromClause ? Object.keys(queryAny.fromClause) : null
+          })}`);
+          
+          // Detailed fromClause investigation
+          if (queryAny.fromClause) {
+            this.log(`[PARSE-SQL] fromClause full structure: ${JSON.stringify(queryAny.fromClause, null, 2)}`);
+          }
+          
+          // Extract tables from fromClause.source (not fromClause.tables)
+          if (queryAny.fromClause && queryAny.fromClause.source) {
+            const source = queryAny.fromClause.source;
+            if (source.datasource && source.datasource.qualifiedName) {
+              const tableName = source.datasource.qualifiedName.name?.name;
+              const tableAlias = source.aliasExpression?.table?.name;
+              
+              this.log(`[PARSE-SQL] Found table: name="${tableName}", alias="${tableAlias}"`);
+              
+              if (tableName) {
+                tables.push({
+                  name: tableName,
+                  alias: tableAlias
+                });
+              }
+            }
+          }
+          
+          // Also check for JOIN tables if they exist
+          if (queryAny.fromClause && queryAny.fromClause.joins) {
+            queryAny.fromClause.joins.forEach((join: any, index: number) => {
+              if (join.right && join.right.datasource && join.right.datasource.qualifiedName) {
+                const tableName = join.right.datasource.qualifiedName.name?.name;
+                const tableAlias = join.right.aliasExpression?.table?.name;
+                
+                this.log(`[PARSE-SQL] Found JOIN table ${index}: name="${tableName}", alias="${tableAlias}"`);
+                
+                if (tableName) {
+                  tables.push({
+                    name: tableName,
+                    alias: tableAlias
+                  });
+                }
+              }
             });
           }
           
+          this.log(`[PARSE-SQL] Extracted ${tables.length} tables with aliases: ${JSON.stringify(tables)}`);
+          
           res.json({ success: true, query: query, tables: tables });
         } catch (parseError) {
+          this.log(`[PARSE-SQL] Parse failed: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
           res.json({ success: false, error: parseError instanceof Error ? parseError.message : 'Parse error' });
         }
       } catch (error) {
+        this.log(`[PARSE-SQL] API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     });
@@ -165,9 +233,12 @@ export class WebServer {
     this.app.post('/api/debug-intellisense', (_req, res) => {
       try {
         const debugData = _req.body;
-        this.log('IntelliSense Debug: ' + JSON.stringify(debugData, null, 2));
-        res.json({ success: true });
+        const timestamp = new Date().toISOString();
+        this.log(`[${timestamp}] IntelliSense Event: ${JSON.stringify(debugData, null, 2)}`);
+        console.log('[DEBUG] IntelliSense log received:', debugData);
+        res.json({ success: true, received: true });
       } catch (error) {
+        this.log(`[${new Date().toISOString()}] IntelliSense Debug Error: ${error}`);
         res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     });
@@ -264,6 +335,10 @@ export class WebServer {
               <h3>Actions</h3>
               <button class="action-button" onclick="runQuery()">Run Query</button>
               
+              <h3>Debug Tests</h3>
+              <button class="action-button" onclick="testParseCurrentSQL()">Test Parse SQL</button>
+              <button class="action-button" onclick="testAliasSearch()">Test Alias Search</button>
+              
               <h3>Schema Info</h3>
               <div id="schema-info" style="font-size: 12px; margin-top: 10px;">
                 <div>Loading schema...</div>
@@ -295,17 +370,85 @@ export class WebServer {
             let schemaData = null;
             let lastValidQuery = null;
             let currentSchemaData = null;
+            let lastSuccessfulParseResult = null; // キャッシュ用
             
             function runQuery() {
               const query = editor ? editor.getValue() : 'No editor available';
               alert('Query execution (Phase 1):\\n\\n' + query);
             }
             
+            // テスト用：明示的なパース実行
+            async function testParseCurrentSQL() {
+              if (!editor) {
+                alert('Editor not available');
+                return;
+              }
+              
+              const sql = editor.getValue();
+              console.log('Testing parse for SQL:', sql);
+              
+              try {
+                const response = await fetch('/api/parse-sql', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ sql: sql })
+                });
+                
+                const result = await response.json();
+                console.log('Parse test result:', result);
+                
+                let message = \`Parse Result:\\n\`;
+                message += \`Success: \${result.success}\\n\`;
+                if (result.success) {
+                  message += \`Tables found: \${result.tables.length}\\n\`;
+                  result.tables.forEach((table, i) => {
+                    message += \`  \${i+1}. \${table.name} AS \${table.alias || 'no alias'}\\n\`;
+                  });
+                } else {
+                  message += \`Error: \${result.error}\\n\`;
+                }
+                
+                alert(message);
+              } catch (error) {
+                console.error('Parse test failed:', error);
+                alert('Parse test failed: ' + error.message);
+              }
+            }
+            
+            // テスト用：エイリアス検索
+            async function testAliasSearch() {
+              const alias = prompt('Enter alias to search for (e.g., "o"):');
+              if (!alias) return;
+              
+              if (!lastSuccessfulParseResult) {
+                alert('No successful parse result available. Please test parse first.');
+                return;
+              }
+              
+              const tableName = findTableByAlias(lastSuccessfulParseResult, alias);
+              const message = \`Alias search result:\\n\` +
+                \`Alias: \${alias}\\n\` +
+                \`Found table: \${tableName || 'not found'}\\n\` +
+                \`Available aliases: \${lastSuccessfulParseResult.tables.map(t => t.alias).filter(a => a).join(', ') || 'none'}\`;
+              
+              alert(message);
+            }
+            
             // Load and display schema information
             async function loadSchemaInfo() {
               try {
+                logToServer('Schema loading attempt');
                 const response = await fetch('/api/schema');
                 const data = await response.json();
+                
+                logToServer('Schema response received', {
+                  success: data.success,
+                  error: data.error,
+                  hasSchema: !!data.schema,
+                  tablesCount: data.schema?.tables?.length || 0
+                });
                 
                 if (data.success) {
                   const schemaInfo = document.getElementById('schema-info');
@@ -320,14 +463,17 @@ export class WebServer {
                   
                   schemaInfo.innerHTML = html;
                   console.log('Schema loaded successfully');
+                  logToServer('Schema UI updated successfully');
                 } else {
                   document.getElementById('schema-info').innerHTML = 
                     '<div style="color: red;">Failed to load schema</div>';
+                  logToServer('Schema load failed', { error: data.error });
                 }
               } catch (error) {
                 console.error('Error loading schema:', error);
                 document.getElementById('schema-info').innerHTML = 
                   '<div style="color: red;">Error loading schema</div>';
+                logToServer('Schema load error', { error: error.message });
               }
             }
             
@@ -343,18 +489,7 @@ export class WebServer {
                 require(['vs/editor/editor.main'], function () {
                   // Initialize Monaco Editor
                   editor = monaco.editor.create(document.getElementById('editor'), {
-                    value: \`-- Welcome to zosql Browser with IntelliSense!
--- Try typing table names: users, orders, products
--- Try typing column names after FROM/SELECT
-
-SELECT 
-  o.user_id,
-  COUNT(*) as order_count,
-  SUM(o.amount) as total_amount
-FROM orders AS o
-WHERE o.order_date >= '2023-01-01'
-GROUP BY o.user_id
-ORDER BY total_amount DESC;\`,
+                    value: \`SELECT o.user_id FROM orders AS o\`,
                     language: 'sql',
                     theme: 'vs-dark',
                     automaticLayout: false,
@@ -368,6 +503,14 @@ ORDER BY total_amount DESC;\`,
                   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F5, function() {
                     runQuery();
                   });
+                  
+                  // Add manual IntelliSense trigger (Ctrl+Space)
+                  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space, function() {
+                    editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+                  });
+                  
+                  // Setup comprehensive logging
+                  setupLogging();
                   
                   // Setup SQL IntelliSense
                   setupSQLIntelliSense();
@@ -433,12 +576,90 @@ ORDER BY total_amount DESC;\`,
                   '<div><strong>Error:</strong> ' + (info.error || 'none') + '</div>';
               }
             }
+            
+            // 包括的なログ機能
+            function logToServer(message, data = {}) {
+              const logData = {
+                message: message,
+                timestamp: new Date().toISOString(),
+                data: data
+              };
+              
+              fetch('/api/debug-intellisense', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(logData)
+              }).then(response => {
+                console.log('Log sent:', message);
+                return response.json();
+              }).then(result => {
+                console.log('Log response:', result);
+              }).catch(err => {
+                console.error('Log failed:', err);
+              });
+            }
+            
+            function setupLogging() {
+              // エディタの基本イベントをログ
+              editor.onDidChangeModelContent(() => {
+                const content = editor.getValue();
+                logToServer('Editor content changed', { 
+                  length: content.length,
+                  lines: content.split('\\n').length
+                });
+              });
+              
+              // カーソル位置変更をログ
+              editor.onDidChangeCursorPosition((e) => {
+                logToServer('Cursor position changed', {
+                  line: e.position.lineNumber,
+                  column: e.position.column,
+                  reason: e.reason
+                });
+              });
+              
+              // キー入力をログ
+              editor.onKeyDown((e) => {
+                logToServer('Key pressed', {
+                  key: e.keyCode,
+                  code: e.code,
+                  ctrlKey: e.ctrlKey,
+                  altKey: e.altKey
+                });
+              });
+              
+              logToServer('Logging setup completed');
+            }
 
             function setupSQLIntelliSense() {
               // Register SQL completion provider with trigger characters
               monaco.languages.registerCompletionItemProvider('sql', {
-                triggerCharacters: ['.'],
+                triggerCharacters: ['.', ' '],
                 provideCompletionItems: function (model, position) {
+                  console.log('=== IntelliSense TRIGGERED ===');
+                  console.log('Position:', position);
+                  
+                  // 即座にログを送信
+                  logToServer('IntelliSense provider triggered', {
+                    position: {
+                      line: position.lineNumber,
+                      column: position.column
+                    },
+                    modelUri: model.uri.toString()
+                  });
+                  
+                  // 即座にデバッグパネルを更新
+                  updateDebugPanel({
+                    textBeforeCursor: 'TRIGGERED at ' + new Date().toLocaleTimeString(),
+                    periodMatch: null,
+                    alias: 'TEST',
+                    schemaTables: 'IntelliSense called',
+                    parseSuccess: true,
+                    error: null,
+                    availableColumns: 'Checking...'
+                  });
                   return new Promise(async (resolve) => {
                     try {
                       const response = await fetch('/api/schema/completion');
@@ -473,18 +694,31 @@ ORDER BY total_amount DESC;\`,
                       console.log('- column:', position.column);
                       console.log('- textBeforeCursor:', JSON.stringify(textBeforeCursor));
                       
-                      // Send debug info to server for logging
-                      fetch('/api/debug-intellisense', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                          textBeforeCursor: textBeforeCursor,
-                          position: { lineNumber: position.lineNumber, column: position.column },
-                          timestamp: new Date().toISOString()
-                        })
-                      }).catch(err => console.error('Debug request failed:', err));
+                      // 詳細ログを送信
+                      logToServer('IntelliSense detailed analysis', {
+                        position: { line: position.lineNumber, column: position.column },
+                        textBeforeCursor: textBeforeCursor,
+                        fullLine: model.getLineContent(position.lineNumber)
+                      });
+                      
+                      // Send debug info to server for logging (同期的に送信)
+                      try {
+                        fetch('/api/debug-intellisense', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({
+                            textBeforeCursor: textBeforeCursor,
+                            position: { lineNumber: position.lineNumber, column: position.column },
+                            timestamp: new Date().toISOString(),
+                            trigger: 'intellisense-call'
+                          })
+                        });
+                        console.log('Debug info sent to server');
+                      } catch (err) {
+                        console.error('Debug request failed:', err);
+                      }
                       
                       // Check if we're being triggered by a dot
                       const charBeforeCursor = position.column > 1 ? 
@@ -497,10 +731,11 @@ ORDER BY total_amount DESC;\`,
                       
                       console.log('Character before cursor:', JSON.stringify(charBeforeCursor));
                       
-                      // If triggered by dot, look for alias before the dot
+                      // エイリアス検出の改善版
                       let periodMatch = null;
+                      
+                      // 1. ドット入力直後のケース
                       if (charBeforeCursor === '.') {
-                        // Look for word pattern before the dot
                         const textUpToDot = model.getValueInRange({
                           startLineNumber: position.lineNumber,
                           startColumn: 1,
@@ -509,15 +744,29 @@ ORDER BY total_amount DESC;\`,
                         });
                         console.log('Text up to dot:', JSON.stringify(textUpToDot));
                         
-                        // Match word at the end (alias)
-                        const aliasMatch = textUpToDot.match(/(\\w+)$/);
+                        const aliasMatch = textUpToDot.match(/([a-zA-Z0-9_]+)$/);
                         if (aliasMatch) {
                           periodMatch = [aliasMatch[0] + '.', aliasMatch[1], ''];
                           console.log('Found alias before dot:', aliasMatch[1]);
                         }
-                      } else {
-                        // Try original pattern
-                        periodMatch = textBeforeCursor.match(/(\\w+)\\.(\\w*)$/);
+                      } 
+                      // 2. 既にドットが含まれているケース
+                      else {
+                        periodMatch = textBeforeCursor.match(/([a-zA-Z0-9_]+)\\.([a-zA-Z0-9_]*)$/);
+                        if (periodMatch) {
+                          console.log('Found existing dot pattern:', periodMatch);
+                        }
+                      }
+                      
+                      // 3. フォールバック: より広範囲での検索
+                      if (!periodMatch) {
+                        // 現在行全体を確認
+                        const fullLine = model.getLineContent(position.lineNumber);
+                        const beforeCursor = fullLine.substring(0, position.column - 1);
+                        periodMatch = beforeCursor.match(/([a-zA-Z0-9_]+)\\.([a-zA-Z0-9_]*)$/);
+                        if (periodMatch) {
+                          console.log('Found fallback pattern:', periodMatch);
+                        }
                       }
                       console.log('Schema data:', currentSchemaData);
                       
@@ -536,9 +785,19 @@ ORDER BY total_amount DESC;\`,
                         debugInfo.alias = alias;
                         console.log('Found alias:', alias);
                         
-                        // Parse SQL using rawsql-ts
+                        // Parse SQL using rawsql-ts - with improved caching logic
                         const fullText = model.getValue();
                         let tableName = null;
+                        
+                        // 詳細ログ: 現在のSQL全文とパース実行タイミング
+                        logToServer('SQL parsing attempt', {
+                          trigger: 'IntelliSense-alias-detection',
+                          fullSQL: fullText.substring(0, 200) + (fullText.length > 200 ? '...' : ''),
+                          fullSQLLength: fullText.length,
+                          alias: alias,
+                          hasLastSuccessfulParse: !!lastSuccessfulParseResult,
+                          lineCount: fullText.split('\\n').length
+                        });
                         
                         try {
                           // Parse the SQL
@@ -552,22 +811,54 @@ ORDER BY total_amount DESC;\`,
                           
                           const parseResult = await response.json();
                           console.log('Parse result:', parseResult);
-                          console.log('Parse result tables:', parseResult.tables);
-                          console.log('Parse result structure keys:', Object.keys(parseResult));
+                          
+                          // 詳細ログ: パース結果
+                          logToServer('Parse result received', {
+                            success: parseResult.success,
+                            tablesCount: parseResult.tables ? parseResult.tables.length : 0,
+                            tables: parseResult.tables,
+                            error: parseResult.error,
+                            alias: alias,
+                            position: { line: position.lineNumber, column: position.column }
+                          });
                           
                           if (parseResult.success) {
+                            // 成功した場合はキャッシュに保存
+                            lastSuccessfulParseResult = parseResult;
                             lastValidQuery = parseResult;
-                            console.log('Calling findTableByAlias with:', {
+                            
+                            console.log('Calling findTableByAlias with successful parse:', {
                               parseResult: parseResult,
                               tables: parseResult.tables,
                               alias: alias
                             });
                             tableName = findTableByAlias(parseResult, alias);
                             debugInfo.parseSuccess = true;
-                          } else if (lastValidQuery) {
-                            // Use last valid query if current parse fails
-                            tableName = findTableByAlias(lastValidQuery, alias);
-                            debugInfo.error = 'Using last valid parse';
+                            
+                            logToServer('Using fresh parse result', {
+                              alias: alias,
+                              foundTableName: tableName,
+                              availableTables: parseResult.tables
+                            });
+                          } else {
+                            // パース失敗時は最後に成功したキャッシュを使用
+                            if (lastSuccessfulParseResult) {
+                              console.log('Parse failed, using cached result');
+                              tableName = findTableByAlias(lastSuccessfulParseResult, alias);
+                              debugInfo.error = 'Using cached parse result';
+                              
+                              logToServer('Using cached parse result', {
+                                alias: alias,
+                                foundTableName: tableName,
+                                cachedTables: lastSuccessfulParseResult.tables,
+                                parseError: parseResult.error
+                              });
+                            } else {
+                              debugInfo.error = 'No cached parse result available';
+                              logToServer('No parse result available', {
+                                parseError: parseResult.error
+                              });
+                            }
                           }
                           
                           debugInfo.tableName = tableName;
@@ -576,9 +867,21 @@ ORDER BY total_amount DESC;\`,
                         } catch (error) {
                           console.error('Error parsing SQL:', error);
                           debugInfo.error = error.message;
-                          if (lastValidQuery) {
-                            tableName = findTableByAlias(lastValidQuery, alias);
+                          
+                          // ネットワークエラー等でも、キャッシュがあれば使用
+                          if (lastSuccessfulParseResult) {
+                            tableName = findTableByAlias(lastSuccessfulParseResult, alias);
                             debugInfo.tableName = tableName;
+                            
+                            logToServer('Network error, using cached result', {
+                              error: error.message,
+                              alias: alias,
+                              foundTableName: tableName
+                            });
+                          } else {
+                            logToServer('Network error, no cache available', {
+                              error: error.message
+                            });
                           }
                         }
                         
@@ -740,8 +1043,36 @@ ORDER BY total_amount DESC;\`,
                 validateSQL(editor.getModel());
               });
               
-              // Initial validation
+              // Initial validation and parse cache setup
               validateSQL(editor.getModel());
+              
+              // 初期状態で基本的なSQLをパースしてキャッシュを生成
+              try {
+                const initialSQL = editor.getValue();
+                fetch('/api/parse-sql', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ sql: initialSQL })
+                })
+                .then(response => response.json())
+                .then(parseResult => {
+                  if (parseResult.success) {
+                    lastSuccessfulParseResult = parseResult;
+                    console.log('Initial parse cache established:', parseResult.tables);
+                    logToServer('Initial parse cache established', {
+                      tablesFound: parseResult.tables.length,
+                      tables: parseResult.tables
+                    });
+                  }
+                })
+                .catch(err => {
+                  console.error('Initial parse failed:', err);
+                });
+              } catch (error) {
+                console.error('Initial parse setup failed:', error);
+              }
             }
             
             function loadScript(src) {

@@ -44,12 +44,5 @@ const schema = {
   ]
 };
 
-// Export for Node.js
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = schema;
-}
-
-// Export for browser
-if (typeof window !== 'undefined') {
-  window.zosqlSchema = schema;
-}
+// ES Module export
+export default schema;
