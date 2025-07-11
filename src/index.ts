@@ -13,12 +13,14 @@ Usage:
   zosql decompose <input.sql> <group> <feature>  Decompose SQL into zosql/develop format
   zosql recompose <main.sql-path>                 Recompose when CTE is added
   zosql compose <develop-path> <original-path>    Compose back to original SQL
+  zosql web [port]                                Start zosql browser (default port: 3000)
   zosql --help                                    Show this help
 
 Examples:
   zosql decompose complex.sql reports monthly_sales
   zosql recompose /zosql/develop/reports/monthly_sales.sql/main.sql
   zosql compose /zosql/develop/reports/monthly_sales.sql /sql/reports/monthly_sales.sql
+  zosql web 3000
 `);
 }
 
@@ -33,7 +35,46 @@ async function main() {
   const command = args[0];
   const cli = new CLI();
 
-  if (command === 'decompose') {
+  if (command === 'web') {
+    const portArg = args[1];
+    const port = portArg ? parseInt(portArg, 10) : 3000;
+    
+    if (isNaN(port) || port < 1 || port > 65535) {
+      console.error('Error: Invalid port number');
+      process.exit(1);
+    }
+
+    try {
+      console.log(`Starting zosql browser on port ${port}...`);
+      const result = await cli.web(port);
+      
+      if (!result.success) {
+        console.error('Error: Failed to start zosql browser');
+        process.exit(1);
+      }
+
+      console.log(`zosql browser started successfully at ${result.url}`);
+      console.log('Press Ctrl+C to stop the server');
+      
+      // Handle graceful shutdown
+      process.on('SIGINT', async () => {
+        console.log('\nShutting down zosql browser...');
+        await cli.stopWeb();
+        process.exit(0);
+      });
+      
+      process.on('SIGTERM', async () => {
+        console.log('\nShutting down zosql browser...');
+        await cli.stopWeb();
+        process.exit(0);
+      });
+      
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+
+  } else if (command === 'decompose') {
     const inputFile = args[1];
     const group = args[2];
     const feature = args[3];

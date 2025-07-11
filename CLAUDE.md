@@ -16,8 +16,8 @@
 **重要**: 計画に進捗、変更があるたびに以下のTODOリストを更新すること
 
 ### Phase 1 (高優先度) - zosql browser基盤構築
-1. **基盤設計**: フォルダ構成・アーキテクチャ設計 [ ]
-2. **Web UI構築**: Express.js + 基本UI [ ]
+1. **基盤設計**: フォルダ構成・アーキテクチャ設計 [x]
+2. **Web UI構築**: Express.js + 基本UI [x]
 3. **npx zosql web**: ブラウザ自動起動 [ ]
 4. **Monaco Editor**: SQL編集機能 [ ]
 5. **ファイルシステム**: /develop/,/resources/管理 [ ]
