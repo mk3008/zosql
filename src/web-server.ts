@@ -64,75 +64,247 @@ export class WebServer {
             body {
               font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
               margin: 0;
-              padding: 20px;
-              background-color: #f5f5f5;
+              padding: 0;
+              background-color: #1e1e1e;
+              color: #cccccc;
             }
-            .container {
-              max-width: 1200px;
-              margin: 0 auto;
-              background: white;
-              padding: 20px;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            .header {
+              background: #2d2d30;
+              padding: 10px 20px;
+              border-bottom: 1px solid #3e3e42;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
             }
-            h1 {
-              color: #333;
-              margin-bottom: 20px;
+            .logo {
+              font-size: 18px;
+              font-weight: bold;
+              color: #007acc;
             }
             .status {
-              padding: 10px;
-              background-color: #e8f5e8;
-              border: 1px solid #4caf50;
-              border-radius: 4px;
-              margin-bottom: 20px;
+              font-size: 12px;
+              color: #4caf50;
             }
-            .feature-list {
+            .main-container {
+              display: flex;
+              height: calc(100vh - 60px);
+            }
+            .sidebar {
+              width: 250px;
+              background: #252526;
+              border-right: 1px solid #3e3e42;
+              padding: 20px;
+            }
+            .editor-container {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+            }
+            .editor-header {
+              background: #2d2d30;
+              padding: 10px 20px;
+              border-bottom: 1px solid #3e3e42;
+              font-size: 14px;
+            }
+            .editor {
+              flex: 1;
+              border: none;
+              background: #1e1e1e;
+              color: #cccccc;
+              font-family: 'Consolas', 'Monaco', monospace;
+              font-size: 14px;
+              padding: 20px;
+              resize: none;
+              outline: none;
+            }
+            .file-tree {
               list-style: none;
               padding: 0;
+              margin: 0;
             }
-            .feature-list li {
-              padding: 8px 0;
-              border-bottom: 1px solid #eee;
+            .file-tree li {
+              padding: 4px 0;
+              cursor: pointer;
+              font-size: 13px;
             }
-            .feature-list li:last-child {
-              border-bottom: none;
+            .file-tree li:hover {
+              background: #2a2d2e;
             }
-            .status-badge {
-              display: inline-block;
-              padding: 2px 6px;
-              font-size: 12px;
+            .folder {
+              color: #cccccc;
+              font-weight: bold;
+            }
+            .file {
+              color: #cccccc;
+              padding-left: 16px;
+            }
+            .file.sql {
+              color: #569cd6;
+            }
+            h3 {
+              color: #cccccc;
+              margin-bottom: 10px;
+              font-size: 14px;
+            }
+            .action-button {
               background: #007acc;
               color: white;
+              border: none;
+              padding: 6px 12px;
               border-radius: 3px;
-              margin-left: 10px;
+              cursor: pointer;
+              font-size: 12px;
+              margin-top: 10px;
+            }
+            .action-button:hover {
+              background: #005a9e;
             }
           </style>
         </head>
         <body>
-          <div class="container">
-            <h1>🚀 zosql Browser</h1>
-            <div class="status">
-              <strong>Status:</strong> Web server running successfully!
+          <div class="header">
+            <div class="logo">🚀 zosql Browser</div>
+            <div class="status">● Server Running</div>
+          </div>
+          
+          <div class="main-container">
+            <div class="sidebar">
+              <h3>Project Explorer</h3>
+              <ul class="file-tree">
+                <li class="folder">📁 zosql/</li>
+                <li class="folder">📁 develop/</li>
+                <li class="file">📄 main.sql</li>
+                <li class="folder">📁 resources/</li>
+                <li class="file sql">📄 schema.js</li>
+              </ul>
+              
+              <h3>Actions</h3>
+              <button class="action-button" onclick="createNewFile()">New SQL File</button>
+              <button class="action-button" onclick="runQuery()">Run Query</button>
+              
+              <h3>Development Info</h3>
+              <div style="font-size: 12px; margin-top: 10px;">
+                <div>Server: ${this.host}:${this.port}</div>
+                <div>Started: ${new Date().toLocaleString()}</div>
+              </div>
             </div>
             
-            <h2>Planned Features</h2>
-            <ul class="feature-list">
-              <li>SQL Editor with Monaco Editor <span class="status-badge">Phase 1</span></li>
-              <li>File System Management <span class="status-badge">Phase 1</span></li>
-              <li>Schema Management <span class="status-badge">Phase 1</span></li>
-              <li>SQL IntelliSense <span class="status-badge">Phase 1</span></li>
-              <li>Syntax Error Detection <span class="status-badge">Phase 1</span></li>
-              <li>WASM Postgres Integration <span class="status-badge">Phase 1</span></li>
-              <li>AI Comment System <span class="status-badge">Phase 2</span></li>
-              <li>Test Data Generation <span class="status-badge">Phase 2</span></li>
-              <li>CTE Dependency Visualization <span class="status-badge">Phase 3</span></li>
-            </ul>
+            <div class="editor-container">
+              <div class="editor-header">
+                📄 main.sql
+              </div>
+              <div id="editor-container" style="flex: 1; position: relative;">
+                <textarea class="editor" id="sql-editor" placeholder="-- Write your SQL query here
+SELECT 
+  id,
+  name,
+  email 
+FROM users 
+WHERE created_at > '2023-01-01'
+ORDER BY created_at DESC;">-- Welcome to zosql Browser!
+-- This is a Monaco Editor integration demo.
+-- Phase 1 features in development:
+-- ✓ Express.js Web Server
+-- ✓ Basic UI Layout
+-- ⚠️ Monaco Editor Integration (in progress)
+-- ⚠️ File System Management
+-- ⚠️ Schema Management
+-- ⚠️ SQL IntelliSense
+-- ⚠️ Syntax Error Detection
+-- ⚠️ WASM Postgres Integration
 
-            <h2>Development Info</h2>
-            <p><strong>Server:</strong> ${this.host}:${this.port}</p>
-            <p><strong>Started:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>API Health:</strong> <a href="/api/health">/api/health</a></p>
+SELECT 
+  user_id,
+  COUNT(*) as order_count,
+  SUM(amount) as total_amount
+FROM orders
+WHERE order_date >= '2023-01-01'
+GROUP BY user_id
+ORDER BY total_amount DESC;</textarea>
+              </div>
+            </div>
           </div>
+          
+          <script>
+            function createNewFile() {
+              alert('New File creation will be implemented in Phase 1');
+            }
+            
+            function runQuery() {
+              const query = document.getElementById('sql-editor').value;
+              alert('Query execution will be implemented in Phase 1\\n\\nQuery:\\n' + query);
+            }
+            
+            // Monaco Editor integration
+            async function initMonacoEditor() {
+              try {
+                // Load Monaco Editor from CDN
+                await loadScript('https://unpkg.com/monaco-editor@0.52.2/min/vs/loader.js');
+                
+                // Configure Monaco
+                require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.52.2/min/vs' } });
+                
+                require(['vs/editor/editor.main'], function () {
+                  // Initialize Monaco Editor
+                  const editor = monaco.editor.create(document.getElementById('editor-container'), {
+                    value: \`-- Welcome to zosql Browser!
+-- This is a Monaco Editor integration demo.
+-- Phase 1 features in development:
+-- ✓ Express.js Web Server
+-- ✓ Basic UI Layout
+-- ✓ Monaco Editor Integration
+-- ⚠️ File System Management
+-- ⚠️ Schema Management
+-- ⚠️ SQL IntelliSense
+-- ⚠️ Syntax Error Detection
+-- ⚠️ WASM Postgres Integration
+
+SELECT 
+  user_id,
+  COUNT(*) as order_count,
+  SUM(amount) as total_amount
+FROM orders
+WHERE order_date >= '2023-01-01'
+GROUP BY user_id
+ORDER BY total_amount DESC;\`,
+                    language: 'sql',
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    fontSize: 14,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false
+                  });
+                  
+                  // Update runQuery function to use Monaco Editor
+                  window.runQuery = function() {
+                    const query = editor.getValue();
+                    alert('Query execution will be implemented in Phase 1\\n\\nQuery:\\n' + query);
+                  };
+                  
+                  // Hide the textarea
+                  document.getElementById('sql-editor').style.display = 'none';
+                  
+                  console.log('Monaco Editor initialized successfully');
+                });
+              } catch (error) {
+                console.error('Failed to load Monaco Editor:', error);
+                console.log('Falling back to textarea');
+              }
+            }
+            
+            function loadScript(src) {
+              return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+              });
+            }
+            
+            // Initialize Monaco Editor when page loads
+            document.addEventListener('DOMContentLoaded', initMonacoEditor);
+          </script>
         </body>
         </html>
       `);
