@@ -2,6 +2,7 @@ import { FileManager } from './file-manager.js';
 import { decomposeSQL } from './sql-decomposer.js';
 import { composeSQL } from './sql-composer.js';
 import { WebServer } from './web-server.js';
+import { Logger, LoggerConfig } from './utils/logging.js';
 import open from 'open';
 
 export interface DecomposeResult {
@@ -29,8 +30,14 @@ export interface WebResult {
 export class CLI {
   private webServer?: WebServer;
 
-  async web(port: number = 3000): Promise<WebResult> {
+  async web(port: number = 3000, logOptions?: Partial<LoggerConfig>): Promise<WebResult> {
     try {
+      // Configure logging if options provided
+      if (logOptions && Object.keys(logOptions).length > 0) {
+        const logger = Logger.getInstance();
+        logger.updateConfig(logOptions);
+      }
+
       this.webServer = new WebServer({ port });
       await this.webServer.start();
       
