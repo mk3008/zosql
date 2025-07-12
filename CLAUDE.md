@@ -335,3 +335,57 @@ npm run test:once -- test/    # 全テスト実行
 ```
 
 これでIntelliSenseの品質が大幅に向上し、デグレのリスクが最小化されました。
+
+## 🔧 ロギング設定システム (Phase 2完了)
+
+### **完全制御可能なロギング機能**
+- **環境変数制御**: `ZOSQL_LOG_*`でON/OFF切り替え
+- **設定ファイル対応**: `zosql.config.json`による設定
+- **コマンドラインオプション**: `--no-log`等でリアルタイム制御
+
+### **設定項目**
+```bash
+# 環境変数
+ZOSQL_LOG_ENABLED=false           # 全ログ無効
+ZOSQL_LOG_CONSOLE=false          # コンソール出力のみ無効
+ZOSQL_LOG_INTELLISENSE=false     # IntelliSenseログのみ無効
+ZOSQL_LOG_QUERY=false            # クエリログのみ無効
+ZOSQL_LOG_LEVEL=error            # ログレベル設定
+
+# CLIオプション
+zosql web --no-log                    # 全ログ無効
+zosql web --no-console-log           # コンソール出力のみ無効
+zosql web --no-intellisense-log      # IntelliSenseログのみ無効
+zosql web --log-level=error          # エラーレベルのみ
+
+# 設定確認
+zosql config                         # 現在の設定を表示
+```
+
+### **設定ファイル例** (`zosql.config.json`)
+```json
+{
+  "logging": {
+    "enabled": true,
+    "console": false,
+    "intellisense": true,
+    "query": false,
+    "debug": true,
+    "logLevel": "warn"
+  }
+}
+```
+
+### **優先順位**
+1. **環境変数** (最優先)
+2. **設定ファイル** 
+3. **デフォルト値** (最低優先)
+
+### **実装された機能**
+- ✅ **動的設定更新**: 実行時に設定変更可能
+- ✅ **ログレベル制御**: debug/info/warn/error選択
+- ✅ **カテゴリ別制御**: コンソール/IntelliSense/クエリを個別制御
+- ✅ **設定表示**: `zosql config`でリアルタイム確認
+- ✅ **フォールバック機能**: ログ書き込み失敗時の安全機構
+
+これでプロダクション環境での細かなログ制御が可能になりました。

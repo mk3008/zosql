@@ -1,0 +1,17 @@
+{
+  "logging": {
+    "enabled": true,
+    "console": true,
+    "intellisense": true,
+    "query": true,
+    "debug": true,
+    "logLevel": "debug"
+  },
+  "server": {
+    "port": 3000,
+    "host": "localhost"
+  },
+  "database": {
+    "resetOnStart": false
+  }
+}

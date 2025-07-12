@@ -39,9 +39,6 @@ export class WebServer {
     // Initialize services
     this.logger = Logger.getInstance();
     
-    // Replace console output with file output
-    Logger.replaceConsole();
-    
     this.sqlParserApi = new SqlParserApi();
     this.schemaApi = new SchemaApi();
     this.debugApi = new DebugApi();
@@ -131,6 +128,9 @@ export class WebServer {
 
   public async start(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Apply console replacement based on current configuration
+      Logger.replaceConsole();
+      
       this.server = this.app.listen(this.port, this.host, () => {
         this.logger.info(`zosql browser server running at http://${this.host}:${this.port}`);
         this.logger.log('zosql browser server started successfully');
