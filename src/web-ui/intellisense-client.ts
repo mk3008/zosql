@@ -274,37 +274,12 @@ export function getIntelliSenseSetup(): string {
                 totalSuggestions: suggestions.length
               });
             } else {
-              // 一般的なコンテキスト - キーワード、関数、テーブルを提案
-              suggestions = [
-                // SQL Keywords
-                ...currentSchemaData.keywords.map(keyword => ({
-                  label: keyword,
-                  kind: monaco.languages.CompletionItemKind.Keyword,
-                  insertText: keyword,
-                  detail: 'SQL Keyword'
-                })),
-                // Functions
-                ...currentSchemaData.functions.map(func => ({
-                  label: func,
-                  kind: monaco.languages.CompletionItemKind.Function,
-                  insertText: func + '(',
-                  detail: 'SQL Function'
-                })),
-                // Tables (lower priority in general context)
-                ...currentSchemaData.tables.map(table => ({
-                  label: table,
-                  kind: monaco.languages.CompletionItemKind.Class,
-                  insertText: table,
-                  detail: 'Table'
-                }))
-              ];
-              
-              sendIntelliSenseDebugLog('GENERAL_CONTEXT_SUGGESTIONS', {
-                keywords: currentSchemaData.keywords.length,
-                functions: currentSchemaData.functions.length,
-                tables: currentSchemaData.tables.length,
-                totalSuggestions: suggestions.length
+              // 一般的なコンテキスト - 候補なしでクラッターを回避
+              sendIntelliSenseDebugLog('GENERAL_CONTEXT_NO_SUGGESTIONS', {
+                message: 'No suggestions in general context to avoid clutter'
               });
+              
+              return { suggestions: [] };
             }
 
             return { suggestions };
