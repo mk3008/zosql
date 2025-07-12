@@ -5,6 +5,7 @@ import { Logger } from './utils/logging.js';
 import { SqlParserApi } from './api/sql-parser-api.js';
 import { SchemaApi } from './api/schema-api.js';
 import { DebugApi } from './api/debug-api.js';
+import { QueryExecutorApi } from './api/query-executor-api.js';
 import { getHtmlTemplate } from './web-ui-template.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,7 @@ export class WebServer {
   private sqlParserApi: SqlParserApi;
   private schemaApi: SchemaApi;
   private debugApi: DebugApi;
+  private queryExecutorApi: QueryExecutorApi;
 
   constructor(options: WebServerOptions) {
     this.app = express();
@@ -35,10 +37,14 @@ export class WebServer {
     this.sqlParserApi = new SqlParserApi();
     this.schemaApi = new SchemaApi();
     this.debugApi = new DebugApi();
+    this.queryExecutorApi = new QueryExecutorApi();
     
     this.setupMiddleware();
     this.setupRoutes();
     this.logger.clearLog();
+    
+    // Initialize database asynchronously
+    this.initializeDatabase();
   }
 
   private setupMiddleware(): void {
@@ -80,10 +86,26 @@ export class WebServer {
     // Debug IntelliSense API
     this.app.post('/api/debug-intellisense', this.debugApi.handleDebugIntelliSense.bind(this.debugApi));
     
+    // Query execution API
+    this.app.post('/api/execute-query', this.queryExecutorApi.handleExecuteQuery.bind(this.queryExecutorApi));
+    
+    // Database reset API
+    this.app.post('/api/reset-database', this.queryExecutorApi.handleResetDatabase.bind(this.queryExecutorApi));
+    
     // Main application route
     this.app.get('/', (_req, res) => {
       res.send(getHtmlTemplate(this.host, this.port));
     });
+  }
+
+  private async initializeDatabase(): Promise<void> {
+    try {
+      await this.queryExecutorApi.initializeDatabase();
+      this.logger.log('Database initialized successfully');
+    } catch (error) {
+      this.logger.log(`Failed to initialize database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Continue running - database features will be unavailable
+    }
   }
 
   public async start(): Promise<void> {

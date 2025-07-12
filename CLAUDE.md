@@ -32,33 +32,94 @@
 - **一時ファイル**: 調査・実験用ファイルは`.tmp/`ディレクトリを使用（gitignore済み）
 - **`.tmp/`フォルダ処理**: 内容はテスト格上げ・機能取り込み・検証後削除のいずれかを実施
 
+## 🚀 革新的なアイデア：SQLの制約を超えたIDE
+
+### **核心概念**
+GUIとIntelliSenseを完全に制御できるようになったことで、**SQLの文法制約から解放**された開発環境を実現可能。
+
+### **Public/Private スキーマの概念**
+- **Public スキーマ**: 従来のテーブル定義（users, orders, products等）
+- **Private スキーマ**: CTE（Common Table Expression）に名前を付けたもの
+- **革新点**: IDE内ではCTEのimportを明示する必要がない
+
+```sql
+-- 従来のSQL（制約あり）
+WITH dat AS (SELECT 1 as value)  -- 毎回定義が必要
+SELECT o.user_id FROM orders AS o 
+INNER JOIN dat AS d ON d.value = 1
+
+-- zosql IDE（制約なし）
+SELECT o.user_id FROM orders AS o 
+INNER JOIN dat AS d ON d.value = 1  -- datは既にprivateスキーマに登録済み
+```
+
+### **実現予定の機能**
+1. **動的テストデータ注入**
+   ```sql
+   -- GUI上の表記
+   SELECT * FROM orders WHERE user_id = @test_user_id
+   
+   -- 実行時変換
+   WITH test_data AS (VALUES (1, 'test_user'))
+   SELECT * FROM orders WHERE user_id = (SELECT user_id FROM test_data)
+   ```
+
+2. **Visual Query Builder**（ドラッグ&ドロップでCTE組み立て）
+3. **依存関係の可視化**
+4. **Smart IntelliSense**（コンテキスト別補完）
+
+### **技術的実装**
+```typescript
+// 新しいスキーマレジストリ
+interface PrivateSchema {
+  name: string;           // CTE名
+  query: string;          // SELECT文
+  columns: Column[];      // カラム定義
+  dependencies: string[]; // 依存するCTE
+}
+
+// SQL トランスパイラ
+class SqlTranspiler {
+  transpile(extendedSql: string): string {
+    // zosql独自構文 → 標準SQL
+    // private スキーマ参照 → WITH句展開
+    // テストデータ埋め込み → VALUES句展開
+  }
+}
+```
+
 ## 現在のTODOリスト
 **重要**: 計画に進捗、変更があるたびに以下のTODOリストを更新すること
 
-### Phase 1 (高優先度) - zosql browser基盤構築
+### Phase 1 (完了) - zosql browser基盤構築
 1. **基盤設計**: フォルダ構成・アーキテクチャ設計 [x]
 2. **Web UI構築**: Express.js + 基本UI [x]
-3. **npx zosql web**: ブラウザ自動起動 [ ]
-4. **Monaco Editor**: SQL編集機能 [ ]
-5. **ファイルシステム**: /develop/,/resources/管理 [ ]
-6. **スキーマ管理**: zosql.schema.js読み込み [ ]
-7. **インテリセンス**: SQL補完機能 [ ]
-8. **構文チェック**: rawsql-ts統合 [ ]
-9. **WASM Postgres**: 基本SQL実行 [ ]
+3. **Monaco Editor**: SQL編集機能 [x]
+4. **スキーマ管理**: zosql.schema.js読み込み [x]
+5. **インテリセンス**: SQL補完機能 [x]
+6. **構文チェック**: rawsql-ts統合 [x]
+7. **CTE対応**: WITH句のIntelliSense [x]
+8. **サブクエリ対応**: JOIN内サブクエリの補完 [x]
+9. **FROM句コンテキスト**: テーブル名のみ表示 [x]
+10. **リファクタリング**: 責務分離による保守性向上 [x]
 
-### Phase 2 (中優先度) - 機能拡張
-- セッション管理: /develop/{session_id}/自動作成 [ ]
-- AIコメントシステム: Copy Prompt機能 [ ]
-- ダミーデータ生成: スキーマ→プロンプト自動生成 [ ]
-- VALUES+CTE自動生成: テストデータ→CTE変換 [ ]
-- SQL結果表示: テーブル形式・エラー表示 [ ]
-- プロジェクトエクスプローラー: ファイル一覧・操作UI [ ]
+### Phase 2 (次期実装) - SQL制約を超えた機能
+1. **クエリ実行機能**: WASM Postgres統合 [ ]
+2. **Private スキーマ**: CTE名前付け機能 [ ]
+3. **SQL トランスパイラ**: 独自構文→標準SQL変換 [ ]
+4. **スキーマレジストリ**: Public/Private管理 [ ]
+5. **テストデータ埋め込み**: VALUES句自動生成 [ ]
 
-### Phase 3 (低優先度) - 高度機能
-- CTE依存関係可視化: グラフ表示機能 [ ]
-- リアルタイム更新: WebSocket/SSE実装 [ ]
-- リソース管理: /resources/⇔/develop/移動機能 [ ]
-- 従来CLI機能統合: browser内でdecompose/compose [ ]
+### Phase 3 (将来実装) - 高度機能
+- **npx zosql web**: ブラウザ自動起動 [ ]
+- **ファイルシステム**: /develop/,/resources/管理 [ ]
+- **セッション管理**: /develop/{session_id}/自動作成 [ ]
+- **AIコメントシステム**: Copy Prompt機能 [ ]
+- **プロジェクトエクスプローラー**: ファイル一覧・操作UI [ ]
+- **CTE依存関係可視化**: グラフ表示機能 [ ]
+- **リアルタイム更新**: WebSocket/SSE実装 [ ]
+- **リソース管理**: /resources/⇔/develop/移動機能 [ ]
+- **従来CLI機能統合**: browser内でdecompose/compose [ ]
 
 ## rawsql-ts の使用方法
 
@@ -108,6 +169,26 @@ const withQuery = SelectQueryParser.parse(`
 const query = SelectQueryParser.parse('SELECT * FROM users');
 // query.addCTE() などのメソッドがあるかは要確認
 ```
+
+## 📁 現在のアーキテクチャ（リファクタリング後）
+
+### **責務分離による保守性向上**
+- **web-server.ts**: 118行（92%削減） - メインサーバークラス
+- **api/sql-parser-api.ts**: 351行 - SQL解析ロジック
+- **api/schema-api.ts**: 69行 - スキーマ処理
+- **api/debug-api.ts**: 22行 - デバッグAPI
+- **utils/logging.ts**: 46行 - ログ管理
+- **web-ui-template.ts**: 994行 - HTML+クライアントサイドJS
+
+### **実装済み機能**
+- ✅ **Monaco Editor統合** - SQL構文ハイライト・補完
+- ✅ **スキーマ管理** - zosql.schema.js読み込み
+- ✅ **IntelliSense** - テーブル・カラム・関数・キーワード補完
+- ✅ **CTE対応** - WITH句のテーブル認識・補完
+- ✅ **サブクエリ対応** - JOIN内サブクエリの補完
+- ✅ **ワイルドカード展開** - SELECT *を実際のカラム名に展開
+- ✅ **FROM句コンテキスト** - FROM/JOIN後はテーブル名のみ表示
+- ✅ **キャッシュ管理** - パース結果キャッシュでパフォーマンス向上
 
 ## プロジェクトの開発方針
 - t-wada方式でTDD実践

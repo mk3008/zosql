@@ -19,7 +19,8 @@ export function getHtmlTemplate(host: string, port: number): string {
       <div class="main-container">
         <div class="sidebar">
           <h3>Actions</h3>
-          <button class="action-button" onclick="runQuery()">Run Query</button>
+          <button class="action-button" onclick="runQuery()">Run Query (Ctrl+Enter)</button>
+          <button class="action-button secondary" onclick="resetDatabase()">Reset Database</button>
           
           <h3>Debug Tests</h3>
           <button class="action-button" onclick="testParseCurrentSQL()">Test Parse SQL</button>
@@ -40,14 +41,29 @@ export function getHtmlTemplate(host: string, port: number): string {
             <div>Server: ${host}:${port}</div>
             <div>Started: ${new Date().toLocaleString()}</div>
             <div>Monaco Editor: Loading...</div>
+            <div>PGlite: <span id="pglite-status">Initializing...</span></div>
           </div>
         </div>
         
-        <div class="editor-container">
-          <div class="editor-header">
-            📄 main.sql
+        <div class="content-area">
+          <div class="editor-container">
+            <div class="editor-header">
+              📄 main.sql
+            </div>
+            <div id="editor"></div>
           </div>
-          <div id="editor"></div>
+          
+          <div class="results-container">
+            <div class="results-header">
+              <div>📊 Query Results</div>
+              <div class="execution-info" id="execution-info"></div>
+            </div>
+            <div class="results-content" id="results-content">
+              <div style="color: #666; text-align: center; padding: 40px;">
+                Run a query to see results here
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -94,11 +110,18 @@ function getCssStyles(): string {
       background: #252526;
       border-right: 1px solid #3e3e42;
       padding: 20px;
+      overflow-y: auto;
+    }
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
     .editor-container {
       flex: 1;
       display: flex;
       flex-direction: column;
+      min-height: 50%;
     }
     .editor-header {
       background: #2d2d30;
@@ -130,6 +153,70 @@ function getCssStyles(): string {
     .action-button:hover {
       background: #005a9e;
     }
+    .action-button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    .action-button.secondary {
+      background: #3e3e42;
+    }
+    .action-button.secondary:hover {
+      background: #4e4e52;
+    }
+    .results-container {
+      height: 300px;
+      display: flex;
+      flex-direction: column;
+      border-top: 2px solid #3e3e42;
+    }
+    .results-header {
+      background: #2d2d30;
+      padding: 10px 20px;
+      border-bottom: 1px solid #3e3e42;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .results-content {
+      flex: 1;
+      overflow: auto;
+      padding: 10px;
+      background: #1e1e1e;
+    }
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .results-table th {
+      background: #383838;
+      color: #cccccc;
+      padding: 8px;
+      text-align: left;
+      border: 1px solid #555;
+      font-weight: normal;
+    }
+    .results-table td {
+      padding: 6px 8px;
+      border: 1px solid #3e3e42;
+    }
+    .results-table tr:nth-child(even) {
+      background: #252526;
+    }
+    .execution-info {
+      font-size: 11px;
+      color: #888;
+    }
+    .error-message {
+      color: #f48771;
+      font-family: monospace;
+      font-size: 13px;
+      padding: 10px;
+      background: #2d1b1b;
+      border: 1px solid #5a3232;
+      border-radius: 3px;
+    }
   `;
 }
 
@@ -146,19 +233,155 @@ function getJavaScriptCode(): string {
     ${schemaManagement()}
     ${intelliSenseSetup()}
     
+    // Check database status
+    async function checkDatabaseStatus() {
+      try {
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        if (data.status === 'ok') {
+          document.getElementById('pglite-status').textContent = 'Ready';
+          document.getElementById('pglite-status').style.color = '#4caf50';
+        }
+      } catch (error) {
+        document.getElementById('pglite-status').textContent = 'Error';
+        document.getElementById('pglite-status').style.color = '#f48771';
+      }
+    }
+    
     // Initialize everything when page loads
     document.addEventListener('DOMContentLoaded', function() {
       loadSchemaInfo();
       initMonacoEditor();
+      checkDatabaseStatus();
     });
   `;
 }
 
 function helperFunctions(): string {
   return `
-    function runQuery() {
-      const query = editor ? editor.getValue() : 'No editor available';
-      alert('Query execution (Phase 1):\\n\\n' + query);
+    let isQueryRunning = false;
+    
+    async function runQuery() {
+      if (isQueryRunning || !editor) return;
+      
+      const query = editor.getValue();
+      if (!query.trim()) {
+        showError('Please enter a SQL query');
+        return;
+      }
+      
+      isQueryRunning = true;
+      const button = document.querySelector('button[onclick="runQuery()"]');
+      button.disabled = true;
+      button.textContent = 'Running...';
+      
+      const resultsContent = document.getElementById('results-content');
+      const executionInfo = document.getElementById('execution-info');
+      
+      resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Executing query...</div>';
+      executionInfo.textContent = '';
+      
+      try {
+        const response = await fetch('/api/execute-query', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ sql: query })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          displayResults(data.result);
+          executionInfo.textContent = \`Executed in \${data.result.executionTime}ms | \${data.result.rows.length} rows\`;
+        } else {
+          showError(data.error);
+        }
+      } catch (error) {
+        showError('Failed to execute query: ' + error.message);
+      } finally {
+        isQueryRunning = false;
+        button.disabled = false;
+        button.textContent = 'Run Query (Ctrl+Enter)';
+      }
+    }
+    
+    function displayResults(result) {
+      const resultsContent = document.getElementById('results-content');
+      
+      if (!result.rows || result.rows.length === 0) {
+        resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Query executed successfully but returned no rows</div>';
+        return;
+      }
+      
+      // Get column names
+      const columns = Object.keys(result.rows[0]);
+      
+      // Build table HTML
+      let html = '<table class="results-table">';
+      
+      // Header
+      html += '<thead><tr>';
+      columns.forEach(col => {
+        html += \`<th>\${escapeHtml(col)}</th>\`;
+      });
+      html += '</tr></thead>';
+      
+      // Body
+      html += '<tbody>';
+      result.rows.forEach(row => {
+        html += '<tr>';
+        columns.forEach(col => {
+          const value = row[col];
+          const displayValue = value === null ? '<span style="color: #666;">NULL</span>' : 
+                             value === '' ? '<span style="color: #666;">[empty]</span>' : 
+                             escapeHtml(String(value));
+          html += \`<td>\${displayValue}</td>\`;
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      
+      resultsContent.innerHTML = html;
+    }
+    
+    function showError(message) {
+      const resultsContent = document.getElementById('results-content');
+      resultsContent.innerHTML = \`<div class="error-message">\${escapeHtml(message)}</div>\`;
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    async function resetDatabase() {
+      if (!confirm('This will reset the database to its initial state. All data will be lost. Continue?')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/reset-database', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('Database reset successfully');
+          const resultsContent = document.getElementById('results-content');
+          resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Database has been reset</div>';
+        } else {
+          alert('Failed to reset database: ' + data.error);
+        }
+      } catch (error) {
+        alert('Failed to reset database: ' + error.message);
+      }
     }
     
     // テスト用：明示的なパース実行
@@ -461,7 +684,7 @@ function monacoEditorIntegration(): string {
           });
           
           // Add keyboard shortcuts
-          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F5, function() {
+          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
             runQuery();
           });
           
