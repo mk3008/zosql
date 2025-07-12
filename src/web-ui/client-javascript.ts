@@ -300,7 +300,45 @@ function getMonacoEditorCode(): string {
           lineNumbers: 'on',
           folding: false,
           renderLineHighlight: 'line',
-          selectOnLineNumbers: true
+          selectOnLineNumbers: true,
+          // Disable word-based suggestions to prevent meaningless string suggestions
+          wordBasedSuggestions: false,
+          // Configure suggest options to disable snippet and word suggestions
+          suggest: {
+            showWords: false,
+            showSnippets: false,
+            showIcons: true,
+            showColors: false,
+            showFiles: false,
+            showReferences: false,
+            showFolders: false,
+            showTypeParameters: false,
+            showVariables: false,
+            showClasses: true,
+            showStructs: false,
+            showInterfaces: false,
+            showModules: true,
+            showProperties: false,
+            showEvents: false,
+            showOperators: false,
+            showUnits: false,
+            showValues: false,
+            showConstants: false,
+            showEnums: false,
+            showEnumMembers: false,
+            showKeywords: true,
+            showText: false,
+            showInsertRules: false,
+            insertMode: 'insert',
+            filterGraceful: true,
+            snippetsPreventQuickSuggestions: true
+          },
+          // Disable quick suggestions for strings
+          quickSuggestions: {
+            other: true,
+            comments: false,
+            strings: false
+          }
         });
         
         // Setup keyboard shortcuts
