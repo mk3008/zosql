@@ -1,7 +1,16 @@
 export function getUtilityFunctions(): string {
   return `
-    // Import utility functions for IntelliSense
-    // Note: In production, these would be imported from the utils module
+    // ====================================================================
+    // IntelliSense Context Detection Functions
+    // ====================================================================
+    // これらの関数はSQL文のカーソル位置に基づいて適切なコンテキストを判定し、
+    // 適切な補完候補のみを表示するために使用される
+    
+    /**
+     * SELECT句のコンテキストを検出する
+     * SELECT ... FROM の間にカーソルがある場合にtrueを返す
+     * この場合は補完候補を表示せず、クラッターを避ける
+     */
     function checkSelectClauseContext(fullText, position) {
       try {
         // Get text up to current position
@@ -24,6 +33,7 @@ export function getUtilityFunctions(): string {
           .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
         
         // Check if we're in SELECT clause context (between SELECT and FROM)
+        // SELECT句が存在し、まだFROM句に到達していない場合
         const selectPattern = /\\bSELECT\\s+[^;]*$/i;
         const hasFrom = /\\bFROM\\b/i.test(cleanedText);
         
@@ -36,6 +46,11 @@ export function getUtilityFunctions(): string {
       }
     }
     
+    /**
+     * テーブル名直後のコンテキストを検出する
+     * "FROM table_name " や "JOIN table_name " の直後にカーソルがある場合にtrueを返す
+     * この場合はASキーワードのみを提案する
+     */
     function checkPostTableContext(fullText, position) {
       try {
         // Get text up to current position
@@ -57,8 +72,10 @@ export function getUtilityFunctions(): string {
           .replace(/'[^']*'/g, "''") // Remove string literals
           .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
         
-        // Check if we're right after a table name (space after FROM tablename)
+        // テーブル名の直後（スペース）にカーソルがある場合を検出
+        // パターン1: FROM table_name の直後
         const postTablePattern = /\\bFROM\\s+\\w+\\s+$/i;
+        // パターン2: JOIN table_name の直後  
         const postJoinTablePattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+\\w+\\s+$/i;
         
         const isPostTableContext = postTablePattern.test(cleanedText) || postJoinTablePattern.test(cleanedText);
@@ -70,6 +87,11 @@ export function getUtilityFunctions(): string {
       }
     }
     
+    /**
+     * FROM句/JOIN句のコンテキストを検出する
+     * "FROM " や "JOIN " の直後でテーブル名を入力中の場合にtrueを返す
+     * この場合はテーブル名とプライベートリソースを提案する
+     */
     function checkFromClauseContext(fullText, position) {
       try {
         // Get text up to current position
@@ -93,11 +115,12 @@ export function getUtilityFunctions(): string {
         
         console.log('FROM context check - cleanedText:', JSON.stringify(cleanedText));
         
-        // Check if we're in a FROM clause context - more flexible patterns
+        // FROM句/JOIN句のコンテキストパターンを検出
+        // パターン1: FROM の直後（スペースあり・なし）
         const fromPattern = /\\bFROM\\s*$/i;
         const joinPattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s*$/i;
         
-        // Also check for incomplete table names after FROM
+        // パターン2: FROM/JOIN の後に不完全なテーブル名がある場合
         const fromTablePattern = /\\bFROM\\s+\\w*$/i;
         const joinTablePattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+\\w*$/i;
         
@@ -121,7 +144,14 @@ export function getUtilityFunctions(): string {
       }
     }
     
-    // IntelliSense debug logging function
+    // ====================================================================
+    // Utility Functions for IntelliSense
+    // ====================================================================
+    
+    /**
+     * IntelliSenseのデバッグログを送信する
+     * サーバーサイドのログファイルに記録され、後で分析可能
+     */
     function sendIntelliSenseDebugLog(phase, data, error = null) {
       try {
         fetch('/api/intellisense-debug', {
@@ -142,7 +172,11 @@ export function getUtilityFunctions(): string {
       }
     }
     
-    // Utility function for extracting alias from text (matches intellisense-utils.ts)
+    /**
+     * テキストからエイリアス情報を抽出する
+     * "u.id" や "u." のような形式からテーブルエイリアスとカラム名を分離
+     * intellisense-utils.tsの実装と一致させる必要がある
+     */
     function extractAliasFromText(textBeforeCursor, charBeforeCursor) {
       let periodMatch = null;
 

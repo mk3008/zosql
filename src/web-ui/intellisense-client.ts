@@ -1,6 +1,10 @@
 export function getIntelliSenseSetup(): string {
   return `
-    // IntelliSense setup
+    // ====================================================================
+    // IntelliSense Setup and Main Provider
+    // ====================================================================
+    // このセクションはMonaco EditorにSQL補完機能を統合するためのメインロジック
+    // コンテキストベースの補完（SELECT句、FROM句、テーブル名後等）を提供
     function setupIntelliSense() {
       if (!editor || !monaco) {
         console.error('Editor or Monaco not available for IntelliSense setup');
@@ -79,7 +83,10 @@ export function getIntelliSenseSetup(): string {
               totalPrivateResources: Object.keys(currentSchemaData.privateResources || {}).length
             });
 
-            // Check for alias completion (column suggestions)
+            // ============================================================
+            // Column Completion Logic (alias.column pattern)
+            // ============================================================
+            // "u.id" や "u." のようなパターンでカラム補完を実行
             const aliasMatch = extractAliasFromText(textBeforeCursor, charBeforeCursor);
             
             sendIntelliSenseDebugLog('ALIAS_DETECTION', {
@@ -89,7 +96,7 @@ export function getIntelliSenseSetup(): string {
             });
 
             if (aliasMatch) {
-              // This is column completion after alias
+              // エイリアス後のカラム補完処理
               const [fullMatch, alias, partialColumn] = aliasMatch;
               
               try {
@@ -182,18 +189,21 @@ export function getIntelliSenseSetup(): string {
               }
             }
 
-            // Context-based suggestions
+            // ============================================================
+            // Context-Based Suggestion Logic
+            // ============================================================
+            // カーソル位置に基づいて適切な補完候補のみを提供
             let suggestions = [];
 
             if (isSelectContext) {
-              // SELECT clause context - no suggestions to avoid clutter
+              // SELECT句内 - 候補なしでクラッターを回避
               sendIntelliSenseDebugLog('SELECT_CONTEXT_NO_SUGGESTIONS', {
                 message: 'No suggestions in SELECT context to avoid clutter'
               });
               
               return { suggestions: [] };
             } else if (isPostTableContext) {
-              // Post-table context - only suggest AS keyword
+              // テーブル名直後 - ASキーワードのみ提案
               suggestions = [{
                 label: 'AS',
                 kind: monaco.languages.CompletionItemKind.Keyword,
@@ -207,7 +217,7 @@ export function getIntelliSenseSetup(): string {
                 totalSuggestions: suggestions.length
               });
             } else if (isFromContext) {
-              // FROM clause context - show tables and private resources
+              // FROM句/JOIN句 - テーブル名とプライベートリソースを提案
               suggestions = [
                 // Public tables
                 ...currentSchemaData.tables.map(table => ({
@@ -233,7 +243,7 @@ export function getIntelliSenseSetup(): string {
                 totalSuggestions: suggestions.length
               });
             } else {
-              // General context - show keywords, functions, tables
+              // 一般的なコンテキスト - キーワード、関数、テーブルを提案
               suggestions = [
                 // SQL Keywords
                 ...currentSchemaData.keywords.map(keyword => ({
