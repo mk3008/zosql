@@ -2,6 +2,40 @@ export function getUtilityFunctions(): string {
   return `
     // Import utility functions for IntelliSense
     // Note: In production, these would be imported from the utils module
+    function checkSelectClauseContext(fullText, position) {
+      try {
+        // Get text up to current position
+        const lines = fullText.split('\\n');
+        let textUpToCursor = '';
+        
+        for (let i = 0; i < position.lineNumber - 1; i++) {
+          textUpToCursor += lines[i] + '\\n';
+        }
+        
+        if (lines[position.lineNumber - 1]) {
+          textUpToCursor += lines[position.lineNumber - 1].substring(0, position.column - 1);
+        }
+        
+        // Remove comments and string literals for better parsing
+        const cleanedText = textUpToCursor
+          .replace(/--.*$/gm, '') // Remove line comments
+          .replace(/\\/\\*[\\s\\S]*?\\*\\//g, '') // Remove block comments
+          .replace(/'[^']*'/g, "''") // Remove string literals
+          .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
+        
+        // Check if we're in SELECT clause context (between SELECT and FROM)
+        const selectPattern = /\\bSELECT\\s+[^;]*$/i;
+        const hasFrom = /\\bFROM\\b/i.test(cleanedText);
+        
+        const isSelectContext = selectPattern.test(cleanedText) && !hasFrom;
+        
+        return isSelectContext;
+      } catch (error) {
+        console.error('Error checking SELECT clause context:', error);
+        return false;
+      }
+    }
+    
     function checkFromClauseContext(fullText, position) {
       try {
         // Get text up to current position

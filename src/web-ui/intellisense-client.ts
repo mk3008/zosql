@@ -38,11 +38,13 @@ export function getIntelliSenseSetup(): string {
               charBeforeCursor: charBeforeCursor
             });
 
-            // Check if we're in FROM clause context
+            // Check context
             const isFromContext = checkFromClauseContext(fullText, position);
+            const isSelectContext = checkSelectClauseContext(fullText, position);
             
-            sendIntelliSenseDebugLog('FROM_CONTEXT_CHECK', {
+            sendIntelliSenseDebugLog('CONTEXT_CHECK', {
               isFromContext: isFromContext,
+              isSelectContext: isSelectContext,
               position: position
             });
 
@@ -178,10 +180,17 @@ export function getIntelliSenseSetup(): string {
               }
             }
 
-            // Table completion (FROM clause or general)
+            // Context-based suggestions
             let suggestions = [];
 
-            if (isFromContext) {
+            if (isSelectContext) {
+              // SELECT clause context - no suggestions to avoid clutter
+              sendIntelliSenseDebugLog('SELECT_CONTEXT_NO_SUGGESTIONS', {
+                message: 'No suggestions in SELECT context to avoid clutter'
+              });
+              
+              return { suggestions: [] };
+            } else if (isFromContext) {
               // FROM clause context - show tables and private resources
               suggestions = [
                 // Public tables
