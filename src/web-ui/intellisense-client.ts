@@ -41,10 +41,12 @@ export function getIntelliSenseSetup(): string {
             // Check context
             const isFromContext = checkFromClauseContext(fullText, position);
             const isSelectContext = checkSelectClauseContext(fullText, position);
+            const isPostTableContext = checkPostTableContext(fullText, position);
             
             sendIntelliSenseDebugLog('CONTEXT_CHECK', {
               isFromContext: isFromContext,
               isSelectContext: isSelectContext,
+              isPostTableContext: isPostTableContext,
               position: position
             });
 
@@ -190,6 +192,20 @@ export function getIntelliSenseSetup(): string {
               });
               
               return { suggestions: [] };
+            } else if (isPostTableContext) {
+              // Post-table context - only suggest AS keyword
+              suggestions = [{
+                label: 'AS',
+                kind: monaco.languages.CompletionItemKind.Keyword,
+                insertText: 'AS ',
+                detail: 'SQL Alias Keyword',
+                documentation: 'Use AS to create an alias for the table'
+              }];
+              
+              sendIntelliSenseDebugLog('POST_TABLE_CONTEXT_SUGGESTIONS', {
+                message: 'Suggesting AS keyword after table name',
+                totalSuggestions: suggestions.length
+              });
             } else if (isFromContext) {
               // FROM clause context - show tables and private resources
               suggestions = [

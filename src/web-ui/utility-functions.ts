@@ -36,6 +36,40 @@ export function getUtilityFunctions(): string {
       }
     }
     
+    function checkPostTableContext(fullText, position) {
+      try {
+        // Get text up to current position
+        const lines = fullText.split('\\n');
+        let textUpToCursor = '';
+        
+        for (let i = 0; i < position.lineNumber - 1; i++) {
+          textUpToCursor += lines[i] + '\\n';
+        }
+        
+        if (lines[position.lineNumber - 1]) {
+          textUpToCursor += lines[position.lineNumber - 1].substring(0, position.column - 1);
+        }
+        
+        // Remove comments and string literals for better parsing
+        const cleanedText = textUpToCursor
+          .replace(/--.*$/gm, '') // Remove line comments
+          .replace(/\\/\\*[\\s\\S]*?\\*\\//g, '') // Remove block comments
+          .replace(/'[^']*'/g, "''") // Remove string literals
+          .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
+        
+        // Check if we're right after a table name (space after FROM tablename)
+        const postTablePattern = /\\bFROM\\s+\\w+\\s+$/i;
+        const postJoinTablePattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+\\w+\\s+$/i;
+        
+        const isPostTableContext = postTablePattern.test(cleanedText) || postJoinTablePattern.test(cleanedText);
+        
+        return isPostTableContext;
+      } catch (error) {
+        console.error('Error checking post-table context:', error);
+        return false;
+      }
+    }
+    
     function checkFromClauseContext(fullText, position) {
       try {
         // Get text up to current position
