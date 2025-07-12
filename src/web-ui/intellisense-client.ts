@@ -47,12 +47,14 @@ export function getIntelliSenseSetup(): string {
             const isSelectContext = checkSelectClauseContext(fullText, position);
             const isPostTableContext = checkPostTableContext(fullText, position);
             const postAliasInfo = checkPostAliasContext(fullText, position);
+            const isPostAliasCompletedContext = checkPostAliasCompletedContext(fullText, position);
             
             sendIntelliSenseDebugLog('CONTEXT_CHECK', {
               isFromContext: isFromContext,
               isSelectContext: isSelectContext,
               isPostTableContext: isPostTableContext,
               isPostAliasContext: postAliasInfo.isPostAliasContext,
+              isPostAliasCompletedContext: isPostAliasCompletedContext,
               aliasTableName: postAliasInfo.tableName,
               position: position
             });
@@ -202,6 +204,13 @@ export function getIntelliSenseSetup(): string {
               // SELECT句内 - 候補なしでクラッターを回避
               sendIntelliSenseDebugLog('SELECT_CONTEXT_NO_SUGGESTIONS', {
                 message: 'No suggestions in SELECT context to avoid clutter'
+              });
+              
+              return { suggestions: [] };
+            } else if (isPostAliasCompletedContext) {
+              // エイリアス完了後 - 候補なしで無意味な提案を回避
+              sendIntelliSenseDebugLog('POST_ALIAS_COMPLETED_NO_SUGGESTIONS', {
+                message: 'No suggestions after alias completion to avoid meaningless proposals'
               });
               
               return { suggestions: [] };

@@ -135,6 +135,47 @@ export function getUtilityFunctions(): string {
     }
     
     /**
+     * エイリアス完了後のコンテキストを検出する
+     * "FROM table_name AS alias " の直後にカーソルがある場合にtrueを返す
+     * この場合は候補を表示しない（無意味な提案を避ける）
+     */
+    function checkPostAliasCompletedContext(fullText, position) {
+      try {
+        // Get text up to current position
+        const lines = fullText.split('\\n');
+        let textUpToCursor = '';
+        
+        for (let i = 0; i < position.lineNumber - 1; i++) {
+          textUpToCursor += lines[i] + '\\n';
+        }
+        
+        if (lines[position.lineNumber - 1]) {
+          textUpToCursor += lines[position.lineNumber - 1].substring(0, position.column - 1);
+        }
+        
+        // Remove comments and string literals for better parsing
+        const cleanedText = textUpToCursor
+          .replace(/--.*$/gm, '') // Remove line comments
+          .replace(/\\/\\*[\\s\\S]*?\\*\\//g, '') // Remove block comments
+          .replace(/'[^']*'/g, "''") // Remove string literals
+          .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
+        
+        // エイリアス完了後のパターンを検出
+        // パターン1: FROM table_name AS alias の直後
+        const postAliasCompletedPattern = /\\bFROM\\s+\\w+\\s+AS\\s+\\w+\\s+$/i;
+        // パターン2: JOIN table_name AS alias の直後
+        const postJoinAliasCompletedPattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+\\w+\\s+AS\\s+\\w+\\s+$/i;
+        
+        const isPostAliasCompletedContext = postAliasCompletedPattern.test(cleanedText) || postJoinAliasCompletedPattern.test(cleanedText);
+        
+        return isPostAliasCompletedContext;
+      } catch (error) {
+        console.error('Error checking post-alias completed context:', error);
+        return false;
+      }
+    }
+    
+    /**
      * テーブル名から推奨エイリアス名を生成する
      * 例: users -> u, active_users -> au, user_stats -> us
      */
