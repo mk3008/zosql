@@ -26,9 +26,20 @@ export function getHtmlTemplate(host: string, port: number): string {
           <button class="action-button" onclick="testParseCurrentSQL()">Test Parse SQL</button>
           <button class="action-button" onclick="testAliasSearch()">Test Alias Search</button>
           
-          <h3>Schema Info</h3>
-          <div id="schema-info" style="font-size: 12px; margin-top: 10px;">
-            <div>Loading schema...</div>
+          <h3>IntelliSense Tests</h3>
+          <button class="action-button" onclick="testFromClauseContext()">Test FROM Context</button>
+          <button class="action-button" onclick="testAliasCompletion()">Test Alias Completion</button>
+          <button class="action-button" onclick="testPrivateResourceCompletion()">Test Private Resources</button>
+          <button class="action-button" onclick="analyzeIntelliSenseIssues()">Analyze Issues</button>
+          
+          <h3>Public Resources</h3>
+          <div id="public-schema-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
+            <div>Loading public schema...</div>
+          </div>
+          
+          <h3>Private Resources</h3>
+          <div id="private-schema-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
+            <div>Loading private schema...</div>
           </div>
           
           <h3>IntelliSense Debug</h3>
@@ -217,6 +228,18 @@ function getCssStyles(): string {
       border: 1px solid #5a3232;
       border-radius: 3px;
     }
+    .schema-section {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .public-resource {
+      background: rgba(0,122,204,0.1);
+      border-left: 3px solid #007acc;
+    }
+    .private-resource {
+      background: rgba(255,165,0,0.1);
+      border-left: 3px solid #ffa500;
+    }
   `;
 }
 
@@ -224,6 +247,7 @@ function getJavaScriptCode(): string {
   return `
     let editor = null;
     let schemaData = null;
+    let privateSchemaData = null;
     let lastValidQuery = null;
     let currentSchemaData = null;
     let lastSuccessfulParseResult = null; // キャッシュ用
@@ -248,9 +272,39 @@ function getJavaScriptCode(): string {
       }
     }
     
+    // Load private schema information
+    async function loadPrivateSchemaInfo() {
+      try {
+        logToServer('Private schema loading attempt');
+        const response = await fetch('/api/private-schema');
+        const data = await response.json();
+        
+        logToServer('Private schema response received', {
+          success: data.success,
+          error: data.error,
+          hasPrivateSchema: !!data.privateSchema,
+          resourcesCount: data.privateSchema ? Object.keys(data.privateSchema).length : 0
+        });
+        
+        if (data.success && data.privateSchema) {
+          privateSchemaData = data.privateSchema;
+          console.log('Private schema loaded successfully:', privateSchemaData);
+          logToServer('Private schema loaded successfully', {
+            resourcesCount: Object.keys(privateSchemaData).length
+          });
+        } else {
+          logToServer('Private schema load failed', { error: data.error });
+        }
+      } catch (error) {
+        console.error('Error loading private schema:', error);
+        logToServer('Private schema load error', { error: error.message });
+      }
+    }
+    
     // Initialize everything when page loads
     document.addEventListener('DOMContentLoaded', function() {
       loadSchemaInfo();
+      loadPrivateSchemaInfo();
       initMonacoEditor();
       checkDatabaseStatus();
     });
@@ -443,6 +497,209 @@ function helperFunctions(): string {
       alert(message);
     }
     
+    // IntelliSense Test Functions
+    async function testFromClauseContext() {
+      if (!editor) {
+        alert('Editor not available');
+        return;
+      }
+      
+      const testCases = [
+        'SELECT * FROM ',
+        'SELECT * FROM user',
+        'SELECT * FROM users u INNER JOIN ',
+        'SELECT * FROM users u LEFT JOIN ord',
+        'SELECT * FROM users WHERE id = 1'
+      ];
+      
+      let results = 'FROM Clause Context Test Results:\\n\\n';
+      
+      for (const [index, testSql] of testCases.entries()) {
+        const position = { lineNumber: 1, column: testSql.length + 1 };
+        const isFromContext = checkFromClauseContext(testSql, position);
+        results += \`\${index + 1}. "\${testSql}"\\n\`;
+        results += \`   Context: \${isFromContext ? 'FROM clause' : 'Normal'}\\n\\n\`;
+      }
+      
+      alert(results);
+    }
+    
+    async function testAliasCompletion() {
+      if (!editor) {
+        alert('Editor not available');
+        return;
+      }
+      
+      // Test the current SQL in editor for alias completion
+      const sql = editor.getValue();
+      const position = editor.getPosition();
+      
+      if (!position) {
+        alert('Cannot get cursor position');
+        return;
+      }
+      
+      try {
+        // Get text before cursor
+        const textBeforeCursor = editor.getModel().getValueInRange({
+          startLineNumber: position.lineNumber,
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column
+        });
+        
+        const charBeforeCursor = position.column > 1 ? 
+          editor.getModel().getValueInRange({
+            startLineNumber: position.lineNumber,
+            startColumn: position.column - 1,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column
+          }) : '';
+        
+        // Test alias extraction
+        const aliasMatch = extractAliasFromText(textBeforeCursor, charBeforeCursor);
+        
+        let message = \`Alias Completion Test:\\n\\n\`;
+        message += \`Current SQL: \${sql}\\n\`;
+        message += \`Cursor position: Line \${position.lineNumber}, Column \${position.column}\\n\`;
+        message += \`Text before cursor: "\${textBeforeCursor}"\\n\`;
+        message += \`Char before cursor: "\${charBeforeCursor}"\\n\`;
+        message += \`Alias match: \${aliasMatch ? JSON.stringify(aliasMatch) : 'null'}\\n\`;
+        
+        if (aliasMatch) {
+          const alias = aliasMatch[1];
+          
+          // Test table resolution
+          if (lastSuccessfulParseResult) {
+            const tableName = findTableByAlias(lastSuccessfulParseResult, alias);
+            message += \`Resolved table: \${tableName || 'not found'}\\n\`;
+            
+            // Test column retrieval
+            if (tableName && currentSchemaData) {
+              const columns = getColumnsForTable(tableName, alias, lastSuccessfulParseResult, currentSchemaData);
+              message += \`Available columns: \${columns.join(', ') || 'none'}\\n\`;
+            }
+          } else {
+            message += \`No parse result available for table resolution\\n\`;
+          }
+        }
+        
+        alert(message);
+      } catch (error) {
+        alert('Alias completion test failed: ' + error.message);
+      }
+    }
+    
+    async function testPrivateResourceCompletion() {
+      try {
+        // Load private resources
+        const response = await fetch('/api/private-schema/completion');
+        const data = await response.json();
+        
+        let message = \`Private Resource Completion Test:\\n\\n\`;
+        
+        if (data.success) {
+          message += \`Private tables: \${data.privateTables?.join(', ') || 'none'}\\n\`;
+          message += \`Private columns:\\n\`;
+          
+          Object.entries(data.privateColumns || {}).forEach(([table, columns]) => {
+            message += \`  \${table}: \${columns.join(', ')}\\n\`;
+          });
+          
+          message += \`\\nPrivate resources:\\n\`;
+          Object.entries(data.privateResources || {}).forEach(([name, resource]) => {
+            message += \`  \${name}: \${resource.description || 'No description'}\\n\`;
+          });
+          
+          // Test FROM clause context with private resources
+          const testSql = 'SELECT * FROM user_st';
+          const position = { lineNumber: 1, column: testSql.length + 1 };
+          const isFromContext = checkFromClauseContext(testSql, position);
+          
+          message += \`\\nFROM context test with "SELECT * FROM user_st": \${isFromContext}\\n\`;
+          
+        } else {
+          message += \`Failed to load private resources: \${data.error}\\n\`;
+        }
+        
+        alert(message);
+      } catch (error) {
+        alert('Private resource test failed: ' + error.message);
+      }
+    }
+    
+    // Helper function to get columns for table (matches intellisense-utils.ts)
+    function getColumnsForTable(tableName, alias, parseResult, schemaData) {
+      let columns = [];
+      
+      // Check if it's a CTE or subquery table with columns in parse result
+      if (parseResult) {
+        const tableObject = findTableObjectByAlias(parseResult, alias);
+        if (tableObject && (tableObject.type === 'cte' || tableObject.type === 'subquery') && tableObject.columns && tableObject.columns.length > 0) {
+          columns = tableObject.columns;
+        } else if (schemaData.columns && schemaData.columns[tableName]) {
+          columns = schemaData.columns[tableName];
+        } else {
+          // Check if it's a private resource
+          const privateResource = schemaData.privateResources && schemaData.privateResources[tableName];
+          if (privateResource && privateResource.columns) {
+            columns = privateResource.columns.map(col => col.name);
+          }
+        }
+      } else {
+        // Check private resources first when no parse result
+        const privateResource = schemaData.privateResources && schemaData.privateResources[tableName];
+        if (privateResource && privateResource.columns) {
+          columns = privateResource.columns.map(col => col.name);
+        } else if (schemaData.columns && schemaData.columns[tableName]) {
+          columns = schemaData.columns[tableName];
+        }
+      }
+      
+      return columns;
+    }
+    
+    async function analyzeIntelliSenseIssues() {
+      try {
+        const response = await fetch('/api/intellisense-debug/analyze');
+        const data = await response.json();
+        
+        if (data.success) {
+          let message = 'IntelliSense Issues Analysis:\\n\\n';
+          
+          const analysis = data.analysis;
+          message += \`Total recent logs: \${analysis.totalLogs}\\n\`;
+          message += \`Successful alias detections: \${analysis.successfulAliasDetections}\\n\`;
+          message += \`Failed alias detections: \${analysis.failedAliasDetections}\\n\`;
+          message += \`SQL parse successes: \${analysis.sqlParseSuccesses}\\n\`;
+          message += \`SQL parse failures: \${analysis.sqlParseFailures}\\n\`;
+          message += \`Column resolution successes: \${analysis.columnResolutionSuccesses}\\n\`;
+          message += \`Column resolution failures: \${analysis.columnResolutionFailures}\\n\\n\`;
+          
+          if (analysis.commonIssues.length > 0) {
+            message += 'Common Issues:\\n';
+            analysis.commonIssues.forEach((issue, i) => {
+              message += \`\${i + 1}. \${issue}\\n\`;
+            });
+            message += '\\n';
+          }
+          
+          if (analysis.suggestions.length > 0) {
+            message += 'Suggestions:\\n';
+            analysis.suggestions.forEach((suggestion, i) => {
+              message += \`\${i + 1}. \${suggestion}\\n\`;
+            });
+          }
+          
+          alert(message);
+        } else {
+          alert('Failed to analyze IntelliSense issues: ' + data.error);
+        }
+      } catch (error) {
+        alert('Error analyzing IntelliSense issues: ' + error.message);
+      }
+    }
+    
     // Helper function to find table name by alias (with CTE support)
     function findTableByAlias(parseResult, alias) {
       try {
@@ -578,7 +835,8 @@ function helperFunctions(): string {
       });
     }
     
-    // Helper function to check FROM clause context
+    // Import utility functions for IntelliSense
+    // Note: In production, these would be imported from the utils module
     function checkFromClauseContext(fullText, position) {
       try {
         // Get text up to current position
@@ -600,59 +858,150 @@ function helperFunctions(): string {
           .replace(/'[^']*'/g, "''") // Remove string literals
           .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
         
-        // Check if we're in a FROM clause context
-        // Look for FROM keyword followed by optional whitespace and check if cursor is right after
-        const fromPattern = /\\bFROM\\s+$/i;
-        const joinPattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+$/i;
+        console.log('FROM context check - cleanedText:', JSON.stringify(cleanedText));
         
-        return fromPattern.test(cleanedText) || joinPattern.test(cleanedText);
+        // Check if we're in a FROM clause context - more flexible patterns
+        const fromPattern = /\\bFROM\\s*$/i;
+        const joinPattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s*$/i;
+        
+        // Also check for incomplete table names after FROM
+        const fromTablePattern = /\\bFROM\\s+\\w*$/i;
+        const joinTablePattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+\\w*$/i;
+        
+        const isFromContext = fromPattern.test(cleanedText) || 
+                            joinPattern.test(cleanedText) ||
+                            fromTablePattern.test(cleanedText) ||
+                            joinTablePattern.test(cleanedText);
+        
+        console.log('FROM patterns test:', {
+          fromPattern: fromPattern.test(cleanedText),
+          joinPattern: joinPattern.test(cleanedText),
+          fromTablePattern: fromTablePattern.test(cleanedText),
+          joinTablePattern: joinTablePattern.test(cleanedText),
+          result: isFromContext
+        });
+        
+        return isFromContext;
       } catch (error) {
         console.error('Error checking FROM clause context:', error);
         return false;
       }
+    }
+    
+    // IntelliSense debug logging function
+    function sendIntelliSenseDebugLog(phase, data, error = null) {
+      try {
+        fetch('/api/intellisense-debug', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phase: phase,
+            data: data,
+            error: error
+          })
+        }).catch(err => {
+          console.error('Failed to send IntelliSense debug log:', err);
+        });
+      } catch (err) {
+        console.error('Error in sendIntelliSenseDebugLog:', err);
+      }
+    }
+    
+    // Utility function for extracting alias from text (matches intellisense-utils.ts)
+    function extractAliasFromText(textBeforeCursor, charBeforeCursor) {
+      let periodMatch = null;
+
+      // 1. ドット入力直後のケース
+      if (charBeforeCursor === '.') {
+        const aliasMatch = textBeforeCursor.match(/([a-zA-Z0-9_]+)$/);
+        if (aliasMatch) {
+          periodMatch = [aliasMatch[0] + '.', aliasMatch[1], ''];
+        }
+      } 
+      // 2. 既にドットが含まれているケース
+      else {
+        const match = textBeforeCursor.match(/([a-zA-Z0-9_]+)\\.([a-zA-Z0-9_]*)$/);
+        if (match) {
+          periodMatch = [match[0], match[1], match[2]];
+        }
+      }
+      
+      return periodMatch;
     }
   `;
 }
 
 function schemaManagement(): string {
   return `
-    // Load and display schema information
+    // Load and display schema information (both public and private)
     async function loadSchemaInfo() {
       try {
         logToServer('Schema loading attempt');
-        const response = await fetch('/api/schema');
-        const data = await response.json();
         
-        logToServer('Schema response received', {
-          success: data.success,
-          error: data.error,
-          hasSchema: !!data.schema,
-          tablesCount: data.schema?.tables?.length || 0
+        // Load both public and private schema concurrently
+        const [publicResponse, privateResponse] = await Promise.all([
+          fetch('/api/schema'),
+          fetch('/api/private-schema')
+        ]);
+        
+        const publicData = await publicResponse.json();
+        const privateData = await privateResponse.json();
+        
+        logToServer('Schema responses received', {
+          publicSuccess: publicData.success,
+          privateSuccess: privateData.success,
+          publicTablesCount: publicData.schema?.tables?.length || 0,
+          privateResourcesCount: Object.keys(privateData.privateSchema || {}).length
         });
         
-        if (data.success) {
-          const schemaInfo = document.getElementById('schema-info');
-          let html = '';
+        // Display public schema
+        if (publicData.success) {
+          const publicSchemaInfo = document.getElementById('public-schema-info');
+          let publicHtml = '';
           
-          data.schema.tables.forEach(table => {
-            html += \`<div style="margin-bottom: 10px;">
-              <strong>\${table.name}</strong><br>
-              \${table.columns.map(col => \`• \${col.name}\`).join('<br>')}
+          publicData.schema.tables.forEach(table => {
+            publicHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(0,122,204,0.1); border-radius: 3px;">
+              <strong style="color: #007acc;">\${table.name}</strong><br>
+              \${table.columns.map(col => \`<span style="color: #9cdcfe;">• \${col.name}</span>\`).join('<br>')}
             </div>\`;
           });
           
-          schemaInfo.innerHTML = html;
-          console.log('Schema loaded successfully');
-          logToServer('Schema UI updated successfully');
+          publicSchemaInfo.innerHTML = publicHtml;
+          console.log('Public schema loaded successfully');
         } else {
-          document.getElementById('schema-info').innerHTML = 
-            '<div style="color: red;">Failed to load schema</div>';
-          logToServer('Schema load failed', { error: data.error });
+          document.getElementById('public-schema-info').innerHTML = 
+            '<div style="color: red;">Failed to load public schema</div>';
         }
+        
+        // Display private schema
+        if (privateData.success && privateData.privateSchema) {
+          const privateSchemaInfo = document.getElementById('private-schema-info');
+          let privateHtml = '';
+          
+          Object.values(privateData.privateSchema).forEach(resource => {
+            privateHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(255,165,0,0.1); border-radius: 3px;">
+              <strong style="color: #ffa500;">\${resource.name}</strong><br>
+              <small style="color: #808080;">\${resource.description || 'No description'}</small><br>
+              \${resource.columns.map(col => \`<span style="color: #dcdcaa;">• \${col.name} (\${col.type})</span>\`).join('<br>')}
+            </div>\`;
+          });
+          
+          privateSchemaInfo.innerHTML = privateHtml;
+          console.log('Private schema loaded successfully');
+        } else {
+          document.getElementById('private-schema-info').innerHTML = 
+            '<div style="color: #808080;">No private resources found</div>';
+        }
+        
+        logToServer('Schema UI updated successfully');
       } catch (error) {
         console.error('Error loading schema:', error);
-        document.getElementById('schema-info').innerHTML = 
-          '<div style="color: red;">Error loading schema</div>';
+        document.getElementById('public-schema-info').innerHTML = 
+          '<div style="color: red;">Error loading public schema</div>';
+        document.getElementById('private-schema-info').innerHTML = 
+          '<div style="color: red;">Error loading private schema</div>';
         logToServer('Schema load error', { error: error.message });
       }
     }
@@ -746,15 +1095,63 @@ function intelliSenseSetup(): string {
 
           return new Promise(async (resolve) => {
             try {
-              const response = await fetch('/api/schema/completion');
-              const data = await response.json();
+              // Enhanced logging for IntelliSense trigger
+              console.log('=== INTELLISENSE DETAILED LOG START ===');
+              console.log('Trigger timestamp:', new Date().toISOString());
+              const startData = {
+                lineNumber: position.lineNumber,
+                column: position.column,
+                modelUri: model.uri.toString(),
+                timestamp: new Date().toISOString()
+              };
+              console.log('Position details:', startData);
               
-              currentSchemaData = data; // Store for debug
+              // Send to debug API
+              sendIntelliSenseDebugLog('INTELLISENSE_START', startData);
               
-              if (!data.success) {
+              // Load both public and private schema data
+              const [publicResponse, privateResponse] = await Promise.all([
+                fetch('/api/schema/completion'),
+                fetch('/api/private-schema/completion')
+              ]);
+              
+              const publicData = await publicResponse.json();
+              const privateData = await privateResponse.json();
+              
+              console.log('Schema data loaded:', {
+                publicSuccess: publicData.success,
+                privateSuccess: privateData.success,
+                publicTables: publicData.tables?.length || 0,
+                privateTables: privateData.privateTables?.length || 0,
+                publicColumns: Object.keys(publicData.columns || {}).length,
+                privateColumns: Object.keys(privateData.privateColumns || {}).length
+              });
+              
+              // Combine public and private schema data
+              const combinedData = {
+                success: publicData.success,
+                tables: [...(publicData.tables || []), ...(privateData.privateTables || [])],
+                columns: {...(publicData.columns || {}), ...(privateData.privateColumns || {})},
+                functions: publicData.functions || [],
+                privateResources: privateData.privateResources || {}
+              };
+              
+              console.log('Combined schema data:', {
+                totalTables: combinedData.tables.length,
+                tablesArray: combinedData.tables,
+                totalColumns: Object.keys(combinedData.columns).length,
+                columnsKeys: Object.keys(combinedData.columns),
+                privateResourcesCount: Object.keys(combinedData.privateResources).length
+              });
+              
+              currentSchemaData = combinedData; // Store for debug
+              
+              if (!publicData.success) {
                 resolve({ suggestions: [] });
                 return;
               }
+              
+              const data = combinedData;
               
               const suggestions = [];
               const word = model.getWordUntilPosition(position);
@@ -777,11 +1174,28 @@ function intelliSenseSetup(): string {
               const fullText = model.getValue();
               const isInFromClause = checkFromClauseContext(fullText, position);
               
-              console.log('Position details:');
-              console.log('- lineNumber:', position.lineNumber);
-              console.log('- column:', position.column);
-              console.log('- textBeforeCursor:', JSON.stringify(textBeforeCursor));
-              console.log('- isInFromClause:', isInFromClause);
+              // Enhanced text analysis logging
+              console.log('=== TEXT ANALYSIS ===');
+              console.log('Full SQL text:', JSON.stringify(fullText));
+              console.log('Text before cursor:', JSON.stringify(textBeforeCursor));
+              console.log('Text length:', textBeforeCursor.length);
+              console.log('Position details:', {
+                lineNumber: position.lineNumber,
+                column: position.column,
+                totalLines: fullText.split('\\n').length
+              });
+              console.log('FROM clause context check:', {
+                isInFromClause: isInFromClause,
+                fullTextSnippet: fullText.substring(0, 100) + (fullText.length > 100 ? '...' : '')
+              });
+              
+              // OFFLINE DEBUG: Manual analysis for o. case
+              if (textBeforeCursor.endsWith('o.') || textBeforeCursor.includes('o.')) {
+                console.log('=== DETECTED o. PATTERN ===');
+                console.log('This should trigger alias completion for "o"');
+                console.log('Expected: Find table "orders" for alias "o"');
+                console.log('Expected columns: id, user_id, amount, order_date, status, created_at');
+              }
               
               // 詳細ログを送信
               logToServer('IntelliSense detailed analysis', {
@@ -819,44 +1233,44 @@ function intelliSenseSetup(): string {
                   endColumn: position.column
                 }) : '';
               
+              console.log('=== ALIAS DETECTION ===');
               console.log('Character before cursor:', JSON.stringify(charBeforeCursor));
+              console.log('Character code:', charBeforeCursor.charCodeAt(0) || 'none');
+              console.log('Is dot?:', charBeforeCursor === '.');
               
-              // エイリアス検出の改善版
-              let periodMatch = null;
+              // Use extracted utility function for alias detection
+              let periodMatch = extractAliasFromText(textBeforeCursor, charBeforeCursor);
+              const aliasData = {
+                textBeforeCursor: textBeforeCursor,
+                charBeforeCursor: charBeforeCursor,
+                charCode: charBeforeCursor.charCodeAt(0) || null,
+                isDot: charBeforeCursor === '.',
+                result: periodMatch
+              };
+              console.log('First alias extraction attempt:', aliasData);
+              sendIntelliSenseDebugLog('ALIAS_DETECTION', aliasData);
               
-              // 1. ドット入力直後のケース
-              if (charBeforeCursor === '.') {
-                const textUpToDot = model.getValueInRange({
-                  startLineNumber: position.lineNumber,
-                  startColumn: 1,
-                  endLineNumber: position.lineNumber,
-                  endColumn: position.column - 1
-                });
-                console.log('Text up to dot:', JSON.stringify(textUpToDot));
-                
-                const aliasMatch = textUpToDot.match(/([a-zA-Z0-9_]+)$/);
-                if (aliasMatch) {
-                  periodMatch = [aliasMatch[0] + '.', aliasMatch[1], ''];
-                  console.log('Found alias before dot:', aliasMatch[1]);
-                }
-              } 
-              // 2. 既にドットが含まれているケース
-              else {
-                periodMatch = textBeforeCursor.match(/([a-zA-Z0-9_]+)\\.([a-zA-Z0-9_]*)$/);
-                if (periodMatch) {
-                  console.log('Found existing dot pattern:', periodMatch);
-                }
-              }
-              
-              // 3. フォールバック: より広範囲での検索
+              // Fallback: try with full line if not found
               if (!periodMatch) {
-                // 現在行全体を確認
                 const fullLine = model.getLineContent(position.lineNumber);
                 const beforeCursor = fullLine.substring(0, position.column - 1);
-                periodMatch = beforeCursor.match(/([a-zA-Z0-9_]+)\\.([a-zA-Z0-9_]*)$/);
-                if (periodMatch) {
-                  console.log('Found fallback pattern:', periodMatch);
-                }
+                console.log('Fallback alias extraction:', {
+                  fullLine: JSON.stringify(fullLine),
+                  beforeCursor: JSON.stringify(beforeCursor),
+                  position: position.column - 1
+                });
+                periodMatch = extractAliasFromText(beforeCursor, '');
+                console.log('Fallback result:', periodMatch);
+              }
+              
+              console.log('Final alias match result:', periodMatch);
+              
+              // Additional debugging for common patterns
+              if (textBeforeCursor.includes('.')) {
+                console.log('Text contains dot - analyzing patterns:');
+                console.log('- Last dot index:', textBeforeCursor.lastIndexOf('.'));
+                console.log('- Text after last dot:', textBeforeCursor.substring(textBeforeCursor.lastIndexOf('.') + 1));
+                console.log('- Text before last dot:', textBeforeCursor.substring(0, textBeforeCursor.lastIndexOf('.')));
               }
               console.log('Schema data:', currentSchemaData);
               
@@ -873,11 +1287,24 @@ function intelliSenseSetup(): string {
               if (periodMatch) {
                 const alias = periodMatch[1];
                 debugInfo.alias = alias;
+                
+                console.log('=== SQL PARSING AND TABLE RESOLUTION ===');
                 console.log('Found alias:', alias);
+                console.log('Period match details:', {
+                  fullMatch: periodMatch[0],
+                  alias: periodMatch[1], 
+                  partialColumn: periodMatch[2] || ''
+                });
                 
                 // Parse SQL using rawsql-ts - with improved caching logic
                 const fullText = model.getValue();
                 let tableName = null;
+                
+                console.log('About to parse SQL for table resolution:', {
+                  sqlLength: fullText.length,
+                  sqlPreview: fullText.substring(0, 200) + (fullText.length > 200 ? '...' : ''),
+                  targetAlias: alias
+                });
                 
                 // 詳細ログ: 現在のSQL全文とパース実行タイミング
                 logToServer('SQL parsing attempt', {
@@ -917,15 +1344,20 @@ function intelliSenseSetup(): string {
                     lastSuccessfulParseResult = parseResult;
                     lastValidQuery = parseResult;
                     
-                    console.log('Parse successful - cache refreshed completely');
-                    console.log('Calling findTableByAlias with fresh parse result:', {
-                      parseResult: parseResult,
-                      tables: parseResult.tables,
-                      alias: alias
-                    });
+                    console.log('=== PARSE SUCCESSFUL ===');
+                    console.log('Parse result tables:', parseResult.tables);
+                    console.log('Looking for alias:', alias);
+                    console.log('Available aliases:', parseResult.tables?.map(t => \`\${t.name} AS \${t.alias}\`) || []);
+                    
                     // 新しいパース結果のみを使用（キャッシュは使わない）
                     tableName = findTableByAlias(parseResult, alias);
                     debugInfo.parseSuccess = true;
+                    
+                    console.log('Table resolution result:', {
+                      alias: alias,
+                      resolvedTableName: tableName,
+                      allTables: parseResult.tables
+                    });
                     
                     logToServer('Using fresh parse result (cache refreshed)', {
                       alias: alias,
@@ -982,45 +1414,85 @@ function intelliSenseSetup(): string {
                 if (tableName) {
                   let columns = [];
                   
+                  console.log('=== COLUMN RESOLUTION ===');
+                  console.log('Resolved table name:', tableName);
+                  console.log('Available schema data:', {
+                    schemaColumns: Object.keys(data.columns || {}),
+                    privateResources: Object.keys(data.privateResources || {}),
+                    hasParseResult: !!lastSuccessfulParseResult
+                  });
+                  
                   // Check if it's a CTE or subquery table with columns in parse result
                   const parseResult = lastSuccessfulParseResult || (parseResult && parseResult.success ? parseResult : null);
                   if (parseResult) {
+                    console.log('Using parse result for column resolution');
                     const tableObject = findTableObjectByAlias(parseResult, alias);
+                    console.log('Table object found:', tableObject);
+                    
                     if (tableObject && (tableObject.type === 'cte' || tableObject.type === 'subquery') && tableObject.columns && tableObject.columns.length > 0) {
                       columns = tableObject.columns;
                       console.log('Using CTE/subquery columns:', columns, 'type:', tableObject.type);
                     } else if (data.columns[tableName]) {
                       columns = data.columns[tableName];
-                      console.log('Using schema columns:', columns);
+                      console.log('Using public schema columns:', columns);
+                    } else {
+                      // Check if it's a private resource
+                      const privateResource = data.privateResources && data.privateResources[tableName];
+                      console.log('Checking private resource for table:', tableName, 'found:', !!privateResource);
+                      if (privateResource && privateResource.columns) {
+                        columns = privateResource.columns.map(col => col.name);
+                        console.log('Using private resource columns:', columns);
+                      } else {
+                        console.log('No columns found - private resource details:', privateResource);
+                      }
                     }
-                  } else if (data.columns[tableName]) {
-                    columns = data.columns[tableName];
-                    console.log('Using schema columns (fallback):', columns);
+                  } else {
+                    console.log('No parse result available, using fallback');
+                    if (data.columns[tableName]) {
+                      columns = data.columns[tableName];
+                      console.log('Using schema columns (fallback):', columns);
+                    } else {
+                      console.log('Table not found in schema columns:', tableName);
+                      console.log('Available schema tables:', Object.keys(data.columns || {}));
+                    }
                   }
+                  
+                  console.log('Final columns result:', columns);
                   
                   if (columns.length > 0) {
                     debugInfo.availableColumns = columns.join(', ');
-                    console.log('Columns for table:', columns);
-                    columns.forEach(column => {
-                      suggestions.push({
+                    console.log('=== SUGGESTIONS GENERATION ===');
+                    console.log('Generating', columns.length, 'column suggestions for table:', tableName);
+                    
+                    columns.forEach((column, index) => {
+                      const suggestion = {
                         label: column,
                         kind: monaco.languages.CompletionItemKind.Field,
                         documentation: \`Column: \${column} in table \${tableName} (alias: \${alias})\`,
                         insertText: column,
                         range: range
-                      });
+                      };
+                      suggestions.push(suggestion);
+                      console.log(\`Suggestion \${index + 1}:\`, suggestion);
                     });
                     
+                    console.log('Total suggestions generated:', suggestions.length);
                     updateDebugPanel(debugInfo);
+                    console.log('=== RESOLVING WITH SUGGESTIONS ===');
                     resolve({ suggestions });
                     return;
                   } else {
                     debugInfo.availableColumns = 'none found';
+                    console.log('=== NO COLUMNS FOUND ===');
                     console.log('No columns found for table:', tableName);
+                    console.log('Debug info:', debugInfo);
                   }
                 } else {
                   debugInfo.availableColumns = 'no table found';
+                  console.log('=== NO TABLE FOUND ===');
                   console.log('No table found for alias:', alias);
+                  console.log('Parse result available:', !!lastSuccessfulParseResult);
+                  console.log('Debug info:', debugInfo);
                 }
                 
                 updateDebugPanel(debugInfo);
@@ -1030,27 +1502,35 @@ function intelliSenseSetup(): string {
               
               // If we're in a FROM clause context, only show table names
               if (isInFromClause) {
-                // Add table names only
+                // Add table names only (both public and private)
                 data.tables.forEach(table => {
+                  const isPrivate = data.privateResources && data.privateResources[table];
+                  const icon = isPrivate ? '🔒' : '📋';
+                  const description = isPrivate ? data.privateResources[table].description : \`Public table: \${table}\`;
+                  
                   suggestions.push({
-                    label: table,
+                    label: \`\${icon} \${table}\`,
                     kind: monaco.languages.CompletionItemKind.Class,
-                    documentation: \`Table: \${table}\`,
+                    documentation: description,
                     insertText: table,
                     range: range
                   });
                 });
                 
-                console.log('FROM clause context - showing only table names');
+                console.log('FROM clause context - showing table names (public + private)');
               } else {
                 // Normal IntelliSense - show all items
                 
-                // Add table names
+                // Add table names (both public and private)
                 data.tables.forEach(table => {
+                  const isPrivate = data.privateResources && data.privateResources[table];
+                  const icon = isPrivate ? '🔒' : '📋';
+                  const description = isPrivate ? data.privateResources[table].description : \`Public table: \${table}\`;
+                  
                   suggestions.push({
-                    label: table,
+                    label: \`\${icon} \${table}\`,
                     kind: monaco.languages.CompletionItemKind.Class,
-                    documentation: \`Table: \${table}\`,
+                    documentation: description,
                     insertText: table,
                     range: range
                   });
@@ -1110,9 +1590,40 @@ function intelliSenseSetup(): string {
                 }
               }
               
+              console.log('=== FINAL SUGGESTIONS SUMMARY ===');
+              console.log('Total suggestions returned:', suggestions.length);
+              console.log('Suggestions preview:', suggestions.slice(0, 5).map(s => s.label));
+              console.log('=== INTELLISENSE DETAILED LOG END ===');
+              
               resolve({ suggestions });
             } catch (error) {
+              console.error('=== INTELLISENSE ERROR ===');
               console.error('Error loading completion items:', error);
+              console.error('Error stack:', error.stack);
+              
+              // OFFLINE DEBUG: Error analysis
+              console.log('=== ERROR ANALYSIS ===');
+              const currentSql = model ? model.getValue() : 'unknown';
+              const currentPos = position || { lineNumber: 0, column: 0 };
+              
+              console.log('SQL at error:', JSON.stringify(currentSql));
+              console.log('Position at error:', currentPos);
+              console.log('Error type:', error.constructor.name);
+              console.log('Error message:', error.message);
+              
+              if (error.message.includes('Failed to fetch')) {
+                console.log('DIAGNOSIS: Server connection failed');
+                console.log('SOLUTION: Restart server with "npm run dev web"');
+                console.log('OR: Test locally using Test buttons in sidebar');
+              } else if (error.message.includes('undefined')) {
+                console.log('DIAGNOSIS: Undefined variable or null reference');
+                console.log('SOLUTION: Check schema data loading');
+              } else {
+                console.log('DIAGNOSIS: Unknown error type');
+                console.log('SOLUTION: Check browser console for more details');
+              }
+              
+              console.log('=== INTELLISENSE DETAILED LOG END (ERROR) ===');
               resolve({ suggestions: [] });
             }
           });

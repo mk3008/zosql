@@ -6,6 +6,8 @@ import { SqlParserApi } from './api/sql-parser-api.js';
 import { SchemaApi } from './api/schema-api.js';
 import { DebugApi } from './api/debug-api.js';
 import { QueryExecutorApi } from './api/query-executor-api.js';
+import { PrivateSchemaApi } from './api/private-schema-api.js';
+import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
 import { getHtmlTemplate } from './web-ui-template.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +28,8 @@ export class WebServer {
   private schemaApi: SchemaApi;
   private debugApi: DebugApi;
   private queryExecutorApi: QueryExecutorApi;
+  private privateSchemaApi: PrivateSchemaApi;
+  private intelliSenseDebugApi: IntelliSenseDebugApi;
 
   constructor(options: WebServerOptions) {
     this.app = express();
@@ -38,6 +42,8 @@ export class WebServer {
     this.schemaApi = new SchemaApi();
     this.debugApi = new DebugApi();
     this.queryExecutorApi = new QueryExecutorApi();
+    this.privateSchemaApi = new PrivateSchemaApi();
+    this.intelliSenseDebugApi = new IntelliSenseDebugApi();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -80,6 +86,12 @@ export class WebServer {
     // Schema completion API for IntelliSense
     this.app.get('/api/schema/completion', this.schemaApi.handleGetSchemaCompletion.bind(this.schemaApi));
     
+    // Private Schema API
+    this.app.get('/api/private-schema', this.privateSchemaApi.handleGetPrivateSchema.bind(this.privateSchemaApi));
+    
+    // Private Schema completion API for IntelliSense
+    this.app.get('/api/private-schema/completion', this.privateSchemaApi.handleGetPrivateCompletion.bind(this.privateSchemaApi));
+    
     // SQL parsing API for syntax checking with detailed alias logging
     this.app.post('/api/parse-sql', this.sqlParserApi.handleParseSql.bind(this.sqlParserApi));
     
@@ -91,6 +103,11 @@ export class WebServer {
     
     // Database reset API
     this.app.post('/api/reset-database', this.queryExecutorApi.handleResetDatabase.bind(this.queryExecutorApi));
+    
+    // IntelliSense Debug API
+    this.app.post('/api/intellisense-debug', this.intelliSenseDebugApi.handleDebugLog.bind(this.intelliSenseDebugApi));
+    this.app.get('/api/intellisense-debug/logs', this.intelliSenseDebugApi.handleGetDebugLogs.bind(this.intelliSenseDebugApi));
+    this.app.get('/api/intellisense-debug/analyze', this.intelliSenseDebugApi.handleAnalyzeLogs.bind(this.intelliSenseDebugApi));
     
     // Main application route
     this.app.get('/', (_req, res) => {

@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { Logger } from '../utils/logging.js';
+import { PrivateSchemaApi } from './private-schema-api.js';
+import { SelectQueryParser } from 'rawsql-ts';
 
 export interface QueryResult {
   rows: any[];
@@ -11,9 +13,11 @@ export interface QueryResult {
 export class QueryExecutorApi {
   private logger: Logger;
   private db: any; // PGlite instance
+  private privateSchemaApi: PrivateSchemaApi;
 
   constructor() {
     this.logger = Logger.getInstance();
+    this.privateSchemaApi = new PrivateSchemaApi();
   }
 
   public async initializeDatabase(): Promise<void> {
@@ -112,6 +116,98 @@ export class QueryExecutorApi {
     }
   }
 
+  /**
+   * Parse SQL and detect private resources usage, then compose WITH clause
+   */
+  private async composeSqlWithPrivateResources(originalSql: string): Promise<string> {
+    try {
+      this.logger.log(`[QUERY-EXECUTOR] Composing SQL with private resources`);
+      this.logger.log(`[QUERY-EXECUTOR] Original SQL: ${originalSql}`);
+
+      // Parse the SQL to detect table references
+      const query = SelectQueryParser.parse(originalSql).toSimpleQuery();
+      const usedPrivateResources: string[] = [];
+      
+      // Get all private resources
+      const allPrivateResources = this.privateSchemaApi.getAllPrivateResources();
+      const privateResourceNames = Object.keys(allPrivateResources);
+      
+      this.logger.log(`[QUERY-EXECUTOR] Available private resources: ${privateResourceNames.join(', ')}`);
+
+      // Check FROM clause for private resource usage
+      if (query.fromClause) {
+        // Check main table
+        const mainTable = query.fromClause.source?.datasource;
+        if (mainTable && 'qualifiedName' in mainTable) {
+          const qualifiedName = mainTable.qualifiedName?.name;
+          const mainTableName = qualifiedName && typeof qualifiedName === 'object' && 'name' in qualifiedName 
+            ? qualifiedName.name 
+            : qualifiedName;
+          const tableNameStr = typeof mainTableName === 'string' ? mainTableName : String(mainTableName);
+          if (tableNameStr && privateResourceNames.includes(tableNameStr)) {
+            usedPrivateResources.push(tableNameStr);
+            this.logger.log(`[QUERY-EXECUTOR] Found private resource in FROM: ${tableNameStr}`);
+          }
+        }
+
+        // Check JOINs
+        if (query.fromClause.joins) {
+          for (const join of query.fromClause.joins) {
+            const joinTable = join.source?.datasource;
+            if (joinTable && 'qualifiedName' in joinTable) {
+              const qualifiedName = joinTable.qualifiedName?.name;
+              const joinTableName = qualifiedName && typeof qualifiedName === 'object' && 'name' in qualifiedName 
+                ? qualifiedName.name 
+                : qualifiedName;
+              const tableNameStr = typeof joinTableName === 'string' ? joinTableName : String(joinTableName);
+              if (tableNameStr && privateResourceNames.includes(tableNameStr)) {
+                usedPrivateResources.push(tableNameStr);
+                this.logger.log(`[QUERY-EXECUTOR] Found private resource in JOIN: ${tableNameStr}`);
+              }
+            }
+          }
+        }
+      }
+
+      // Remove duplicates
+      const uniquePrivateResources = [...new Set(usedPrivateResources)];
+      
+      if (uniquePrivateResources.length === 0) {
+        this.logger.log(`[QUERY-EXECUTOR] No private resources detected, returning original SQL`);
+        return originalSql;
+      }
+
+      this.logger.log(`[QUERY-EXECUTOR] Used private resources: ${uniquePrivateResources.join(', ')}`);
+
+      // Generate WITH clause using PrivateSchemaApi
+      const withClause = this.privateSchemaApi.generateWithClause(uniquePrivateResources);
+      
+      if (!withClause) {
+        this.logger.log(`[QUERY-EXECUTOR] Failed to generate WITH clause`);
+        return originalSql;
+      }
+
+      // Check if original SQL already has WITH clause
+      let composedSql: string;
+      if (query.withClause && query.withClause.tables && query.withClause.tables.length > 0) {
+        // Merge WITH clauses - this is complex, for now just prepend
+        this.logger.log(`[QUERY-EXECUTOR] Original SQL already has WITH clause, prepending private resources`);
+        composedSql = `${withClause}, \n${originalSql.replace(/^\s*WITH\s+/i, '')}`;
+      } else {
+        // Simple case: prepend WITH clause
+        composedSql = `${withClause}\n${originalSql}`;
+      }
+
+      this.logger.log(`[QUERY-EXECUTOR] Composed SQL: ${composedSql}`);
+      return composedSql;
+
+    } catch (error) {
+      this.logger.log(`[QUERY-EXECUTOR] Error composing SQL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.log(`[QUERY-EXECUTOR] Returning original SQL due to composition error`);
+      return originalSql;
+    }
+  }
+
   public async handleExecuteQuery(req: Request, res: Response): Promise<void> {
     try {
       const { sql } = req.body;
@@ -123,11 +219,14 @@ export class QueryExecutorApi {
       
       this.logger.log(`[QUERY-EXECUTOR] Executing SQL (length: ${sql.length}): "${sql.substring(0, 100)}..."`);
       
+      // Compose SQL with private resources
+      const composedSql = await this.composeSqlWithPrivateResources(sql);
+      
       const startTime = Date.now();
       
       try {
-        // Execute the query
-        const result = await this.db.query(sql);
+        // Execute the composed query
+        const result = await this.db.query(composedSql);
         const executionTime = Date.now() - startTime;
         
         this.logger.log(`[QUERY-EXECUTOR] Query executed successfully in ${executionTime}ms, returned ${result.rows?.length || 0} rows`);
@@ -145,7 +244,9 @@ export class QueryExecutorApi {
             rows: result.rows || [],
             fields: result.fields || [],
             executionTime
-          }
+          },
+          originalSql: sql,
+          composedSql: composedSql !== sql ? composedSql : undefined
         });
       } catch (queryError) {
         const errorMessage = queryError instanceof Error ? queryError.message : 'Query execution failed';
