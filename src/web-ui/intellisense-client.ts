@@ -213,7 +213,7 @@ export function getIntelliSenseSetup(): string {
                 suggestions = [{
                   label: recommendedAlias,
                   kind: monaco.languages.CompletionItemKind.Variable,
-                  insertText: recommendedAlias,
+                  insertText: recommendedAlias + ' ',
                   detail: \`Recommended alias for \${postAliasInfo.tableName}\`,
                   documentation: \`Suggested alias based on table name '\${postAliasInfo.tableName}'\`
                 }];
@@ -254,7 +254,7 @@ export function getIntelliSenseSetup(): string {
                 ...currentSchemaData.tables.map(table => ({
                   label: table,
                   kind: monaco.languages.CompletionItemKind.Class,
-                  insertText: table,
+                  insertText: table + ' ',
                   detail: 'Table',
                   documentation: \`Table: \${table}\`
                 })),
@@ -262,7 +262,7 @@ export function getIntelliSenseSetup(): string {
                 ...Object.keys(currentSchemaData.privateResources || {}).map(resourceName => ({
                   label: resourceName,
                   kind: monaco.languages.CompletionItemKind.Module,
-                  insertText: resourceName,
+                  insertText: resourceName + ' ',
                   detail: 'Private Resource',
                   documentation: currentSchemaData.privateResources[resourceName]?.description || \`Private resource: \${resourceName}\`
                 }))
