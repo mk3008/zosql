@@ -57,14 +57,24 @@ export function extractAliasFromText(textBeforeCursor: string, charBeforeCursor:
 
   // 1. ドット入力直後のケース
   if (charBeforeCursor === '.') {
-    const aliasMatch = textBeforeCursor.match(/([a-zA-Z0-9_]+)$/);
-    if (aliasMatch) {
-      periodMatch = [aliasMatch[0] + '.', aliasMatch[1], ''];
+    // Check if textBeforeCursor already includes the dot
+    if (textBeforeCursor.endsWith('.')) {
+      // Case: textBeforeCursor = "where u.", charBeforeCursor = "."
+      const aliasMatch = textBeforeCursor.match(/([a-zA-Z][a-zA-Z0-9_]*)\.$/);
+      if (aliasMatch) {
+        periodMatch = [aliasMatch[0], aliasMatch[1], ''];
+      }
+    } else {
+      // Case: textBeforeCursor = "SELECT o", charBeforeCursor = "."
+      const aliasMatch = textBeforeCursor.match(/([a-zA-Z][a-zA-Z0-9_]*)$/);
+      if (aliasMatch) {
+        periodMatch = [aliasMatch[0] + '.', aliasMatch[1], ''];
+      }
     }
   } 
   // 2. 既にドットが含まれているケース
   else {
-    const match = textBeforeCursor.match(/([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]*)$/);
+    const match = textBeforeCursor.match(/([a-zA-Z][a-zA-Z0-9_]*)\.([a-zA-Z0-9_]*)$/);
     if (match) {
       periodMatch = [match[0], match[1], match[2]];
     }
@@ -116,6 +126,7 @@ export function combineSchemaData(publicData: any, privateData: any): any {
     tables: [...(publicData.tables || []), ...(privateData.privateTables || [])],
     columns: {...(publicData.columns || {}), ...(privateData.privateColumns || {})},
     functions: publicData.functions || [],
+    keywords: publicData.keywords || [],
     privateResources: privateData.privateResources || {}
   };
 }

@@ -9,6 +9,8 @@
   "scripts": {
     "test": "vitest",
     "test:once": "vitest run",
+    "test:intellisense": "node scripts/test-intellisense.js",
+    "test:regression": "npm run test:once -- test/intellisense-regression.test.ts",
     "build": "tsc",
     "dev": "tsx src/index.ts"
   },

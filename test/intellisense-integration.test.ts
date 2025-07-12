@@ -21,7 +21,7 @@ describe('IntelliSense Integration Tests', () => {
         INNER JOIN users AS u ON us.user_id = u.id
         WHERE us.`;
       
-      const position = { lineNumber: 8, column: 19 };
+      const position = { lineNumber: 10, column: 17 };
       
       // Should not be in FROM clause
       expect(checkFromClauseContext(fullText, position)).toBe(false);
