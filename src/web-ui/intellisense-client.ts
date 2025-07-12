@@ -46,11 +46,14 @@ export function getIntelliSenseSetup(): string {
             const isFromContext = checkFromClauseContext(fullText, position);
             const isSelectContext = checkSelectClauseContext(fullText, position);
             const isPostTableContext = checkPostTableContext(fullText, position);
+            const postAliasInfo = checkPostAliasContext(fullText, position);
             
             sendIntelliSenseDebugLog('CONTEXT_CHECK', {
               isFromContext: isFromContext,
               isSelectContext: isSelectContext,
               isPostTableContext: isPostTableContext,
+              isPostAliasContext: postAliasInfo.isPostAliasContext,
+              aliasTableName: postAliasInfo.tableName,
               position: position
             });
 
@@ -202,6 +205,34 @@ export function getIntelliSenseSetup(): string {
               });
               
               return { suggestions: [] };
+            } else if (postAliasInfo.isPostAliasContext) {
+              // AS キーワード直後 - 推奨エイリアス名を提案
+              const recommendedAlias = generateTableAlias(postAliasInfo.tableName);
+              
+              if (recommendedAlias) {
+                suggestions = [{
+                  label: recommendedAlias,
+                  kind: monaco.languages.CompletionItemKind.Variable,
+                  insertText: recommendedAlias,
+                  detail: \`Recommended alias for \${postAliasInfo.tableName}\`,
+                  documentation: \`Suggested alias based on table name '\${postAliasInfo.tableName}'\`
+                }];
+                
+                sendIntelliSenseDebugLog('POST_ALIAS_CONTEXT_SUGGESTIONS', {
+                  message: 'Suggesting recommended alias after AS keyword',
+                  tableName: postAliasInfo.tableName,
+                  recommendedAlias: recommendedAlias,
+                  totalSuggestions: suggestions.length
+                });
+              } else {
+                // エイリアス生成に失敗した場合は候補なし
+                sendIntelliSenseDebugLog('POST_ALIAS_CONTEXT_NO_SUGGESTIONS', {
+                  message: 'No alias suggestions after AS keyword',
+                  tableName: postAliasInfo.tableName
+                });
+                
+                return { suggestions: [] };
+              }
             } else if (isPostTableContext) {
               // テーブル名直後 - ASキーワードのみ提案
               suggestions = [{

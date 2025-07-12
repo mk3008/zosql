@@ -88,6 +88,71 @@ export function getUtilityFunctions(): string {
     }
     
     /**
+     * AS キーワード直後のコンテキストを検出する
+     * "FROM table_name AS " の直後にカーソルがある場合にtrueを返す
+     * この場合はテーブル名に基づいた推奨エイリアス名を提案する
+     */
+    function checkPostAliasContext(fullText, position) {
+      try {
+        // Get text up to current position
+        const lines = fullText.split('\\n');
+        let textUpToCursor = '';
+        
+        for (let i = 0; i < position.lineNumber - 1; i++) {
+          textUpToCursor += lines[i] + '\\n';
+        }
+        
+        if (lines[position.lineNumber - 1]) {
+          textUpToCursor += lines[position.lineNumber - 1].substring(0, position.column - 1);
+        }
+        
+        // Remove comments and string literals for better parsing
+        const cleanedText = textUpToCursor
+          .replace(/--.*$/gm, '') // Remove line comments
+          .replace(/\\/\\*[\\s\\S]*?\\*\\//g, '') // Remove block comments
+          .replace(/'[^']*'/g, "''") // Remove string literals
+          .replace(/"[^"]*"/g, '""'); // Remove quoted identifiers
+        
+        // AS キーワードの直後を検出
+        // パターン1: FROM table_name AS の直後
+        const postAliasPattern = /\\bFROM\\s+(\\w+)\\s+AS\\s+$/i;
+        // パターン2: JOIN table_name AS の直後
+        const postJoinAliasPattern = /\\b(?:INNER\\s+JOIN|LEFT\\s+JOIN|RIGHT\\s+JOIN|FULL\\s+JOIN|JOIN)\\s+(\\w+)\\s+AS\\s+$/i;
+        
+        const fromMatch = postAliasPattern.exec(cleanedText);
+        const joinMatch = postJoinAliasPattern.exec(cleanedText);
+        
+        if (fromMatch || joinMatch) {
+          const tableName = fromMatch ? fromMatch[1] : joinMatch[1];
+          return { isPostAliasContext: true, tableName: tableName };
+        }
+        
+        return { isPostAliasContext: false, tableName: null };
+      } catch (error) {
+        console.error('Error checking post-alias context:', error);
+        return { isPostAliasContext: false, tableName: null };
+      }
+    }
+    
+    /**
+     * テーブル名から推奨エイリアス名を生成する
+     * 例: users -> u, active_users -> au, user_stats -> us
+     */
+    function generateTableAlias(tableName) {
+      if (!tableName) return '';
+      
+      // アンダースコアで分割して各単語の最初の文字を取得
+      const parts = tableName.toLowerCase().split('_');
+      if (parts.length > 1) {
+        // 複数単語の場合: user_stats -> us, active_users -> au
+        return parts.map(part => part.charAt(0)).join('');
+      } else {
+        // 単一単語の場合: users -> u, orders -> o
+        return tableName.charAt(0).toLowerCase();
+      }
+    }
+    
+    /**
      * FROM句/JOIN句のコンテキストを検出する
      * "FROM " や "JOIN " の直後でテーブル名を入力中の場合にtrueを返す
      * この場合はテーブル名とプライベートリソースを提案する
