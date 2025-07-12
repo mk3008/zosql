@@ -215,7 +215,11 @@ export function getIntelliSenseSetup(): string {
                   kind: monaco.languages.CompletionItemKind.Variable,
                   insertText: recommendedAlias + ' ',
                   detail: \`Recommended alias for \${postAliasInfo.tableName}\`,
-                  documentation: \`Suggested alias based on table name '\${postAliasInfo.tableName}'\`
+                  documentation: \`Suggested alias based on table name '\${postAliasInfo.tableName}'\`,
+                  command: {
+                    id: 'editor.action.triggerSuggest',
+                    title: 'Trigger IntelliSense'
+                  }
                 }];
                 
                 sendIntelliSenseDebugLog('POST_ALIAS_CONTEXT_SUGGESTIONS', {
@@ -240,7 +244,11 @@ export function getIntelliSenseSetup(): string {
                 kind: monaco.languages.CompletionItemKind.Keyword,
                 insertText: 'AS ',
                 detail: 'SQL Alias Keyword',
-                documentation: 'Use AS to create an alias for the table'
+                documentation: 'Use AS to create an alias for the table',
+                command: {
+                  id: 'editor.action.triggerSuggest',
+                  title: 'Trigger IntelliSense'
+                }
               }];
               
               sendIntelliSenseDebugLog('POST_TABLE_CONTEXT_SUGGESTIONS', {
@@ -256,7 +264,11 @@ export function getIntelliSenseSetup(): string {
                   kind: monaco.languages.CompletionItemKind.Class,
                   insertText: table + ' ',
                   detail: 'Table',
-                  documentation: \`Table: \${table}\`
+                  documentation: \`Table: \${table}\`,
+                  command: {
+                    id: 'editor.action.triggerSuggest',
+                    title: 'Trigger IntelliSense'
+                  }
                 })),
                 // Private resources
                 ...Object.keys(currentSchemaData.privateResources || {}).map(resourceName => ({
@@ -264,7 +276,11 @@ export function getIntelliSenseSetup(): string {
                   kind: monaco.languages.CompletionItemKind.Module,
                   insertText: resourceName + ' ',
                   detail: 'Private Resource',
-                  documentation: currentSchemaData.privateResources[resourceName]?.description || \`Private resource: \${resourceName}\`
+                  documentation: currentSchemaData.privateResources[resourceName]?.description || \`Private resource: \${resourceName}\`,
+                  command: {
+                    id: 'editor.action.triggerSuggest',
+                    title: 'Trigger IntelliSense'
+                  }
                 }))
               ];
               
