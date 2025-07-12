@@ -156,9 +156,8 @@ export function getHelperFunctions(): string {
       
       // Add private data if available
       if (privateData && privateData.success) {
-        if (privateData.privateTables) {
-          combined.tables.push(...privateData.privateTables);
-        }
+        // Note: Private resources should NOT be added to the tables array
+        // to avoid duplicate suggestions. They are handled separately via privateResources.
         if (privateData.privateColumns) {
           Object.assign(combined.columns, privateData.privateColumns);
         }
