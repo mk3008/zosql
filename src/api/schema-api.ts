@@ -52,11 +52,21 @@ export class SchemaApi {
         });
         
         this.logger.log(`[SCHEMA-COMPLETION] Provided ${tables.length} tables for IntelliSense`);
+        // SQL keywords for IntelliSense
+        const keywords = [
+          'SELECT', 'FROM', 'WHERE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL',
+          'ON', 'AS', 'GROUP', 'BY', 'ORDER', 'HAVING', 'UNION', 'WITH',
+          'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'TABLE',
+          'AND', 'OR', 'NOT', 'NULL', 'IS', 'IN', 'EXISTS', 'BETWEEN',
+          'LIKE', 'LIMIT', 'OFFSET', 'DISTINCT', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'
+        ];
+
         res.json({
           success: true,
           tables,
           columns,
-          functions: schema.functions
+          functions: schema.functions || [],
+          keywords
         });
       } else {
         this.logger.log(`[SCHEMA-COMPLETION] Schema file not found`);

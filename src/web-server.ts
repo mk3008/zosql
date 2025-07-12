@@ -8,7 +8,7 @@ import { DebugApi } from './api/debug-api.js';
 import { QueryExecutorApi } from './api/query-executor-api.js';
 import { PrivateSchemaApi } from './api/private-schema-api.js';
 import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
-import { getHtmlTemplate } from './web-ui-template.js';
+import { getHtmlTemplate } from './web-ui/template-system.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +38,10 @@ export class WebServer {
     
     // Initialize services
     this.logger = Logger.getInstance();
+    
+    // Replace console output with file output
+    Logger.replaceConsole();
+    
     this.sqlParserApi = new SqlParserApi();
     this.schemaApi = new SchemaApi();
     this.debugApi = new DebugApi();
@@ -128,12 +132,18 @@ export class WebServer {
   public async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.server = this.app.listen(this.port, this.host, () => {
-        console.log(`zosql browser server running at http://${this.host}:${this.port}`);
+        this.logger.info(`zosql browser server running at http://${this.host}:${this.port}`);
         this.logger.log('zosql browser server started successfully');
+        const logPaths = this.logger.getLogFilePaths();
+        this.logger.info(`Log files created at:`);
+        Object.entries(logPaths).forEach(([type, path]) => {
+          this.logger.info(`  ${type}: ${path}`);
+        });
         resolve();
       });
 
       this.server.on('error', (err: any) => {
+        this.logger.error(`Server error: ${err.message}`);
         reject(err);
       });
     });
@@ -143,7 +153,7 @@ export class WebServer {
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
-          console.log('zosql browser server stopped');
+          this.logger.info('zosql browser server stopped');
           resolve();
         });
       } else {

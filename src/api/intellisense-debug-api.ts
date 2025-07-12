@@ -34,15 +34,15 @@ export class IntelliSenseDebugApi {
         this.debugLogs = this.debugLogs.slice(-100);
       }
 
-      this.logger.log(`[INTELLISENSE-DEBUG] ${phase}: ${JSON.stringify(data)}`);
+      this.logger.intelliSense(`${phase}: ${JSON.stringify(data)}`);
       
       if (error) {
-        this.logger.log(`[INTELLISENSE-DEBUG] Error in ${phase}: ${error}`);
+        this.logger.intelliSense(`Error in ${phase}: ${error}`);
       }
 
       res.json({ success: true });
     } catch (error) {
-      this.logger.log(`[INTELLISENSE-DEBUG] API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`[INTELLISENSE-DEBUG] API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
@@ -68,7 +68,7 @@ export class IntelliSenseDebugApi {
         availablePhases: [...new Set(this.debugLogs.map(log => log.phase))]
       });
     } catch (error) {
-      this.logger.log(`[INTELLISENSE-DEBUG] Get logs error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`[INTELLISENSE-DEBUG] Get logs error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
@@ -82,7 +82,7 @@ export class IntelliSenseDebugApi {
         analysis
       });
     } catch (error) {
-      this.logger.log(`[INTELLISENSE-DEBUG] Analysis error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`[INTELLISENSE-DEBUG] Analysis error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
@@ -164,6 +164,6 @@ export class IntelliSenseDebugApi {
 
   public clearLogs(): void {
     this.debugLogs = [];
-    this.logger.log('[INTELLISENSE-DEBUG] Debug logs cleared');
+    this.logger.intelliSense('Debug logs cleared');
   }
 }

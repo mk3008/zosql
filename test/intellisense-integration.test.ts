@@ -5,7 +5,7 @@ import {
   findTableByAlias,
   combineSchemaData,
   getColumnsForTable
-} from './intellisense-utils.js';
+} from '../src/utils/intellisense-utils.js';
 
 describe('IntelliSense Integration Tests', () => {
   describe('Real-world SQL scenarios', () => {

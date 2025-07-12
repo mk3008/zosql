@@ -6,7 +6,7 @@ import {
   findTableObjectByAlias,
   combineSchemaData,
   getColumnsForTable
-} from './intellisense-utils.js';
+} from '../src/utils/intellisense-utils.js';
 
 describe('IntelliSense Utilities', () => {
   describe('checkFromClauseContext', () => {

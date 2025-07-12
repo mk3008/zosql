@@ -27,12 +27,12 @@ export class QueryExecutorApi {
       
       // Initialize PGlite with in-memory database
       this.db = new PGlite();
-      this.logger.log('[QUERY-EXECUTOR] PGlite database initialized');
+      this.logger.query('PGlite database initialized');
       
       // Create default schema based on zosql.schema.js
       await this.createDefaultSchema();
     } catch (error) {
-      this.logger.log(`[QUERY-EXECUTOR] Failed to initialize database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Failed to initialize database: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
@@ -78,9 +78,9 @@ export class QueryExecutorApi {
       // Insert sample data
       await this.insertSampleData();
       
-      this.logger.log('[QUERY-EXECUTOR] Default schema created successfully');
+      this.logger.query('Default schema created successfully');
     } catch (error) {
-      this.logger.log(`[QUERY-EXECUTOR] Failed to create default schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Failed to create default schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
@@ -92,7 +92,7 @@ export class QueryExecutorApi {
       await this.db.exec(`INSERT INTO users (id, name, email) VALUES (2, 'Bob Smith', 'bob@example.com')`);
       await this.db.exec(`INSERT INTO users (id, name, email) VALUES (3, 'Charlie Brown', 'charlie@example.com')`);
       
-      this.logger.log('[QUERY-EXECUTOR] Users inserted successfully');
+      this.logger.query('Users inserted successfully');
       
       // Insert sample orders
       await this.db.exec(`INSERT INTO orders (id, user_id, amount, order_date, status) VALUES (1, 1, 99.99, '2024-01-15', 'completed')`);
@@ -100,7 +100,7 @@ export class QueryExecutorApi {
       await this.db.exec(`INSERT INTO orders (id, user_id, amount, order_date, status) VALUES (3, 2, 75.00, '2024-01-18', 'completed')`);
       await this.db.exec(`INSERT INTO orders (id, user_id, amount, order_date, status) VALUES (4, 3, 200.00, '2024-01-22', 'processing')`);
       
-      this.logger.log('[QUERY-EXECUTOR] Orders inserted successfully');
+      this.logger.query('Orders inserted successfully');
       
       // Insert sample products
       await this.db.exec(`INSERT INTO products (id, name, price, category, description) VALUES (1, 'Laptop', 999.99, 'Electronics', 'High-performance laptop')`);
@@ -108,10 +108,10 @@ export class QueryExecutorApi {
       await this.db.exec(`INSERT INTO products (id, name, price, category, description) VALUES (3, 'Desk', 199.99, 'Furniture', 'Ergonomic standing desk')`);
       await this.db.exec(`INSERT INTO products (id, name, price, category, description) VALUES (4, 'Chair', 149.99, 'Furniture', 'Comfortable office chair')`);
       
-      this.logger.log('[QUERY-EXECUTOR] Products inserted successfully');
-      this.logger.log('[QUERY-EXECUTOR] All sample data inserted successfully');
+      this.logger.query('Products inserted successfully');
+      this.logger.query('All sample data inserted successfully');
     } catch (error) {
-      this.logger.log(`[QUERY-EXECUTOR] Failed to insert sample data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Failed to insert sample data: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // Non-critical error - continue without sample data
     }
   }
@@ -121,8 +121,8 @@ export class QueryExecutorApi {
    */
   private async composeSqlWithPrivateResources(originalSql: string): Promise<string> {
     try {
-      this.logger.log(`[QUERY-EXECUTOR] Composing SQL with private resources`);
-      this.logger.log(`[QUERY-EXECUTOR] Original SQL: ${originalSql}`);
+      this.logger.query(`Composing SQL with private resources`);
+      this.logger.query(`Original SQL: ${originalSql}`);
 
       // Parse the SQL to detect table references
       const query = SelectQueryParser.parse(originalSql).toSimpleQuery();
@@ -132,7 +132,7 @@ export class QueryExecutorApi {
       const allPrivateResources = this.privateSchemaApi.getAllPrivateResources();
       const privateResourceNames = Object.keys(allPrivateResources);
       
-      this.logger.log(`[QUERY-EXECUTOR] Available private resources: ${privateResourceNames.join(', ')}`);
+      this.logger.query(`Available private resources: ${privateResourceNames.join(', ')}`);
 
       // Check FROM clause for private resource usage
       if (query.fromClause) {
@@ -146,7 +146,7 @@ export class QueryExecutorApi {
           const tableNameStr = typeof mainTableName === 'string' ? mainTableName : String(mainTableName);
           if (tableNameStr && privateResourceNames.includes(tableNameStr)) {
             usedPrivateResources.push(tableNameStr);
-            this.logger.log(`[QUERY-EXECUTOR] Found private resource in FROM: ${tableNameStr}`);
+            this.logger.query(`Found private resource in FROM: ${tableNameStr}`);
           }
         }
 
@@ -162,7 +162,7 @@ export class QueryExecutorApi {
               const tableNameStr = typeof joinTableName === 'string' ? joinTableName : String(joinTableName);
               if (tableNameStr && privateResourceNames.includes(tableNameStr)) {
                 usedPrivateResources.push(tableNameStr);
-                this.logger.log(`[QUERY-EXECUTOR] Found private resource in JOIN: ${tableNameStr}`);
+                this.logger.query(`Found private resource in JOIN: ${tableNameStr}`);
               }
             }
           }
@@ -173,17 +173,17 @@ export class QueryExecutorApi {
       const uniquePrivateResources = [...new Set(usedPrivateResources)];
       
       if (uniquePrivateResources.length === 0) {
-        this.logger.log(`[QUERY-EXECUTOR] No private resources detected, returning original SQL`);
+        this.logger.query(`No private resources detected, returning original SQL`);
         return originalSql;
       }
 
-      this.logger.log(`[QUERY-EXECUTOR] Used private resources: ${uniquePrivateResources.join(', ')}`);
+      this.logger.query(`Used private resources: ${uniquePrivateResources.join(', ')}`);
 
       // Generate WITH clause using PrivateSchemaApi
       const withClause = this.privateSchemaApi.generateWithClause(uniquePrivateResources);
       
       if (!withClause) {
-        this.logger.log(`[QUERY-EXECUTOR] Failed to generate WITH clause`);
+        this.logger.error(`Failed to generate WITH clause`);
         return originalSql;
       }
 
@@ -191,19 +191,19 @@ export class QueryExecutorApi {
       let composedSql: string;
       if (query.withClause && query.withClause.tables && query.withClause.tables.length > 0) {
         // Merge WITH clauses - this is complex, for now just prepend
-        this.logger.log(`[QUERY-EXECUTOR] Original SQL already has WITH clause, prepending private resources`);
+        this.logger.query(`Original SQL already has WITH clause, prepending private resources`);
         composedSql = `${withClause}, \n${originalSql.replace(/^\s*WITH\s+/i, '')}`;
       } else {
         // Simple case: prepend WITH clause
         composedSql = `${withClause}\n${originalSql}`;
       }
 
-      this.logger.log(`[QUERY-EXECUTOR] Composed SQL: ${composedSql}`);
+      this.logger.query(`Composed SQL: ${composedSql}`);
       return composedSql;
 
     } catch (error) {
-      this.logger.log(`[QUERY-EXECUTOR] Error composing SQL: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.logger.log(`[QUERY-EXECUTOR] Returning original SQL due to composition error`);
+      this.logger.error(`Error composing SQL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.query(`Returning original SQL due to composition error`);
       return originalSql;
     }
   }
@@ -217,7 +217,7 @@ export class QueryExecutorApi {
         return;
       }
       
-      this.logger.log(`[QUERY-EXECUTOR] Executing SQL (length: ${sql.length}): "${sql.substring(0, 100)}..."`);
+      this.logger.query(`Executing SQL (length: ${sql.length}): "${sql.substring(0, 100)}..."`);
       
       // Compose SQL with private resources
       const composedSql = await this.composeSqlWithPrivateResources(sql);
@@ -229,8 +229,8 @@ export class QueryExecutorApi {
         const result = await this.db.query(composedSql);
         const executionTime = Date.now() - startTime;
         
-        this.logger.log(`[QUERY-EXECUTOR] Query executed successfully in ${executionTime}ms, returned ${result.rows?.length || 0} rows`);
-        this.logger.log(`[QUERY-EXECUTOR] Result structure: ${JSON.stringify({
+        this.logger.query(`Query executed successfully in ${executionTime}ms, returned ${result.rows?.length || 0} rows`);
+        this.logger.query(`Result structure: ${JSON.stringify({
           hasRows: !!result.rows,
           rowsLength: result.rows?.length,
           hasFields: !!result.fields,
@@ -250,7 +250,7 @@ export class QueryExecutorApi {
         });
       } catch (queryError) {
         const errorMessage = queryError instanceof Error ? queryError.message : 'Query execution failed';
-        this.logger.log(`[QUERY-EXECUTOR] Query execution failed: ${errorMessage}`);
+        this.logger.error(`Query execution failed: ${errorMessage}`);
         
         res.json({
           success: false,
@@ -258,14 +258,14 @@ export class QueryExecutorApi {
         });
       }
     } catch (error) {
-      this.logger.log(`[QUERY-EXECUTOR] API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
   public async handleResetDatabase(_req: Request, res: Response): Promise<void> {
     try {
-      this.logger.log('[QUERY-EXECUTOR] Resetting database...');
+      this.logger.query('Resetting database...');
       
       // Drop all tables
       await this.db.exec('DROP TABLE IF EXISTS orders CASCADE');
@@ -277,7 +277,7 @@ export class QueryExecutorApi {
       
       res.json({ success: true, message: 'Database reset successfully' });
     } catch (error) {
-      this.logger.log(`[QUERY-EXECUTOR] Failed to reset database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Failed to reset database: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }

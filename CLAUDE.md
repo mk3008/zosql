@@ -103,12 +103,17 @@ class SqlTranspiler {
 9. **FROM句コンテキスト**: テーブル名のみ表示 [x]
 10. **リファクタリング**: 責務分離による保守性向上 [x]
 
-### Phase 2 (次期実装) - SQL制約を超えた機能
-1. **クエリ実行機能**: WASM Postgres統合 [ ]
-2. **Private スキーマ**: CTE名前付け機能 [ ]
-3. **SQL トランスパイラ**: 独自構文→標準SQL変換 [ ]
-4. **スキーマレジストリ**: Public/Private管理 [ ]
-5. **テストデータ埋め込み**: VALUES句自動生成 [ ]
+### Phase 2 (完了) - SQL制約を超えた機能
+1. **クエリ実行機能**: WASM Postgres統合 [x]
+2. **Private スキーマ**: 事前定義リソース機能 [x]
+3. **デバッグ機能強化**: ファイル出力システム [x]
+4. **UI責務分離**: web-ui-template.ts分離 [x]
+
+### Phase 3 (次期実装) - 高度機能拡張
+1. **Private リソース管理**: 追加・編集・削除機能 [ ]
+2. **SQL トランスパイラ**: 独自構文→標準SQL変換 [ ]
+3. **スキーマレジストリ**: Public/Private管理 [ ]
+4. **テストデータ埋め込み**: VALUES句自動生成 [ ]
 
 ### Phase 3 (将来実装) - 高度機能
 - **npx zosql web**: ブラウザ自動起動 [ ]
@@ -241,3 +246,50 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
   /* - {cte_name}.cte.sql */
   ```
 - 将来的にはVSCode拡張でファイルリンク化を想定
+
+## 🔧 デバッグ機能強化 (Phase 2完了)
+
+### **ファイル出力システム**
+- **すべてのコンソール出力をファイル出力に変更**
+- **分類別ログファイル**:
+  - `.tmp/debug.log` - 一般的なログ
+  - `.tmp/error.log` - エラーログ
+  - `.tmp/intellisense.log` - IntelliSense専用ログ  
+  - `.tmp/query.log` - クエリ実行ログ
+
+### **Logger機能拡張**
+```typescript
+// 新機能
+Logger.replaceConsole(); // console.logを自動的にファイル出力に変更
+logger.intelliSense(message); // IntelliSense専用ログ
+logger.query(message); // クエリ実行専用ログ
+logger.error(message); // エラー専用ログ
+logger.getLogFilePaths(); // ログファイルパス取得
+```
+
+### **フォールバック機能**
+- メインログファイル書き込み失敗時、エラーログに記録
+- エラーログ失敗時、タイムスタンプ付きファイルを作成
+- 完全な障害耐性を実現
+
+## 🏗️ UI責務分離実装 (Phase 2完了)
+
+### **問題**: web-ui-template.ts が1728行で保守困難
+
+### **解決策**: 責務による分離実装
+- `src/web-ui/html-template.ts` - HTML構造・CSS
+- `src/web-ui/client-javascript.ts` - メインJavaScript統合
+- `src/web-ui/intellisense-client.ts` - IntelliSense機能
+- `src/web-ui/helper-functions.ts` - ヘルパー・デバッグ関数
+- `src/web-ui/utility-functions.ts` - ユーティリティ関数
+- `src/web-ui/template-system.ts` - 統合システム
+
+### **改善効果**
+- **保守性向上**: 各ファイルが明確な責務を持つ
+- **再利用性向上**: 機能別にモジュール化
+- **テスト容易性**: 個別機能のテストが可能
+- **コード可読性**: 1728行→200-400行/ファイルに分割
+
+### **テストファイル整理**
+- `test/` フォルダに移動: `intellisense-utils.test.ts`, `intellisense-integration.test.ts`
+- `vitest.config.ts` 作成でテスト設定を明確化
