@@ -26,14 +26,22 @@ export function getHtmlStructure(host: string, port: number): string {
           <h3>File Operations</h3>
           <button class="action-button" onclick="saveCurrentTab()">💾 Save (Ctrl+S)</button>
           
-          <h3>Tables</h3>
-          <div id="tables-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
-            <div>Loading tables...</div>
+          <h3 class="collapsible" onclick="toggleSection('tables-section')">
+            <span class="collapse-icon" id="tables-icon">▼</span> Tables
+          </h3>
+          <div id="tables-section" class="collapsible-section" style="display: none;">
+            <div id="tables-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
+              <div>Loading tables...</div>
+            </div>
           </div>
           
-          <h3>Shared CTEs</h3>
-          <div id="shared-cte-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
-            <div>Loading shared CTEs...</div>
+          <h3 class="collapsible" onclick="toggleSection('shared-cte-section')">
+            <span class="collapse-icon" id="shared-cte-icon">▶</span> Shared CTEs
+          </h3>
+          <div id="shared-cte-section" class="collapsible-section">
+            <div id="shared-cte-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
+              <div>Loading shared CTEs...</div>
+            </div>
           </div>
           
           <h3>IntelliSense Debug</h3>
@@ -268,6 +276,22 @@ function getCssStyles(): string {
     }
     h3:first-child {
       margin-top: 0;
+    }
+    h3.collapsible {
+      cursor: pointer;
+      user-select: none;
+    }
+    h3.collapsible:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .collapse-icon {
+      display: inline-block;
+      width: 12px;
+      transition: transform 0.2s;
+      font-size: 10px;
+    }
+    .collapsible-section {
+      transition: all 0.3s ease;
     }
     table {
       width: 100%;

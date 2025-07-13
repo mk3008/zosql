@@ -1,5 +1,23 @@
 export function getUtilityFunctions(): string {
   return `
+    // Toggle collapsible sections
+    function toggleSection(sectionId) {
+      const section = document.getElementById(sectionId);
+      const iconId = sectionId.replace('-section', '-icon');
+      const icon = document.getElementById(iconId);
+      
+      if (section.style.display === 'none') {
+        section.style.display = 'block';
+        icon.textContent = '▼';
+      } else {
+        section.style.display = 'none';
+        icon.textContent = '▶';
+      }
+    }
+    
+    // Make toggleSection globally accessible
+    window.toggleSection = toggleSection;
+    
     // ====================================================================
     // IntelliSense Context Detection Functions
     // ====================================================================
