@@ -74,7 +74,8 @@ export class SqlFormatterApi {
         const formatter = new SqlFormatter(config);
         
         // Format the query
-        const formattedSql = formatter.format(query);
+        const formatResult = formatter.format(query);
+        const formattedSql = formatResult.formattedSql || formatResult;
         
         this.logger.log('[SQL-FORMATTER] SQL formatted successfully');
         

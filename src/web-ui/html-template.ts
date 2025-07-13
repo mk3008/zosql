@@ -25,6 +25,8 @@ export function getHtmlStructure(host: string, port: number): string {
           
           <h3>File Operations</h3>
           <button class="action-button" onclick="saveCurrentTab()">💾 Save (Ctrl+S)</button>
+          <button class="action-button" onclick="decomposeCurrentQuery()">🔧 Decompose Query</button>
+          <button class="action-button secondary" onclick="clearWorkspace()">🗑️ Clear Workspace</button>
           
           <h3 class="collapsible" onclick="toggleSection('tables-section')">
             <span class="collapse-icon" id="tables-icon">▼</span> Tables
@@ -32,6 +34,15 @@ export function getHtmlStructure(host: string, port: number): string {
           <div id="tables-section" class="collapsible-section" style="display: none;">
             <div id="tables-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
               <div>Loading tables...</div>
+            </div>
+          </div>
+          
+          <h3 class="collapsible" onclick="toggleSection('workspace-section')">
+            <span class="collapse-icon" id="workspace-icon">▶</span> Workspace
+          </h3>
+          <div id="workspace-section" class="collapsible-section">
+            <div id="workspace-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
+              <div>No workspace active</div>
             </div>
           </div>
           
@@ -128,10 +139,13 @@ function getCssStyles(): string {
     }
     .sidebar {
       width: 300px;
+      min-width: 250px;
+      max-width: 500px;
       background: #252526;
       border-right: 1px solid #454545;
       padding: 20px;
       overflow-y: auto;
+      resize: horizontal;
     }
     .content-area {
       flex: 1;

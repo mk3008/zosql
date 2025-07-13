@@ -120,6 +120,7 @@ function getInitializationCode(): string {
     document.addEventListener('DOMContentLoaded', function() {
       loadSchemaInfo();
       loadSharedCteInfo();
+      loadWorkspaceInfo();
       initMonacoEditor();
       checkDatabaseStatus();
       // Initialize tabs (will be called again in initMonacoEditor but that's ok)
@@ -289,11 +290,16 @@ function getQueryExecutionCode(): string {
             editor.setPosition(position);
           }
           
-          // Mark current tab as modified
+          // Mark current tab as modified if content actually changed
           if (openTabs.has(activeTabId)) {
             const currentTab = openTabs.get(activeTabId);
+            const oldContent = currentTab.content;
             currentTab.content = data.formattedSql;
-            currentTab.isModified = data.formattedSql !== getOriginalContent(activeTabId);
+            // Only mark as modified if the original content was different from formatted
+            // This prevents marking as modified when just formatting without changing logic
+            if (oldContent !== data.formattedSql) {
+              currentTab.isModified = data.formattedSql !== currentTab.originalContent;
+            }
             openTabs.set(activeTabId, currentTab);
             renderTabs();
           }
@@ -406,12 +412,15 @@ function getQueryExecutionCode(): string {
       openTabs.clear();
       
       // Initialize main tab
+      const defaultContent = 'SELECT * FROM users;';
+      const currentContent = editor ? editor.getValue() : defaultContent;
+      
       openTabs.set('main', {
         name: 'main.sql',
         type: 'main',
-        content: editor ? editor.getValue() : 'SELECT * FROM users;',
+        content: currentContent,
         isModified: false,
-        originalContent: 'SELECT * FROM users;'
+        originalContent: currentContent
       });
       
       activeTabId = 'main';
@@ -438,7 +447,9 @@ function getQueryExecutionCode(): string {
         tabElement.dataset.tab = tabId;
         tabElement.onclick = () => switchTab(tabId);
         
-        const icon = tab.type === 'main' ? '📄' : (tab.type === 'shared-cte' ? '🔶' : '📝');
+        const icon = tab.type === 'main' ? '📄' : 
+                     (tab.type === 'shared-cte' ? '🔶' : 
+                      (tab.type === 'private-cte' ? '🔧' : '📝'));
         const modifiedIndicator = tab.isModified ? '●' : '';
         const tabName = tab.name || 'Untitled';
         
@@ -548,7 +559,9 @@ function getQueryExecutionCode(): string {
     function updateEditorHeader(tab) {
       const header = document.getElementById('editor-header');
       if (header) {
-        const icon = tab.type === 'main' ? '📄' : (tab.type === 'shared-cte' ? '🔶' : '📝');
+        const icon = tab.type === 'main' ? '📄' : 
+                     (tab.type === 'shared-cte' ? '🔶' : 
+                      (tab.type === 'private-cte' ? '🔧' : '📝'));
         header.textContent = \`\${icon} \${tab.name}\`;
       }
     }
@@ -557,11 +570,7 @@ function getQueryExecutionCode(): string {
       const tab = openTabs.get(tabId);
       if (!tab) return '';
       
-      if (tab.type === 'main') {
-        return 'SELECT * FROM users;';
-      }
-      
-      // For shared CTEs, use stored original content
+      // Always use stored original content for all tab types
       return tab.originalContent || '';
     }
     
@@ -600,14 +609,75 @@ function getQueryExecutionCode(): string {
         } catch (error) {
           showToast(\`Error saving Shared CTE: \${error.message}\`, 'error');
         }
+      } else if (tab.type === 'private-cte') {
+        try {
+          const response = await fetch(\`/api/workspace/private-cte/\${tab.cteName}\`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              query: content,
+              description: \`Updated private CTE: \${tab.cteName}\`
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            tab.isModified = false;
+            tab.originalContent = content;
+            openTabs.set(activeTabId, tab);
+            renderTabs();
+            showToast('Private CTE saved successfully', 'success');
+            
+            // Reload workspace info to reflect changes
+            await loadWorkspaceInfo();
+          } else {
+            showToast(\`Failed to save Private CTE: \${data.error || 'Unknown error'}\`, 'error');
+          }
+        } catch (error) {
+          showToast(\`Error saving Private CTE: \${error.message}\`, 'error');
+        }
       } else if (tab.type === 'sql' || tab.type === 'main') {
-        // For general SQL tabs, just mark as saved (in-memory only for now)
-        tab.content = content;
-        tab.isModified = false;
-        tab.originalContent = content;
-        openTabs.set(activeTabId, tab);
-        renderTabs();
-        showToast('Tab content saved', 'success');
+        // Check if this is a decomposed query that needs to be composed
+        if (tab.name && tab.name.includes('_decomposed')) {
+          try {
+            // Compose the query with CTEs and save to original file
+            const response = await fetch('/api/workspace/compose', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                decomposedQuery: content
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              showToast(\`Query composed and saved to: \${data.originalFilePath}\`, 'success');
+              tab.content = content;
+              tab.isModified = false;
+              tab.originalContent = content;
+              openTabs.set(activeTabId, tab);
+              renderTabs();
+            } else {
+              showToast(\`Failed to compose query: \${data.error || 'Unknown error'}\`, 'error');
+            }
+          } catch (error) {
+            showToast(\`Error composing query: \${error.message}\`, 'error');
+          }
+        } else {
+          // For general SQL tabs, just mark as saved (in-memory only)
+          tab.content = content;
+          tab.isModified = false;
+          tab.originalContent = content;
+          openTabs.set(activeTabId, tab);
+          renderTabs();
+          showToast('Tab content saved', 'success');
+        }
       }
     }
     
@@ -629,12 +699,184 @@ function getQueryExecutionCode(): string {
       console.log('New tab created:', tabId);
     }
     
+    // ====================================================================
+    // Workspace Management Functions
+    // ====================================================================
+    
+    async function decomposeCurrentQuery() {
+      // 固定ターゲットファイル - 複雑なテスト用
+      const targetFilePath = 'sql/analytics/user_behavior_analysis.sql';
+      
+      try {
+        // ターゲットファイルの内容を読み込み
+        const response = await fetch('/api/workspace/read-sql-file', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ filePath: targetFilePath })
+        });
+        
+        const fileData = await response.json();
+        
+        if (!fileData.success) {
+          showToast(\`Failed to read target file: \${fileData.error}\`, 'error');
+          return;
+        }
+        
+        const sql = fileData.content;
+        const queryName = 'user_behavior_analysis';
+        
+        showToast('Starting decompose process...', 'info');
+        
+        // Decomposeを実行
+        const decomposeResponse = await fetch('/api/workspace/decompose', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            sql, 
+            queryName,
+            originalFilePath: targetFilePath
+          })
+        });
+        
+        const decomposeData = await decomposeResponse.json();
+        
+        if (decomposeData.success) {
+          showToast(\`Query decomposed: \${decomposeData.privateCteCount} CTEs extracted\`, 'success');
+          
+          // エディターにdecomposed query（CTE除去済み）を表示
+          if (editor && decomposeData.decomposedQuery) {
+            editor.setValue(decomposeData.decomposedQuery);
+            
+            // タブを更新してdecomposed queryを表示
+            if (openTabs.has(activeTabId)) {
+              const currentTab = openTabs.get(activeTabId);
+              currentTab.content = decomposeData.decomposedQuery;
+              currentTab.name = \`\${queryName}_decomposed.sql\`;
+              currentTab.isModified = false;
+              currentTab.originalContent = decomposeData.decomposedQuery;
+              openTabs.set(activeTabId, currentTab);
+              renderTabs();
+              updateEditorHeader(currentTab);
+            }
+          }
+          
+          await loadWorkspaceInfo();
+        } else {
+          showToast(\`Decompose failed: \${decomposeData.error}\`, 'error');
+        }
+      } catch (error) {
+        showToast(\`Error decomposing query: \${error.message}\`, 'error');
+      }
+    }
+    
+    async function clearWorkspace() {
+      if (!confirm('Clear workspace? All private CTEs will be lost.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/workspace', {
+          method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showToast('Workspace cleared', 'success');
+          await loadWorkspaceInfo();
+        } else {
+          showToast(\`Clear failed: \${data.error}\`, 'error');
+        }
+      } catch (error) {
+        showToast(\`Error clearing workspace: \${error.message}\`, 'error');
+      }
+    }
+    
+    async function loadWorkspaceInfo() {
+      try {
+        const [workspaceResponse, privateCteResponse] = await Promise.all([
+          fetch('/api/workspace'),
+          fetch('/api/workspace/private-cte')
+        ]);
+        
+        const workspaceData = await workspaceResponse.json();
+        const privateCteData = await privateCteResponse.json();
+        
+        const workspaceInfo = document.getElementById('workspace-info');
+        let workspaceHtml = '';
+        
+        if (workspaceData.success && workspaceData.hasWorkspace) {
+          if (privateCteData.success && privateCteData.count > 0) {
+            workspaceHtml += '<div style="margin-bottom: 10px;"><strong>Private CTEs:</strong></div>';
+            Object.values(privateCteData.privateCtes).forEach(cte => {
+              workspaceHtml += \`<div style="margin-bottom: 6px; padding: 6px; background: rgba(255,193,7,0.1); border-radius: 3px; cursor: pointer;" 
+                                    onclick="openPrivateCteTab('\${cte.name}')">
+                <strong style="color: #ffc107;">🔶 \${cte.name}</strong>
+              </div>\`;
+            });
+          }
+        } else {
+          workspaceHtml = '<div style="color: #666;">No workspace active</div>';
+        }
+        
+        workspaceInfo.innerHTML = workspaceHtml;
+        
+      } catch (error) {
+        console.error('Error loading workspace info:', error);
+        document.getElementById('workspace-info').innerHTML = 
+          '<div style="color: red;">Error loading workspace</div>';
+      }
+    }
+    
+    async function openPrivateCteTab(cteName) {
+      const tabId = \`private-cte-\${cteName}\`;
+      
+      if (openTabs.has(tabId)) {
+        switchTab(tabId);
+        return;
+      }
+      
+      try {
+        // Load private CTE content from workspace
+        const response = await fetch('/api/workspace/private-cte');
+        const data = await response.json();
+        
+        if (data.success && data.privateCtes[cteName]) {
+          const cte = data.privateCtes[cteName];
+          
+          openTabs.set(tabId, {
+            name: \`\${cteName}.cte.sql\`,
+            type: 'private-cte',
+            content: cte.query,
+            isModified: false,
+            cteName: cteName,
+            originalContent: cte.query
+          });
+          
+          switchTab(tabId);
+          console.log('Private CTE tab opened successfully:', cteName);
+        } else {
+          showToast(\`Failed to load Private CTE: \${cteName}\`, 'error');
+        }
+      } catch (error) {
+        console.error('Error loading Private CTE:', error);
+        showToast(\`Error loading Private CTE: \${error.message}\`, 'error');
+      }
+    }
+    
     // Make functions globally accessible
     window.openSharedCteTab = openSharedCteTab;
     window.switchTab = switchTab;
     window.closeTab = closeTab;
     window.saveCurrentTab = saveCurrentTab;
     window.createNewTab = createNewTab;
+    window.decomposeCurrentQuery = decomposeCurrentQuery;
+    window.clearWorkspace = clearWorkspace;
+    window.openPrivateCteTab = openPrivateCteTab;
   `;
 }
 

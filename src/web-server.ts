@@ -9,6 +9,7 @@ import { QueryExecutorApi } from './api/query-executor-api.js';
 import { FileBasedSharedCteApi } from './api/file-based-shared-cte-api.js';
 import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
 import { SqlFormatterApi } from './api/sql-formatter-api.js';
+import { WorkspaceApi } from './api/workspace-api.js';
 import { getHtmlTemplate } from './web-ui/template-system.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,7 @@ export class WebServer {
   private sharedCteApi: FileBasedSharedCteApi;
   private intelliSenseDebugApi: IntelliSenseDebugApi;
   private sqlFormatterApi: SqlFormatterApi;
+  private workspaceApi: WorkspaceApi;
 
   constructor(options: WebServerOptions) {
     this.app = express();
@@ -48,6 +50,7 @@ export class WebServer {
     this.sharedCteApi = new FileBasedSharedCteApi();
     this.intelliSenseDebugApi = new IntelliSenseDebugApi();
     this.sqlFormatterApi = new SqlFormatterApi();
+    this.workspaceApi = new WorkspaceApi();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -118,6 +121,15 @@ export class WebServer {
     this.app.post('/api/format-sql', this.sqlFormatterApi.handleFormatSql.bind(this.sqlFormatterApi));
     this.app.get('/api/formatter-config', this.sqlFormatterApi.handleGetFormatterConfig.bind(this.sqlFormatterApi));
     this.app.put('/api/formatter-config', this.sqlFormatterApi.handleUpdateFormatterConfig.bind(this.sqlFormatterApi));
+    
+    // Workspace API
+    this.app.post('/api/workspace/decompose', this.workspaceApi.handleDecomposeQuery.bind(this.workspaceApi));
+    this.app.post('/api/workspace/compose', this.workspaceApi.handleComposeQuery.bind(this.workspaceApi));
+    this.app.post('/api/workspace/read-sql-file', this.workspaceApi.handleReadSqlFile.bind(this.workspaceApi));
+    this.app.get('/api/workspace', this.workspaceApi.handleGetWorkspace.bind(this.workspaceApi));
+    this.app.get('/api/workspace/private-cte', this.workspaceApi.handleGetPrivateCtes.bind(this.workspaceApi));
+    this.app.put('/api/workspace/private-cte/:cteName', this.workspaceApi.handleUpdatePrivateCte.bind(this.workspaceApi));
+    this.app.delete('/api/workspace', this.workspaceApi.handleClearWorkspace.bind(this.workspaceApi));
     
     // Main application route
     this.app.get('/', (_req, res) => {
