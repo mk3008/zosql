@@ -204,7 +204,7 @@ describe('IntelliSense Utilities', () => {
   });
 
   describe('combineSchemaData', () => {
-    const mockPublicData = {
+    const mockTablesData = {
       success: true,
       tables: ['users', 'orders'],
       columns: {
@@ -214,13 +214,13 @@ describe('IntelliSense Utilities', () => {
       functions: ['COUNT', 'SUM']
     };
 
-    const mockPrivateData = {
-      privateTables: ['user_stats', 'high_value_orders'],
-      privateColumns: {
+    const mockSharedCteData = {
+      sharedCteTables: ['user_stats', 'high_value_orders'],
+      sharedCteColumns: {
         user_stats: ['user_id', 'order_count', 'total_amount'],
         high_value_orders: ['id', 'user_id', 'amount', 'order_date']
       },
-      privateResources: {
+      sharedCtes: {
         user_stats: {
           name: 'user_stats',
           columns: [
@@ -231,8 +231,8 @@ describe('IntelliSense Utilities', () => {
       }
     };
 
-    it('should combine public and private schema data', () => {
-      const result = combineSchemaData(mockPublicData, mockPrivateData);
+    it('should combine tables and shared CTE data', () => {
+      const result = combineSchemaData(mockTablesData, mockSharedCteData);
       
       expect(result.success).toBe(true);
       expect(result.tables).toEqual(['users', 'orders', 'user_stats', 'high_value_orders']);
@@ -243,20 +243,20 @@ describe('IntelliSense Utilities', () => {
         high_value_orders: ['id', 'user_id', 'amount', 'order_date']
       });
       expect(result.functions).toEqual(['COUNT', 'SUM']);
-      expect(result.privateResources).toEqual(mockPrivateData.privateResources);
+      expect(result.sharedCtes).toEqual(mockSharedCteData.sharedCtes);
     });
 
-    it('should handle empty private data', () => {
-      const emptyPrivateData = {
-        privateTables: [],
-        privateColumns: {},
-        privateResources: {}
+    it('should handle empty shared CTE data', () => {
+      const emptySharedCteData = {
+        sharedCteTables: [],
+        sharedCteColumns: {},
+        sharedCtes: {}
       };
       
-      const result = combineSchemaData(mockPublicData, emptyPrivateData);
+      const result = combineSchemaData(mockTablesData, emptySharedCteData);
       
       expect(result.tables).toEqual(['users', 'orders']);
-      expect(result.columns).toEqual(mockPublicData.columns);
+      expect(result.columns).toEqual(mockTablesData.columns);
     });
   });
 
@@ -266,7 +266,7 @@ describe('IntelliSense Utilities', () => {
         users: ['id', 'name', 'email'],
         orders: ['id', 'user_id', 'amount']
       },
-      privateResources: {
+      sharedCtes: {
         user_stats: {
           columns: [
             { name: 'user_id', type: 'INTEGER' },

@@ -1,7 +1,7 @@
-// zosql Private Schema Definition
-// これらのCTEはIDE内でテーブルのように参照可能
+// zosql Shared CTE Definition
+// These CTEs can be referenced like tables within the IDE
 
-const privateSchema = {
+const sharedCtes = {
   // ユーザー統計CTE
   user_stats: {
     name: "user_stats",
@@ -11,7 +11,7 @@ const privateSchema = {
       { name: "order_count", type: "BIGINT" },
       { name: "total_amount", type: "DECIMAL" }
     ],
-    dependencies: [], // 依存するprivate リソース
+    dependencies: [], // Dependencies on other shared CTEs
     description: "ユーザーごとの注文統計"
   },
 
@@ -62,4 +62,4 @@ const privateSchema = {
   }
 };
 
-export default privateSchema;
+export default sharedCtes;

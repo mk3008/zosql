@@ -20,7 +20,7 @@ function getGlobalVariables(): string {
   return `
     let editor = null;
     let schemaData = null;
-    let privateSchemaData = null;
+    let sharedCteData = null;
     let lastValidQuery = null;
     let currentSchemaData = null;
     let lastSuccessfulParseResult = null; // キャッシュ用
@@ -82,39 +82,39 @@ function getInitializationCode(): string {
       }
     }
     
-    // Load private schema information
-    async function loadPrivateSchemaInfo() {
+    // Load shared CTE information
+    async function loadSharedCteInfo() {
       try {
-        logToServer('Private schema loading attempt');
-        const response = await fetch('/api/private-schema');
+        logToServer('Shared CTE loading attempt');
+        const response = await fetch('/api/shared-cte');
         const data = await response.json();
         
-        logToServer('Private schema response received', {
+        logToServer('Shared CTE response received', {
           success: data.success,
           error: data.error,
-          hasPrivateSchema: !!data.privateSchema,
-          resourcesCount: data.privateSchema ? Object.keys(data.privateSchema).length : 0
+          hasSharedCtes: !!data.sharedCtes,
+          ctesCount: data.sharedCtes ? Object.keys(data.sharedCtes).length : 0
         });
         
-        if (data.success && data.privateSchema) {
-          privateSchemaData = data.privateSchema;
-          console.log('Private schema loaded successfully:', privateSchemaData);
-          logToServer('Private schema loaded successfully', {
-            resourcesCount: Object.keys(privateSchemaData).length
+        if (data.success && data.sharedCtes) {
+          sharedCteData = data.sharedCtes;
+          console.log('Shared CTEs loaded successfully:', sharedCteData);
+          logToServer('Shared CTEs loaded successfully', {
+            ctesCount: Object.keys(sharedCteData).length
           });
         } else {
-          logToServer('Private schema load failed', { error: data.error });
+          logToServer('Shared CTE load failed', { error: data.error });
         }
       } catch (error) {
-        console.error('Error loading private schema:', error);
-        logToServer('Private schema load error', { error: error.message });
+        console.error('Error loading shared CTEs:', error);
+        logToServer('Shared CTE load error', { error: error.message });
       }
     }
     
     // Initialize everything when page loads
     document.addEventListener('DOMContentLoaded', function() {
       loadSchemaInfo();
-      loadPrivateSchemaInfo();
+      loadSharedCteInfo();
       initMonacoEditor();
       checkDatabaseStatus();
     });

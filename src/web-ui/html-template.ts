@@ -29,17 +29,17 @@ export function getHtmlStructure(host: string, port: number): string {
           <h3>IntelliSense Tests</h3>
           <button class="action-button" onclick="testFromClauseContext()">Test FROM Context</button>
           <button class="action-button" onclick="testAliasCompletion()">Test Alias Completion</button>
-          <button class="action-button" onclick="testPrivateResourceCompletion()">Test Private Resources</button>
+          <button class="action-button" onclick="testSharedCteCompletion()">Test Shared CTEs</button>
           <button class="action-button" onclick="analyzeIntelliSenseIssues()">Analyze Issues</button>
           
-          <h3>Public Resources</h3>
-          <div id="public-schema-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
-            <div>Loading public schema...</div>
+          <h3>Tables</h3>
+          <div id="tables-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
+            <div>Loading tables...</div>
           </div>
           
-          <h3>Private Resources</h3>
-          <div id="private-schema-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
-            <div>Loading private schema...</div>
+          <h3>Shared CTEs</h3>
+          <div id="shared-cte-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
+            <div>Loading shared CTEs...</div>
           </div>
           
           <h3>IntelliSense Debug</h3>
@@ -239,11 +239,11 @@ function getCssStyles(): string {
       max-height: 200px;
       overflow-y: auto;
     }
-    .public-resource {
+    .table-resource {
       background: rgba(0,122,204,0.1);
       border-left: 3px solid #007acc;
     }
-    .private-resource {
+    .shared-cte-resource {
       background: rgba(255,165,0,0.1);
       border-left: 3px solid #ffa500;
     }

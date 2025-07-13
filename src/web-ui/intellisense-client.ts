@@ -60,32 +60,32 @@ export function getIntelliSenseSetup(): string {
             });
 
             // Load completion data
-            const [publicResponse, privateResponse] = await Promise.all([
+            const [tablesResponse, sharedCteResponse] = await Promise.all([
               fetch('/api/schema/completion'),
-              fetch('/api/private-schema/completion')
+              fetch('/api/shared-cte/completion')
             ]);
 
-            const publicData = await publicResponse.json();
-            const privateData = await privateResponse.json();
+            const tablesData = await tablesResponse.json();
+            const sharedCteData = await sharedCteResponse.json();
             
             sendIntelliSenseDebugLog('SCHEMA_DATA_LOADED', {
-              publicSuccess: publicData.success,
-              privateSuccess: privateData.success,
-              publicTablesCount: publicData.tables?.length || 0,
-              privateTablesCount: privateData.privateTables?.length || 0
+              tablesSuccess: tablesData.success,
+              sharedCteSuccess: sharedCteData.success,
+              tablesCount: tablesData.tables?.length || 0,
+              sharedCteTablesCount: sharedCteData.sharedCteTables?.length || 0
             });
 
-            if (!publicData.success) {
-              sendIntelliSenseDebugLog('SCHEMA_LOAD_FAILED', { error: publicData.error });
+            if (!tablesData.success) {
+              sendIntelliSenseDebugLog('SCHEMA_LOAD_FAILED', { error: tablesData.error });
               return { suggestions: [] };
             }
 
             // Combine schema data
-            currentSchemaData = combineSchemaData(publicData, privateData);
+            currentSchemaData = combineSchemaData(tablesData, sharedCteData);
             
             sendIntelliSenseDebugLog('SCHEMA_COMBINED', {
               totalTables: currentSchemaData.tables?.length || 0,
-              totalPrivateResources: Object.keys(currentSchemaData.privateResources || {}).length
+              totalSharedCtes: Object.keys(currentSchemaData.sharedCtes || {}).length
             });
 
             // ============================================================
@@ -265,9 +265,9 @@ export function getIntelliSenseSetup(): string {
                 totalSuggestions: suggestions.length
               });
             } else if (isFromContext) {
-              // FROM句/JOIN句 - テーブル名とプライベートリソースを提案
+              // FROM句/JOIN句 - テーブル名とshared cteを提案
               suggestions = [
-                // Public tables
+                // Tables
                 ...currentSchemaData.tables.map(table => ({
                   label: table,
                   kind: monaco.languages.CompletionItemKind.Class,
@@ -279,13 +279,13 @@ export function getIntelliSenseSetup(): string {
                     title: 'Trigger IntelliSense'
                   }
                 })),
-                // Private resources
-                ...Object.keys(currentSchemaData.privateResources || {}).map(resourceName => ({
-                  label: resourceName,
+                // Shared CTEs
+                ...Object.keys(currentSchemaData.sharedCtes || {}).map(cteName => ({
+                  label: cteName,
                   kind: monaco.languages.CompletionItemKind.Module,
-                  insertText: resourceName + ' ',
-                  detail: 'Private Resource',
-                  documentation: currentSchemaData.privateResources[resourceName]?.description || \`Private resource: \${resourceName}\`,
+                  insertText: cteName + ' ',
+                  detail: 'Shared CTE',
+                  documentation: currentSchemaData.sharedCtes[cteName]?.description || \`Shared CTE: \${cteName}\`,
                   command: {
                     id: 'editor.action.triggerSuggest',
                     title: 'Trigger IntelliSense'
@@ -294,8 +294,8 @@ export function getIntelliSenseSetup(): string {
               ];
               
               sendIntelliSenseDebugLog('FROM_CONTEXT_SUGGESTIONS', {
-                publicTables: currentSchemaData.tables.length,
-                privateResources: Object.keys(currentSchemaData.privateResources || {}).length,
+                tables: currentSchemaData.tables.length,
+                sharedCtes: Object.keys(currentSchemaData.sharedCtes || {}).length,
                 totalSuggestions: suggestions.length
               });
             } else {
@@ -415,28 +415,28 @@ export function getIntelliSenseTestFunctions(): string {
       }
     }
     
-    async function testPrivateResourceCompletion() {
+    async function testSharedCteCompletion() {
       try {
-        // Load private resources
-        const response = await fetch('/api/private-schema/completion');
+        // Load shared CTEs
+        const response = await fetch('/api/shared-cte/completion');
         const data = await response.json();
         
-        let message = \`Private Resource Completion Test:\\n\\n\`;
+        let message = \`Shared CTE Completion Test:\\n\\n\`;
         
         if (data.success) {
-          message += \`Private tables: \${data.privateTables?.join(', ') || 'none'}\\n\`;
-          message += \`Private columns:\\n\`;
+          message += \`Shared CTE tables: \${data.sharedCteTables?.join(', ') || 'none'}\\n\`;
+          message += \`Shared CTE columns:\\n\`;
           
-          Object.entries(data.privateColumns || {}).forEach(([table, columns]) => {
+          Object.entries(data.sharedCteColumns || {}).forEach(([table, columns]) => {
             message += \`  \${table}: \${columns.join(', ')}\\n\`;
           });
           
-          message += \`\\nPrivate resources:\\n\`;
-          Object.entries(data.privateResources || {}).forEach(([name, resource]) => {
-            message += \`  \${name}: \${resource.description || 'No description'}\\n\`;
+          message += \`\\nShared CTEs:\\n\`;
+          Object.entries(data.sharedCtes || {}).forEach(([name, cte]) => {
+            message += \`  \${name}: \${cte.description || 'No description'}\\n\`;
           });
           
-          // Test FROM clause context with private resources
+          // Test FROM clause context with shared CTEs
           const testSql = 'SELECT * FROM user_st';
           const position = { lineNumber: 1, column: testSql.length + 1 };
           const isFromContext = checkFromClauseContext(testSql, position);
@@ -444,12 +444,12 @@ export function getIntelliSenseTestFunctions(): string {
           message += \`\\nFROM context test with "SELECT * FROM user_st": \${isFromContext}\\n\`;
           
         } else {
-          message += \`Failed to load private resources: \${data.error}\\n\`;
+          message += \`Failed to load shared CTEs: \${data.error}\\n\`;
         }
         
         alert(message);
       } catch (error) {
-        alert('Private resource test failed: ' + error.message);
+        alert('Shared CTE test failed: ' + error.message);
       }
     }
     

@@ -134,7 +134,7 @@ describe('IntelliSense Regression Prevention', () => {
         orders: ['id', 'user_id', 'amount', 'order_date', 'status', 'created_at'],
         products: ['id', 'name', 'price', 'category']
       },
-      privateResources: {
+      sharedCtes: {
         user_stats: {
           columns: [
             { name: 'user_id', type: 'INTEGER' },
@@ -161,22 +161,22 @@ describe('IntelliSense Regression Prevention', () => {
       const cteColumns = getColumnsForTable('user_stats', 'us', mockParseResult, mockSchemaData);
       expect(cteColumns).toEqual(['user_id', 'order_count']);
 
-      // Private resource columns
-      const privateColumns = getColumnsForTable('user_stats', 'us', null, mockSchemaData);
-      expect(privateColumns).toEqual(['user_id', 'order_count', 'total_amount']);
+      // Shared CTE columns
+      const sharedCteColumns = getColumnsForTable('user_stats', 'us', null, mockSchemaData);
+      expect(sharedCteColumns).toEqual(['user_id', 'order_count', 'total_amount']);
     });
 
     it('should handle edge cases gracefully', () => {
       expect(getColumnsForTable('unknown', 'x', null, mockSchemaData)).toEqual([]);
-      expect(getColumnsForTable('users', 'u', null, { columns: {}, privateResources: {} })).toEqual([]);
+      expect(getColumnsForTable('users', 'u', null, { columns: {}, sharedCtes: {} })).toEqual([]);
       expect(findTableByAlias(null, 'u')).toBe(null);
       expect(findTableByAlias({ tables: [] }, 'u')).toBe(null);
     });
   });
 
   describe('Schema Data Combination', () => {
-    it('should combine public and private schema correctly', () => {
-      const publicData = {
+    it('should combine tables and shared CTE schema correctly', () => {
+      const tablesData = {
         success: true,
         tables: ['users', 'orders'],
         columns: { users: ['id', 'name'], orders: ['id', 'amount'] },
@@ -184,21 +184,21 @@ describe('IntelliSense Regression Prevention', () => {
         keywords: ['SELECT', 'FROM']
       };
 
-      const privateData = {
+      const sharedCteData = {
         success: true,
-        privateTables: ['user_stats'],
-        privateColumns: { user_stats: ['user_id', 'count'] },
-        privateResources: {
+        sharedCteTables: ['user_stats'],
+        sharedCteColumns: { user_stats: ['user_id', 'count'] },
+        sharedCtes: {
           user_stats: { name: 'user_stats', query: 'SELECT ...' }
         }
       };
 
-      const combined = combineSchemaData(publicData, privateData);
+      const combined = combineSchemaData(tablesData, sharedCteData);
 
       expect(combined.tables).toEqual(['users', 'orders', 'user_stats']);
       expect(combined.columns).toHaveProperty('users');
       expect(combined.columns).toHaveProperty('user_stats');
-      expect(combined.privateResources).toHaveProperty('user_stats');
+      expect(combined.sharedCtes).toHaveProperty('user_stats');
       expect(combined.functions).toEqual(['COUNT', 'SUM']);
       expect(combined.keywords).toEqual(['SELECT', 'FROM']);
     });

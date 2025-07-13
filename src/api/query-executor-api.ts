@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from '../utils/logging.js';
-import { PrivateSchemaApi } from './private-schema-api.js';
+import { SharedCteApi } from './shared-cte-api.js';
 import { SelectQueryParser } from 'rawsql-ts';
 
 export interface QueryResult {
@@ -13,11 +13,11 @@ export interface QueryResult {
 export class QueryExecutorApi {
   private logger: Logger;
   private db: any; // PGlite instance
-  private privateSchemaApi: PrivateSchemaApi;
+  private sharedCteApi: SharedCteApi;
 
   constructor() {
     this.logger = Logger.getInstance();
-    this.privateSchemaApi = new PrivateSchemaApi();
+    this.sharedCteApi = new SharedCteApi();
   }
 
   public async initializeDatabase(): Promise<void> {
@@ -117,24 +117,24 @@ export class QueryExecutorApi {
   }
 
   /**
-   * Parse SQL and detect private resources usage, then compose WITH clause
+   * Parse SQL and detect shared CTE usage, then compose WITH clause
    */
-  private async composeSqlWithPrivateResources(originalSql: string): Promise<string> {
+  private async composeSqlWithSharedCtes(originalSql: string): Promise<string> {
     try {
-      this.logger.query(`Composing SQL with private resources`);
+      this.logger.query(`Composing SQL with shared CTEs`);
       this.logger.query(`Original SQL: ${originalSql}`);
 
       // Parse the SQL to detect table references
       const query = SelectQueryParser.parse(originalSql).toSimpleQuery();
-      const usedPrivateResources: string[] = [];
+      const usedSharedCtes: string[] = [];
       
-      // Get all private resources
-      const allPrivateResources = this.privateSchemaApi.getAllPrivateResources();
-      const privateResourceNames = Object.keys(allPrivateResources);
+      // Get all shared CTEs
+      const allSharedCtes = this.sharedCteApi.getAllSharedCtes();
+      const sharedCteNames = Object.keys(allSharedCtes);
       
-      this.logger.query(`Available private resources: ${privateResourceNames.join(', ')}`);
+      this.logger.query(`Available shared CTEs: ${sharedCteNames.join(', ')}`);
 
-      // Check FROM clause for private resource usage
+      // Check FROM clause for shared CTE usage
       if (query.fromClause) {
         // Check main table
         const mainTable = query.fromClause.source?.datasource;
@@ -144,9 +144,9 @@ export class QueryExecutorApi {
             ? qualifiedName.name 
             : qualifiedName;
           const tableNameStr = typeof mainTableName === 'string' ? mainTableName : String(mainTableName);
-          if (tableNameStr && privateResourceNames.includes(tableNameStr)) {
-            usedPrivateResources.push(tableNameStr);
-            this.logger.query(`Found private resource in FROM: ${tableNameStr}`);
+          if (tableNameStr && sharedCteNames.includes(tableNameStr)) {
+            usedSharedCtes.push(tableNameStr);
+            this.logger.query(`Found shared CTE in FROM: ${tableNameStr}`);
           }
         }
 
@@ -160,9 +160,9 @@ export class QueryExecutorApi {
                 ? qualifiedName.name 
                 : qualifiedName;
               const tableNameStr = typeof joinTableName === 'string' ? joinTableName : String(joinTableName);
-              if (tableNameStr && privateResourceNames.includes(tableNameStr)) {
-                usedPrivateResources.push(tableNameStr);
-                this.logger.query(`Found private resource in JOIN: ${tableNameStr}`);
+              if (tableNameStr && sharedCteNames.includes(tableNameStr)) {
+                usedSharedCtes.push(tableNameStr);
+                this.logger.query(`Found shared CTE in JOIN: ${tableNameStr}`);
               }
             }
           }
@@ -170,17 +170,17 @@ export class QueryExecutorApi {
       }
 
       // Remove duplicates
-      const uniquePrivateResources = [...new Set(usedPrivateResources)];
+      const uniqueSharedCtes = [...new Set(usedSharedCtes)];
       
-      if (uniquePrivateResources.length === 0) {
-        this.logger.query(`No private resources detected, returning original SQL`);
+      if (uniqueSharedCtes.length === 0) {
+        this.logger.query(`No shared CTEs detected, returning original SQL`);
         return originalSql;
       }
 
-      this.logger.query(`Used private resources: ${uniquePrivateResources.join(', ')}`);
+      this.logger.query(`Used shared CTEs: ${uniqueSharedCtes.join(', ')}`);
 
-      // Generate WITH clause using PrivateSchemaApi
-      const withClause = this.privateSchemaApi.generateWithClause(uniquePrivateResources);
+      // Generate WITH clause using SharedCteApi
+      const withClause = this.sharedCteApi.generateWithClause(uniqueSharedCtes);
       
       if (!withClause) {
         this.logger.error(`Failed to generate WITH clause`);
@@ -191,7 +191,7 @@ export class QueryExecutorApi {
       let composedSql: string;
       if (query.withClause && query.withClause.tables && query.withClause.tables.length > 0) {
         // Merge WITH clauses - this is complex, for now just prepend
-        this.logger.query(`Original SQL already has WITH clause, prepending private resources`);
+        this.logger.query(`Original SQL already has WITH clause, prepending shared CTEs`);
         composedSql = `${withClause}, \n${originalSql.replace(/^\s*WITH\s+/i, '')}`;
       } else {
         // Simple case: prepend WITH clause
@@ -219,8 +219,8 @@ export class QueryExecutorApi {
       
       this.logger.query(`Executing SQL (length: ${sql.length}): "${sql.substring(0, 100)}..."`);
       
-      // Compose SQL with private resources
-      const composedSql = await this.composeSqlWithPrivateResources(sql);
+      // Compose SQL with shared CTEs
+      const composedSql = await this.composeSqlWithSharedCtes(sql);
       
       const startTime = Date.now();
       

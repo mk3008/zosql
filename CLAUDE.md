@@ -37,9 +37,9 @@
 ### **核心概念**
 GUIとIntelliSenseを完全に制御できるようになったことで、**SQLの文法制約から解放**された開発環境を実現可能。
 
-### **Public/Private スキーマの概念**
-- **Public スキーマ**: 従来のテーブル定義（users, orders, products等）
-- **Private スキーマ**: CTE（Common Table Expression）に名前を付けたもの
+### **テーブル/共有CTE の概念**
+- **テーブル**: 従来のテーブル定義（users, orders, products等）
+- **共有CTE**: CTE（Common Table Expression）に名前を付けたもの
 - **革新点**: IDE内ではCTEのimportを明示する必要がない
 
 ```sql
@@ -50,7 +50,7 @@ INNER JOIN dat AS d ON d.value = 1
 
 -- zosql IDE（制約なし）
 SELECT o.user_id FROM orders AS o 
-INNER JOIN dat AS d ON d.value = 1  -- datは既にprivateスキーマに登録済み
+INNER JOIN dat AS d ON d.value = 1  -- datは既に共有CTEに登録済み
 ```
 
 ### **実現予定の機能**
@@ -71,7 +71,7 @@ INNER JOIN dat AS d ON d.value = 1  -- datは既にprivateスキーマに登録�
 ### **技術的実装**
 ```typescript
 // 新しいスキーマレジストリ
-interface PrivateSchema {
+interface SharedCte {
   name: string;           // CTE名
   query: string;          // SELECT文
   columns: Column[];      // カラム定義
@@ -82,7 +82,7 @@ interface PrivateSchema {
 class SqlTranspiler {
   transpile(extendedSql: string): string {
     // zosql独自構文 → 標準SQL
-    // private スキーマ参照 → WITH句展開
+    // 共有CTE参照 → WITH句展開
     // テストデータ埋め込み → VALUES句展開
   }
 }
@@ -105,14 +105,14 @@ class SqlTranspiler {
 
 ### Phase 2 (完了) - SQL制約を超えた機能
 1. **クエリ実行機能**: WASM Postgres統合 [x]
-2. **Private スキーマ**: 事前定義リソース機能 [x]
+2. **共有CTE**: 事前定義リソース機能 [x]
 3. **デバッグ機能強化**: ファイル出力システム [x]
 4. **UI責務分離**: web-ui-template.ts分離 [x]
 
 ### Phase 3 (次期実装) - 高度機能拡張
-1. **Private リソース管理**: 追加・編集・削除機能 [ ]
+1. **共有CTE管理**: 追加・編集・削除機能 [ ]
 2. **SQL トランスパイラ**: 独自構文→標準SQL変換 [ ]
-3. **スキーマレジストリ**: Public/Private管理 [ ]
+3. **スキーマレジストリ**: テーブル/共有CTE管理 [ ]
 4. **テストデータ埋め込み**: VALUES句自動生成 [ ]
 
 ### Phase 3 (将来実装) - 高度機能

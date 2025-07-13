@@ -118,21 +118,21 @@ export function findTableObjectByAlias(parseResult: any, alias: string): any | n
 }
 
 /**
- * Combine public and private schema data for IntelliSense
+ * Combine tables and shared CTE schema data for IntelliSense
  */
-export function combineSchemaData(publicData: any, privateData: any): any {
+export function combineSchemaData(tablesData: any, sharedCteData: any): any {
   return {
-    success: publicData.success,
-    tables: [...(publicData.tables || []), ...(privateData.privateTables || [])],
-    columns: {...(publicData.columns || {}), ...(privateData.privateColumns || {})},
-    functions: publicData.functions || [],
-    keywords: publicData.keywords || [],
-    privateResources: privateData.privateResources || {}
+    success: tablesData.success,
+    tables: [...(tablesData.tables || []), ...(sharedCteData.sharedCteTables || [])],
+    columns: {...(tablesData.columns || {}), ...(sharedCteData.sharedCteColumns || {})},
+    functions: tablesData.functions || [],
+    keywords: tablesData.keywords || [],
+    sharedCtes: sharedCteData.sharedCtes || {}
   };
 }
 
 /**
- * Get columns for a table (supports CTE, subquery, and private resources)
+ * Get columns for a table (supports CTE, subquery, and shared CTEs)
  */
 export function getColumnsForTable(
   tableName: string, 
@@ -150,17 +150,17 @@ export function getColumnsForTable(
     } else if (schemaData.columns && schemaData.columns[tableName]) {
       columns = schemaData.columns[tableName];
     } else {
-      // Check if it's a private resource
-      const privateResource = schemaData.privateResources && schemaData.privateResources[tableName];
-      if (privateResource && privateResource.columns) {
-        columns = privateResource.columns.map((col: any) => col.name);
+      // Check if it's a shared CTE
+      const sharedCte = schemaData.sharedCtes && schemaData.sharedCtes[tableName];
+      if (sharedCte && sharedCte.columns) {
+        columns = sharedCte.columns.map((col: any) => col.name);
       }
     }
   } else {
-    // Check private resources first when no parse result
-    const privateResource = schemaData.privateResources && schemaData.privateResources[tableName];
-    if (privateResource && privateResource.columns) {
-      columns = privateResource.columns.map((col: any) => col.name);
+    // Check shared CTEs first when no parse result
+    const sharedCte = schemaData.sharedCtes && schemaData.sharedCtes[tableName];
+    if (sharedCte && sharedCte.columns) {
+      columns = sharedCte.columns.map((col: any) => col.name);
     } else if (schemaData.columns && schemaData.columns[tableName]) {
       columns = schemaData.columns[tableName];
     }

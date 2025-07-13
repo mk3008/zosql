@@ -81,7 +81,7 @@ describe('IntelliSense Integration Tests', () => {
     });
 
     it('should combine schema data correctly for IntelliSense', () => {
-      const publicData = {
+      const tablesData = {
         success: true,
         tables: ['users', 'orders'],
         columns: {
@@ -91,13 +91,13 @@ describe('IntelliSense Integration Tests', () => {
         functions: ['COUNT', 'SUM', 'AVG']
       };
 
-      const privateData = {
-        privateTables: ['user_stats', 'high_value_orders'],
-        privateColumns: {
+      const sharedCteData = {
+        sharedCteTables: ['user_stats', 'high_value_orders'],
+        sharedCteColumns: {
           user_stats: ['user_id', 'order_count', 'total_amount'],
           high_value_orders: ['id', 'user_id', 'amount', 'order_date']
         },
-        privateResources: {
+        sharedCtes: {
           user_stats: {
             name: 'user_stats',
             query: 'SELECT user_id, COUNT(*) as order_count FROM orders GROUP BY user_id',
@@ -110,7 +110,7 @@ describe('IntelliSense Integration Tests', () => {
         }
       };
 
-      const combined = combineSchemaData(publicData, privateData);
+      const combined = combineSchemaData(tablesData, sharedCteData);
 
       expect(combined.tables).toEqual([
         'users', 'orders', 'user_stats', 'high_value_orders'
@@ -118,7 +118,7 @@ describe('IntelliSense Integration Tests', () => {
       
       expect(combined.columns).toHaveProperty('users');
       expect(combined.columns).toHaveProperty('user_stats');
-      expect(combined.privateResources).toHaveProperty('user_stats');
+      expect(combined.sharedCtes).toHaveProperty('user_stats');
     });
 
     it('should handle complex alias extraction with underscores and numbers', () => {

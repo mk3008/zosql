@@ -145,24 +145,24 @@ export function getHelperFunctions(): string {
     }
     
     // Helper function to combine schema data
-    function combineSchemaData(publicData, privateData) {
+    function combineSchemaData(tablesData, sharedCteData) {
       const combined = {
-        tables: [...(publicData.tables || [])],
-        columns: { ...(publicData.columns || {}) },
-        functions: [...(publicData.functions || [])],
-        keywords: [...(publicData.keywords || [])],
-        privateResources: {}
+        tables: [...(tablesData.tables || [])],
+        columns: { ...(tablesData.columns || {}) },
+        functions: [...(tablesData.functions || [])],
+        keywords: [...(tablesData.keywords || [])],
+        sharedCtes: {}
       };
       
-      // Add private data if available
-      if (privateData && privateData.success) {
-        // Note: Private resources should NOT be added to the tables array
-        // to avoid duplicate suggestions. They are handled separately via privateResources.
-        if (privateData.privateColumns) {
-          Object.assign(combined.columns, privateData.privateColumns);
+      // Add shared CTE data if available
+      if (sharedCteData && sharedCteData.success) {
+        // Note: Shared CTEs should NOT be added to the tables array
+        // to avoid duplicate suggestions. They are handled separately via sharedCtes.
+        if (sharedCteData.sharedCteColumns) {
+          Object.assign(combined.columns, sharedCteData.sharedCteColumns);
         }
-        if (privateData.privateResources) {
-          combined.privateResources = privateData.privateResources;
+        if (sharedCteData.sharedCtes) {
+          combined.sharedCtes = sharedCteData.sharedCtes;
         }
       }
       
@@ -173,73 +173,73 @@ export function getHelperFunctions(): string {
 
 export function getSchemaManagement(): string {
   return `
-    // Load and display schema information (both public and private)
+    // Load and display schema information (both tables and shared CTEs)
     async function loadSchemaInfo() {
       try {
         logToServer('Schema loading attempt');
         
-        // Load both public and private schema concurrently
-        const [publicResponse, privateResponse] = await Promise.all([
+        // Load both tables and shared CTE schema concurrently
+        const [tablesResponse, sharedCteResponse] = await Promise.all([
           fetch('/api/schema'),
-          fetch('/api/private-schema')
+          fetch('/api/shared-cte')
         ]);
         
-        const publicData = await publicResponse.json();
-        const privateData = await privateResponse.json();
+        const tablesData = await tablesResponse.json();
+        const sharedCteData = await sharedCteResponse.json();
         
         logToServer('Schema responses received', {
-          publicSuccess: publicData.success,
-          privateSuccess: privateData.success,
-          publicTablesCount: publicData.schema?.tables?.length || 0,
-          privateResourcesCount: Object.keys(privateData.privateSchema || {}).length
+          tablesSuccess: tablesData.success,
+          sharedCteSuccess: sharedCteData.success,
+          tablesCount: tablesData.schema?.tables?.length || 0,
+          sharedCtesCount: Object.keys(sharedCteData.sharedCtes || {}).length
         });
         
-        // Display public schema
-        if (publicData.success) {
-          const publicSchemaInfo = document.getElementById('public-schema-info');
-          let publicHtml = '';
+        // Display tables
+        if (tablesData.success) {
+          const tablesInfo = document.getElementById('tables-info');
+          let tablesHtml = '';
           
-          publicData.schema.tables.forEach(table => {
-            publicHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(0,122,204,0.1); border-radius: 3px;">
+          tablesData.schema.tables.forEach(table => {
+            tablesHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(0,122,204,0.1); border-radius: 3px;">
               <strong style="color: #007acc;">\${table.name}</strong><br>
               \${table.columns.map(col => \`<span style="color: #9cdcfe;">• \${col.name}</span>\`).join('<br>')}
             </div>\`;
           });
           
-          publicSchemaInfo.innerHTML = publicHtml;
-          console.log('Public schema loaded successfully');
+          tablesInfo.innerHTML = tablesHtml;
+          console.log('Tables loaded successfully');
         } else {
-          document.getElementById('public-schema-info').innerHTML = 
-            '<div style="color: red;">Failed to load public schema</div>';
+          document.getElementById('tables-info').innerHTML = 
+            '<div style="color: red;">Failed to load tables</div>';
         }
         
-        // Display private schema
-        if (privateData.success && privateData.privateSchema) {
-          const privateSchemaInfo = document.getElementById('private-schema-info');
-          let privateHtml = '';
+        // Display shared CTEs
+        if (sharedCteData.success && sharedCteData.sharedCtes) {
+          const sharedCteInfo = document.getElementById('shared-cte-info');
+          let sharedCteHtml = '';
           
-          Object.values(privateData.privateSchema).forEach(resource => {
-            privateHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(255,165,0,0.1); border-radius: 3px;">
-              <strong style="color: #ffa500;">\${resource.name}</strong><br>
-              <small style="color: #808080;">\${resource.description || 'No description'}</small><br>
-              \${resource.columns.map(col => \`<span style="color: #dcdcaa;">• \${col.name} (\${col.type})</span>\`).join('<br>')}
+          Object.values(sharedCteData.sharedCtes).forEach(cte => {
+            sharedCteHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(255,165,0,0.1); border-radius: 3px;">
+              <strong style="color: #ffa500;">\${cte.name}</strong><br>
+              <small style="color: #808080;">\${cte.description || 'No description'}</small><br>
+              \${cte.columns.map(col => \`<span style="color: #dcdcaa;">• \${col.name} (\${col.type})</span>\`).join('<br>')}
             </div>\`;
           });
           
-          privateSchemaInfo.innerHTML = privateHtml;
-          console.log('Private schema loaded successfully');
+          sharedCteInfo.innerHTML = sharedCteHtml;
+          console.log('Shared CTEs loaded successfully');
         } else {
-          document.getElementById('private-schema-info').innerHTML = 
-            '<div style="color: #808080;">No private resources found</div>';
+          document.getElementById('shared-cte-info').innerHTML = 
+            '<div style="color: #808080;">No shared CTEs found</div>';
         }
         
         logToServer('Schema UI updated successfully');
       } catch (error) {
         console.error('Error loading schema:', error);
-        document.getElementById('public-schema-info').innerHTML = 
-          '<div style="color: red;">Error loading public schema</div>';
-        document.getElementById('private-schema-info').innerHTML = 
-          '<div style="color: red;">Error loading private schema</div>';
+        document.getElementById('tables-info').innerHTML = 
+          '<div style="color: red;">Error loading tables</div>';
+        document.getElementById('shared-cte-info').innerHTML = 
+          '<div style="color: red;">Error loading shared CTEs</div>';
         logToServer('Schema load error', { error: error.message });
       }
     }
