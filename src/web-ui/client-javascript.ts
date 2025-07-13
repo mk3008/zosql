@@ -26,6 +26,11 @@ function getGlobalVariables(): string {
     let lastSuccessfulParseResult = null; // キャッシュ用
     let isIntelliSenseEnabled = true;
     
+    // Tab management
+    let openTabs = new Map(); // Map<tabId, { name, type, content, isModified }>
+    let activeTabId = 'main';
+    let tabCounter = 0;
+    
     // Server logging helper
     function logToServer(message, data = null) {
       const logData = {
@@ -117,6 +122,8 @@ function getInitializationCode(): string {
       loadSharedCteInfo();
       initMonacoEditor();
       checkDatabaseStatus();
+      // Initialize tabs (will be called again in initMonacoEditor but that's ok)
+      initializeTabs();
     });
     
     // Check database status
@@ -275,6 +282,215 @@ function getQueryExecutionCode(): string {
         alert('Error resetting database: ' + error.message);
       }
     }
+    
+    // ====================================================================
+    // Tab Management Functions
+    // ====================================================================
+    
+    function initializeTabs() {
+      // Clear existing tabs
+      openTabs.clear();
+      
+      // Initialize main tab
+      openTabs.set('main', {
+        name: 'main.sql',
+        type: 'main',
+        content: editor ? editor.getValue() : 'SELECT * FROM users;',
+        isModified: false,
+        originalContent: 'SELECT * FROM users;'
+      });
+      
+      activeTabId = 'main';
+      
+      // Don't clear the tab-bar HTML immediately, just ensure our main tab is there
+      const tabBar = document.getElementById('tab-bar');
+      if (tabBar && tabBar.children.length === 0) {
+        renderTabs();
+      }
+      
+      console.log('Tabs initialized with main tab');
+    }
+    
+    function renderTabs() {
+      const tabBar = document.getElementById('tab-bar');
+      if (!tabBar) {
+        console.warn('Tab bar element not found');
+        return;
+      }
+      
+      // Only clear if we have JavaScript-managed tabs
+      if (openTabs.size > 0) {
+        tabBar.innerHTML = '';
+        
+        for (const [tabId, tab] of openTabs) {
+          const tabElement = document.createElement('div');
+          tabElement.className = \`tab \${tabId === activeTabId ? 'active' : ''}\`;
+          tabElement.dataset.tab = tabId;
+          tabElement.onclick = () => switchTab(tabId);
+          
+          const icon = tab.type === 'main' ? '📄' : '🔶';
+          const modifiedIndicator = tab.isModified ? '●' : '';
+          const tabName = tab.name || 'Untitled';
+          
+          tabElement.innerHTML = \`
+            \${icon} \${tabName}\${modifiedIndicator}
+            \${tab.type !== 'main' ? '<span class="close-btn" onclick="closeTab(event, \\''+tabId+'\\')">×</span>' : ''}
+          \`;
+          
+          tabBar.appendChild(tabElement);
+        }
+      }
+      
+      console.log('Tabs rendered:', openTabs.size, 'tabs');
+    }
+    
+    function switchTab(tabId) {
+      if (!openTabs.has(tabId)) return;
+      
+      // Save current tab content
+      if (editor && openTabs.has(activeTabId)) {
+        const currentTab = openTabs.get(activeTabId);
+        const currentContent = editor.getValue();
+        currentTab.content = currentContent;
+        currentTab.isModified = currentContent !== getOriginalContent(activeTabId);
+        openTabs.set(activeTabId, currentTab);
+      }
+      
+      // Switch to new tab
+      activeTabId = tabId;
+      const newTab = openTabs.get(tabId);
+      
+      if (editor) {
+        editor.setValue(newTab.content);
+      }
+      
+      renderTabs();
+      updateEditorHeader(newTab);
+    }
+    
+    function closeTab(event, tabId) {
+      event.stopPropagation();
+      
+      if (tabId === 'main') return; // Cannot close main tab
+      
+      const tab = openTabs.get(tabId);
+      if (tab && tab.isModified) {
+        if (!confirm(\`Close \${tab.name}? Unsaved changes will be lost.\`)) {
+          return;
+        }
+      }
+      
+      openTabs.delete(tabId);
+      
+      if (activeTabId === tabId) {
+        // Switch to main tab or another open tab
+        activeTabId = openTabs.has('main') ? 'main' : openTabs.keys().next().value;
+        if (activeTabId) {
+          switchTab(activeTabId);
+        }
+      }
+      
+      renderTabs();
+    }
+    
+    async function openSharedCteTab(cteName) {
+      const tabId = \`cte-\${cteName}\`;
+      
+      if (openTabs.has(tabId)) {
+        switchTab(tabId);
+        return;
+      }
+      
+      try {
+        // Load CTE content from server
+        const response = await fetch(\`/api/shared-cte/\${cteName}\`);
+        const data = await response.json();
+        
+        if (data.success && data.sharedCte) {
+          const content = data.sharedCte.editableQuery || data.sharedCte.query || '';
+          
+          openTabs.set(tabId, {
+            name: \`\${cteName}.cte.sql\`,
+            type: 'shared-cte',
+            content: content,
+            isModified: false,
+            cteName: cteName,
+            originalContent: content
+          });
+          
+          switchTab(tabId);
+          console.log('Shared CTE tab opened successfully:', cteName);
+        } else {
+          alert(\`Failed to load Shared CTE: \${data.error || 'Unknown error'}\`);
+        }
+      } catch (error) {
+        console.error('Error loading Shared CTE:', error);
+        alert(\`Error loading Shared CTE: \${error.message}\`);
+      }
+    }
+    
+    function updateEditorHeader(tab) {
+      const header = document.getElementById('editor-header');
+      if (header) {
+        const icon = tab.type === 'main' ? '📄' : '🔶';
+        header.textContent = \`\${icon} \${tab.name}\`;
+      }
+    }
+    
+    function getOriginalContent(tabId) {
+      const tab = openTabs.get(tabId);
+      if (!tab) return '';
+      
+      if (tab.type === 'main') {
+        return 'SELECT * FROM users;';
+      }
+      
+      // For shared CTEs, use stored original content
+      return tab.originalContent || '';
+    }
+    
+    async function saveCurrentTab() {
+      if (!editor || !openTabs.has(activeTabId)) return;
+      
+      const tab = openTabs.get(activeTabId);
+      const content = editor.getValue();
+      
+      if (tab.type === 'shared-cte') {
+        try {
+          const response = await fetch(\`/api/shared-cte/\${tab.cteName}\`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              query: content
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            tab.isModified = false;
+            openTabs.set(activeTabId, tab);
+            renderTabs();
+            alert('Shared CTE saved successfully');
+            
+            // Reload schema to reflect changes
+            await loadSchemaInfo();
+          } else {
+            alert(\`Failed to save Shared CTE: \${data.error || 'Unknown error'}\`);
+          }
+        } catch (error) {
+          alert(\`Error saving Shared CTE: \${error.message}\`);
+        }
+      }
+    }
+    
+    // Make functions globally accessible
+    window.openSharedCteTab = openSharedCteTab;
+    window.switchTab = switchTab;
+    window.closeTab = closeTab;
+    window.saveCurrentTab = saveCurrentTab;
   `;
 }
 
@@ -346,8 +562,26 @@ function getMonacoEditorCode(): string {
           runQuery();
         });
         
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
+          saveCurrentTab();
+        });
+        
         // Setup IntelliSense
         setupIntelliSense();
+        
+        // Initialize tabs after editor is ready
+        setTimeout(() => {
+          initializeTabs();
+          console.log('Tabs initialized after Monaco Editor');
+          
+          // Debug: Check if tab bar is visible
+          const tabBar = document.getElementById('tab-bar');
+          if (tabBar) {
+            console.log('Tab bar found:', tabBar.innerHTML);
+          } else {
+            console.error('Tab bar not found!');
+          }
+        }, 500);
         
         console.log('Monaco Editor initialized successfully');
       } catch (error) {

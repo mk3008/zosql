@@ -213,13 +213,17 @@ export function getSchemaManagement(): string {
             '<div style="color: red;">Failed to load tables</div>';
         }
         
-        // Display shared CTEs
+        // Update global sharedCteData and display shared CTEs
         if (sharedCteData.success && sharedCteData.sharedCtes) {
+          // Update global variable for IntelliSense
+          window.sharedCteData = sharedCteData.sharedCtes;
+          
           const sharedCteInfo = document.getElementById('shared-cte-info');
           let sharedCteHtml = '';
           
           Object.values(sharedCteData.sharedCtes).forEach(cte => {
-            sharedCteHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(255,165,0,0.1); border-radius: 3px;">
+            sharedCteHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(255,165,0,0.1); border-radius: 3px; cursor: pointer;" 
+                                  onclick="openSharedCteTab('\${cte.name}')">
               <strong style="color: #ffa500;">\${cte.name}</strong><br>
               <small style="color: #808080;">\${cte.description || 'No description'}</small><br>
               \${cte.columns.map(col => \`<span style="color: #dcdcaa;">• \${col.name} (\${col.type})</span>\`).join('<br>')}
@@ -227,8 +231,9 @@ export function getSchemaManagement(): string {
           });
           
           sharedCteInfo.innerHTML = sharedCteHtml;
-          console.log('Shared CTEs loaded successfully');
+          console.log('Shared CTEs loaded and global data updated');
         } else {
+          window.sharedCteData = {};
           document.getElementById('shared-cte-info').innerHTML = 
             '<div style="color: #808080;">No shared CTEs found</div>';
         }

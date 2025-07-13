@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from '../utils/logging.js';
-import { SharedCteApi } from './shared-cte-api.js';
+import { FileBasedSharedCteApi } from './file-based-shared-cte-api.js';
 import { SelectQueryParser } from 'rawsql-ts';
 
 export interface QueryResult {
@@ -13,11 +13,11 @@ export interface QueryResult {
 export class QueryExecutorApi {
   private logger: Logger;
   private db: any; // PGlite instance
-  private sharedCteApi: SharedCteApi;
+  private sharedCteApi: FileBasedSharedCteApi;
 
   constructor() {
     this.logger = Logger.getInstance();
-    this.sharedCteApi = new SharedCteApi();
+    this.sharedCteApi = new FileBasedSharedCteApi();
   }
 
   public async initializeDatabase(): Promise<void> {

@@ -22,6 +22,9 @@ export function getHtmlStructure(host: string, port: number): string {
           <button class="action-button" onclick="runQuery()">Run Query (Ctrl+Enter)</button>
           <button class="action-button secondary" onclick="resetDatabase()">Reset Database</button>
           
+          <h3>File Operations</h3>
+          <button class="action-button" onclick="saveCurrentTab()">💾 Save (Ctrl+S)</button>
+          
           <h3>Debug Tests</h3>
           <button class="action-button" onclick="testParseCurrentSQL()">Test Parse SQL</button>
           <button class="action-button" onclick="testAliasSearch()">Test Alias Search</button>
@@ -58,7 +61,12 @@ export function getHtmlStructure(host: string, port: number): string {
         
         <div class="content-area">
           <div class="editor-container">
-            <div class="editor-header">
+            <div class="tab-bar" id="tab-bar">
+              <div class="tab active" data-tab="main" onclick="switchTab('main')">
+                📄 main.sql
+              </div>
+            </div>
+            <div class="editor-header" id="editor-header">
               📄 main.sql
             </div>
             <div id="editor"></div>
@@ -134,12 +142,49 @@ function getCssStyles(): string {
       flex-direction: column;
       min-height: 0;
     }
+    .tab-bar {
+      background: #252526;
+      border-bottom: 1px solid #454545;
+      display: flex;
+      overflow-x: auto;
+    }
+    .tab {
+      padding: 10px 15px;
+      font-size: 13px;
+      color: #cccccc;
+      cursor: pointer;
+      border-right: 1px solid #454545;
+      background: #2d2d30;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tab:hover {
+      background: #383838;
+    }
+    .tab.active {
+      background: #1e1e1e;
+      color: #ffffff;
+      border-bottom: 2px solid #007acc;
+    }
+    .tab .close-btn {
+      margin-left: 8px;
+      color: #888;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .tab .close-btn:hover {
+      color: #fff;
+    }
     .editor-header {
       background: #2d2d30;
       padding: 10px 15px;
       border-bottom: 1px solid #454545;
       font-size: 14px;
       color: #cccccc;
+      display: none;
     }
     #editor {
       flex: 1;

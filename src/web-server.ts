@@ -6,7 +6,7 @@ import { SqlParserApi } from './api/sql-parser-api.js';
 import { SchemaApi } from './api/schema-api.js';
 import { DebugApi } from './api/debug-api.js';
 import { QueryExecutorApi } from './api/query-executor-api.js';
-import { SharedCteApi } from './api/shared-cte-api.js';
+import { FileBasedSharedCteApi } from './api/file-based-shared-cte-api.js';
 import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
 import { getHtmlTemplate } from './web-ui/template-system.js';
 
@@ -28,7 +28,7 @@ export class WebServer {
   private schemaApi: SchemaApi;
   private debugApi: DebugApi;
   private queryExecutorApi: QueryExecutorApi;
-  private sharedCteApi: SharedCteApi;
+  private sharedCteApi: FileBasedSharedCteApi;
   private intelliSenseDebugApi: IntelliSenseDebugApi;
 
   constructor(options: WebServerOptions) {
@@ -43,7 +43,7 @@ export class WebServer {
     this.schemaApi = new SchemaApi();
     this.debugApi = new DebugApi();
     this.queryExecutorApi = new QueryExecutorApi();
-    this.sharedCteApi = new SharedCteApi();
+    this.sharedCteApi = new FileBasedSharedCteApi();
     this.intelliSenseDebugApi = new IntelliSenseDebugApi();
     
     this.setupMiddleware();
@@ -90,8 +90,12 @@ export class WebServer {
     // Shared CTE API
     this.app.get('/api/shared-cte', this.sharedCteApi.handleGetSharedCtes.bind(this.sharedCteApi));
     
-    // Shared CTE completion API for IntelliSense
-    this.app.get('/api/shared-cte/completion', this.sharedCteApi.handleGetSharedCteCompletion.bind(this.sharedCteApi));
+    // Shared CTE cache refresh API
+    this.app.post('/api/shared-cte/refresh-cache', this.sharedCteApi.handleRefreshCache.bind(this.sharedCteApi));
+    
+    // Individual Shared CTE API for editing
+    this.app.get('/api/shared-cte/:cteName', this.sharedCteApi.handleGetSingleSharedCte.bind(this.sharedCteApi));
+    this.app.put('/api/shared-cte/:cteName', this.sharedCteApi.handleUpdateSharedCte.bind(this.sharedCteApi));
     
     // SQL parsing API for syntax checking with detailed alias logging
     this.app.post('/api/parse-sql', this.sqlParserApi.handleParseSql.bind(this.sqlParserApi));

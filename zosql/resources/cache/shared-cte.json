@@ -1,0 +1,56 @@
+{
+  "active_users": {
+    "name": "active_users",
+    "description": "注文履歴があるユーザー",
+    "dependencies": [],
+    "filePath": "/root/github/worktree/repositories/zosql/first_commit/zosql/resources/shared-cte/active_users.sql",
+    "lastModified": 1752368691770.208,
+    "columns": [
+      "id",
+      "name",
+      "email",
+      "created_at",
+      "updated_at"
+    ]
+  },
+  "high_value_orders": {
+    "name": "high_value_orders",
+    "description": "100以上の高額注文",
+    "dependencies": [],
+    "filePath": "/root/github/worktree/repositories/zosql/first_commit/zosql/resources/shared-cte/high_value_orders.sql",
+    "lastModified": 1752368427299.1045,
+    "columns": [
+      "id",
+      "user_id",
+      "amount",
+      "order_date",
+      "status",
+      "created_at"
+    ]
+  },
+  "user_detailed_stats": {
+    "name": "user_detailed_stats",
+    "description": "ユーザー情報付きの詳細統計",
+    "dependencies": [
+      "user_stats"
+    ],
+    "filePath": "/root/github/worktree/repositories/zosql/first_commit/zosql/resources/shared-cte/user_detailed_stats.sql",
+    "lastModified": 1752368432782.6277,
+    "columns": [
+      "name",
+      "email"
+    ]
+  },
+  "user_stats": {
+    "name": "user_stats",
+    "description": "ユーザーごとの注文統計",
+    "dependencies": [],
+    "filePath": "/root/github/worktree/repositories/zosql/first_commit/zosql/resources/shared-cte/user_stats.sql",
+    "lastModified": 1752368421651.156,
+    "columns": [
+      "user_id",
+      "order_count",
+      "total_amount"
+    ]
+  }
+}
