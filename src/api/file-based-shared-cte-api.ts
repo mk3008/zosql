@@ -394,7 +394,7 @@ export class FileBasedSharedCteApi {
   // Manual cache update API
   public async handleRefreshCache(_req: Request, res: Response): Promise<void> {
     try {
-      this.scanAndUpdateCache();
+      await this.scanAndUpdateCache();
       res.json({
         success: true,
         message: 'Cache refreshed successfully',
@@ -402,6 +402,49 @@ export class FileBasedSharedCteApi {
       });
     } catch (error) {
       this.logger.log(`[SHARED-CTE] Error refreshing cache: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
+  // Completion API for IntelliSense compatibility
+  public async handleGetSharedCteCompletion(_req: Request, res: Response): Promise<void> {
+    try {
+      await this.scanAndUpdateCache();
+      
+      const sharedCteTables: string[] = [];
+      const sharedCteColumns: Record<string, string[]> = {};
+      const sharedCtes: Record<string, any> = {};
+
+      for (const [name, metadata] of Object.entries(this.cache)) {
+        sharedCteTables.push(name);
+        sharedCteColumns[name] = metadata.columns || [];
+        
+        try {
+          const content = fs.readFileSync(metadata.filePath, 'utf8');
+          const cleanQuery = this.extractCleanQuery(content);
+          
+          sharedCtes[name] = {
+            name: metadata.name,
+            query: cleanQuery,
+            description: metadata.description,
+            dependencies: metadata.dependencies,
+            columns: metadata.columns || []
+          };
+        } catch (error) {
+          this.logger.log(`[SHARED-CTE] Error reading file for completion ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      this.logger.log(`[SHARED-CTE] Provided completion data for ${sharedCteTables.length} shared CTEs`);
+      
+      res.json({
+        success: true,
+        sharedCteTables,
+        sharedCteColumns,
+        sharedCtes
+      });
+    } catch (error) {
+      this.logger.log(`[SHARED-CTE] Error getting shared CTE completion: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }

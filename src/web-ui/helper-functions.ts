@@ -200,9 +200,8 @@ export function getSchemaManagement(): string {
           let tablesHtml = '';
           
           tablesData.schema.tables.forEach(table => {
-            tablesHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(0,122,204,0.1); border-radius: 3px;">
-              <strong style="color: #007acc;">\${table.name}</strong><br>
-              \${table.columns.map(col => \`<span style="color: #9cdcfe;">• \${col.name}</span>\`).join('<br>')}
+            tablesHtml += \`<div style="margin-bottom: 8px; padding: 8px; background: rgba(0,122,204,0.1); border-radius: 3px;">
+              <strong style="color: #007acc;">\${table.name}</strong>
             </div>\`;
           });
           
@@ -222,11 +221,10 @@ export function getSchemaManagement(): string {
           let sharedCteHtml = '';
           
           Object.values(sharedCteData.sharedCtes).forEach(cte => {
-            sharedCteHtml += \`<div style="margin-bottom: 10px; padding: 5px; background: rgba(255,165,0,0.1); border-radius: 3px; cursor: pointer;" 
+            sharedCteHtml += \`<div style="margin-bottom: 8px; padding: 8px; background: rgba(255,165,0,0.1); border-radius: 3px; cursor: pointer;" 
                                   onclick="openSharedCteTab('\${cte.name}')">
               <strong style="color: #ffa500;">\${cte.name}</strong><br>
-              <small style="color: #808080;">\${cte.description || 'No description'}</small><br>
-              \${cte.columns.map(col => \`<span style="color: #dcdcaa;">• \${col.name} (\${col.type})</span>\`).join('<br>')}
+              <small style="color: #808080;">\${cte.description || 'No description'}</small>
             </div>\`;
           });
           

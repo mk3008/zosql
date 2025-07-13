@@ -252,6 +252,120 @@ function getQueryExecutionCode(): string {
       div.textContent = text;
       return div.innerHTML;
     }
+
+    // SQL Formatting function
+    async function formatCurrentSQL() {
+      if (!editor) {
+        showToast('Editor not available', 'error');
+        return;
+      }
+      
+      const sql = editor.getValue();
+      if (!sql || sql.trim().length === 0) {
+        showToast('No SQL to format', 'warning');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/format-sql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ sql })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.formattedSql) {
+          // Get current cursor position
+          const position = editor.getPosition();
+          
+          // Replace editor content with formatted SQL
+          editor.setValue(data.formattedSql);
+          
+          // Try to restore cursor position (approximately)
+          if (position) {
+            editor.setPosition(position);
+          }
+          
+          // Mark current tab as modified
+          if (openTabs.has(activeTabId)) {
+            const currentTab = openTabs.get(activeTabId);
+            currentTab.content = data.formattedSql;
+            currentTab.isModified = data.formattedSql !== getOriginalContent(activeTabId);
+            openTabs.set(activeTabId, currentTab);
+            renderTabs();
+          }
+          
+          showToast('SQL formatted successfully', 'success');
+        } else {
+          showToast('SQL formatting failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+      } catch (error) {
+        showToast('Network error during formatting: ' + error.message, 'error');
+        console.error('SQL formatting error:', error);
+      }
+    }
+
+    // Toast notification system
+    function showToast(message, type = 'info') {
+      // Remove existing toast
+      const existingToast = document.querySelector('.toast');
+      if (existingToast) {
+        existingToast.remove();
+      }
+      
+      const toast = document.createElement('div');
+      toast.className = \`toast toast-\${type}\`;
+      toast.textContent = message;
+      
+      // Style the toast
+      Object.assign(toast.style, {
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        padding: '12px 20px',
+        borderRadius: '4px',
+        color: 'white',
+        fontSize: '14px',
+        fontWeight: '500',
+        zIndex: '10000',
+        opacity: '0',
+        transform: 'translateY(-10px)',
+        transition: 'all 0.3s ease',
+        maxWidth: '400px',
+        wordWrap: 'break-word'
+      });
+      
+      // Set background color based on type
+      const colors = {
+        success: '#4caf50',
+        error: '#f44336',
+        warning: '#ff9800',
+        info: '#2196f3'
+      };
+      toast.style.backgroundColor = colors[type] || colors.info;
+      
+      document.body.appendChild(toast);
+      
+      // Animate in
+      setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      }, 10);
+      
+      // Auto remove after 3 seconds
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 300);
+      }, 3000);
+    }
     
     // Reset database
     async function resetDatabase() {
@@ -302,11 +416,8 @@ function getQueryExecutionCode(): string {
       
       activeTabId = 'main';
       
-      // Don't clear the tab-bar HTML immediately, just ensure our main tab is there
-      const tabBar = document.getElementById('tab-bar');
-      if (tabBar && tabBar.children.length === 0) {
-        renderTabs();
-      }
+      // Always render tabs to ensure visibility
+      renderTabs();
       
       console.log('Tabs initialized with main tab');
     }
@@ -318,30 +429,35 @@ function getQueryExecutionCode(): string {
         return;
       }
       
-      // Only clear if we have JavaScript-managed tabs
-      if (openTabs.size > 0) {
-        tabBar.innerHTML = '';
+      // Force clear and rebuild all tabs
+      tabBar.innerHTML = '';
+      
+      for (const [tabId, tab] of openTabs) {
+        const tabElement = document.createElement('div');
+        tabElement.className = \`tab \${tabId === activeTabId ? 'active' : ''}\`;
+        tabElement.dataset.tab = tabId;
+        tabElement.onclick = () => switchTab(tabId);
         
-        for (const [tabId, tab] of openTabs) {
-          const tabElement = document.createElement('div');
-          tabElement.className = \`tab \${tabId === activeTabId ? 'active' : ''}\`;
-          tabElement.dataset.tab = tabId;
-          tabElement.onclick = () => switchTab(tabId);
-          
-          const icon = tab.type === 'main' ? '📄' : '🔶';
-          const modifiedIndicator = tab.isModified ? '●' : '';
-          const tabName = tab.name || 'Untitled';
-          
-          tabElement.innerHTML = \`
-            \${icon} \${tabName}\${modifiedIndicator}
-            \${tab.type !== 'main' ? '<span class="close-btn" onclick="closeTab(event, \\''+tabId+'\\')">×</span>' : ''}
-          \`;
-          
-          tabBar.appendChild(tabElement);
-        }
+        const icon = tab.type === 'main' ? '📄' : (tab.type === 'shared-cte' ? '🔶' : '📝');
+        const modifiedIndicator = tab.isModified ? '●' : '';
+        const tabName = tab.name || 'Untitled';
+        
+        tabElement.innerHTML = \`
+          \${icon} \${tabName}\${modifiedIndicator}
+          \${tab.type !== 'main' ? '<span class="close-btn" onclick="closeTab(event, \\''+tabId+'\\')">×</span>' : ''}
+        \`;
+        
+        tabBar.appendChild(tabElement);
       }
       
+      // Force visibility
+      tabBar.style.display = 'flex';
+      tabBar.style.visibility = 'visible';
+      tabBar.style.opacity = '1';
+      tabBar.style.height = '40px';
+      
       console.log('Tabs rendered:', openTabs.size, 'tabs');
+      console.log('Tab bar innerHTML:', tabBar.innerHTML);
     }
     
     function switchTab(tabId) {
@@ -432,7 +548,7 @@ function getQueryExecutionCode(): string {
     function updateEditorHeader(tab) {
       const header = document.getElementById('editor-header');
       if (header) {
-        const icon = tab.type === 'main' ? '📄' : '🔶';
+        const icon = tab.type === 'main' ? '📄' : (tab.type === 'shared-cte' ? '🔶' : '📝');
         header.textContent = \`\${icon} \${tab.name}\`;
       }
     }
@@ -471,19 +587,46 @@ function getQueryExecutionCode(): string {
           
           if (data.success) {
             tab.isModified = false;
+            tab.originalContent = content;
             openTabs.set(activeTabId, tab);
             renderTabs();
-            alert('Shared CTE saved successfully');
+            showToast('Shared CTE saved successfully', 'success');
             
             // Reload schema to reflect changes
             await loadSchemaInfo();
           } else {
-            alert(\`Failed to save Shared CTE: \${data.error || 'Unknown error'}\`);
+            showToast(\`Failed to save Shared CTE: \${data.error || 'Unknown error'}\`, 'error');
           }
         } catch (error) {
-          alert(\`Error saving Shared CTE: \${error.message}\`);
+          showToast(\`Error saving Shared CTE: \${error.message}\`, 'error');
         }
+      } else if (tab.type === 'sql' || tab.type === 'main') {
+        // For general SQL tabs, just mark as saved (in-memory only for now)
+        tab.content = content;
+        tab.isModified = false;
+        tab.originalContent = content;
+        openTabs.set(activeTabId, tab);
+        renderTabs();
+        showToast('Tab content saved', 'success');
       }
+    }
+    
+    // Create new SQL tab
+    function createNewTab() {
+      tabCounter++;
+      const tabId = \`tab-\${tabCounter}\`;
+      const tabName = \`untitled-\${tabCounter}.sql\`;
+      
+      openTabs.set(tabId, {
+        name: tabName,
+        type: 'sql',
+        content: '',
+        isModified: false,
+        originalContent: ''
+      });
+      
+      switchTab(tabId);
+      console.log('New tab created:', tabId);
     }
     
     // Make functions globally accessible
@@ -491,6 +634,7 @@ function getQueryExecutionCode(): string {
     window.switchTab = switchTab;
     window.closeTab = closeTab;
     window.saveCurrentTab = saveCurrentTab;
+    window.createNewTab = createNewTab;
   `;
 }
 
@@ -566,6 +710,11 @@ function getMonacoEditorCode(): string {
           saveCurrentTab();
         });
         
+        // Add SQL formatting keybinding (Ctrl+K, Ctrl+D)
+        editor.addCommand(monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD), function() {
+          formatCurrentSQL();
+        });
+        
         // Setup IntelliSense
         setupIntelliSense();
         
@@ -578,6 +727,7 @@ function getMonacoEditorCode(): string {
           const tabBar = document.getElementById('tab-bar');
           if (tabBar) {
             console.log('Tab bar found:', tabBar.innerHTML);
+            console.log('Tab bar styles:', window.getComputedStyle(tabBar));
           } else {
             console.error('Tab bar not found!');
           }

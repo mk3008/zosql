@@ -8,6 +8,7 @@ import { DebugApi } from './api/debug-api.js';
 import { QueryExecutorApi } from './api/query-executor-api.js';
 import { FileBasedSharedCteApi } from './api/file-based-shared-cte-api.js';
 import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
+import { SqlFormatterApi } from './api/sql-formatter-api.js';
 import { getHtmlTemplate } from './web-ui/template-system.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -30,6 +31,7 @@ export class WebServer {
   private queryExecutorApi: QueryExecutorApi;
   private sharedCteApi: FileBasedSharedCteApi;
   private intelliSenseDebugApi: IntelliSenseDebugApi;
+  private sqlFormatterApi: SqlFormatterApi;
 
   constructor(options: WebServerOptions) {
     this.app = express();
@@ -45,6 +47,7 @@ export class WebServer {
     this.queryExecutorApi = new QueryExecutorApi();
     this.sharedCteApi = new FileBasedSharedCteApi();
     this.intelliSenseDebugApi = new IntelliSenseDebugApi();
+    this.sqlFormatterApi = new SqlFormatterApi();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -87,13 +90,10 @@ export class WebServer {
     // Schema completion API for IntelliSense
     this.app.get('/api/schema/completion', this.schemaApi.handleGetSchemaCompletion.bind(this.schemaApi));
     
-    // Shared CTE API
-    this.app.get('/api/shared-cte', this.sharedCteApi.handleGetSharedCtes.bind(this.sharedCteApi));
-    
-    // Shared CTE cache refresh API
+    // Shared CTE API - specific routes before parameter routes
+    this.app.get('/api/shared-cte/completion', this.sharedCteApi.handleGetSharedCteCompletion.bind(this.sharedCteApi));
     this.app.post('/api/shared-cte/refresh-cache', this.sharedCteApi.handleRefreshCache.bind(this.sharedCteApi));
-    
-    // Individual Shared CTE API for editing
+    this.app.get('/api/shared-cte', this.sharedCteApi.handleGetSharedCtes.bind(this.sharedCteApi));
     this.app.get('/api/shared-cte/:cteName', this.sharedCteApi.handleGetSingleSharedCte.bind(this.sharedCteApi));
     this.app.put('/api/shared-cte/:cteName', this.sharedCteApi.handleUpdateSharedCte.bind(this.sharedCteApi));
     
@@ -113,6 +113,11 @@ export class WebServer {
     this.app.post('/api/intellisense-debug', this.intelliSenseDebugApi.handleDebugLog.bind(this.intelliSenseDebugApi));
     this.app.get('/api/intellisense-debug/logs', this.intelliSenseDebugApi.handleGetDebugLogs.bind(this.intelliSenseDebugApi));
     this.app.get('/api/intellisense-debug/analyze', this.intelliSenseDebugApi.handleAnalyzeLogs.bind(this.intelliSenseDebugApi));
+    
+    // SQL Formatter API
+    this.app.post('/api/format-sql', this.sqlFormatterApi.handleFormatSql.bind(this.sqlFormatterApi));
+    this.app.get('/api/formatter-config', this.sqlFormatterApi.handleGetFormatterConfig.bind(this.sqlFormatterApi));
+    this.app.put('/api/formatter-config', this.sqlFormatterApi.handleUpdateFormatterConfig.bind(this.sqlFormatterApi));
     
     // Main application route
     this.app.get('/', (_req, res) => {

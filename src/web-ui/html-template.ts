@@ -19,21 +19,12 @@ export function getHtmlStructure(host: string, port: number): string {
       <div class="main-container">
         <div class="sidebar">
           <h3>Actions</h3>
-          <button class="action-button" onclick="runQuery()">Run Query (Ctrl+Enter)</button>
-          <button class="action-button secondary" onclick="resetDatabase()">Reset Database</button>
+          <button class="action-button" onclick="runQuery()">▶️ Run Query (Ctrl+Enter)</button>
+          <button class="action-button" onclick="formatCurrentSQL()">🎨 Format SQL (Ctrl+K, Ctrl+D)</button>
+          <button class="action-button secondary" onclick="resetDatabase()">🗑️ Reset Database</button>
           
           <h3>File Operations</h3>
           <button class="action-button" onclick="saveCurrentTab()">💾 Save (Ctrl+S)</button>
-          
-          <h3>Debug Tests</h3>
-          <button class="action-button" onclick="testParseCurrentSQL()">Test Parse SQL</button>
-          <button class="action-button" onclick="testAliasSearch()">Test Alias Search</button>
-          
-          <h3>IntelliSense Tests</h3>
-          <button class="action-button" onclick="testFromClauseContext()">Test FROM Context</button>
-          <button class="action-button" onclick="testAliasCompletion()">Test Alias Completion</button>
-          <button class="action-button" onclick="testSharedCteCompletion()">Test Shared CTEs</button>
-          <button class="action-button" onclick="analyzeIntelliSenseIssues()">Analyze Issues</button>
           
           <h3>Tables</h3>
           <div id="tables-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
@@ -64,6 +55,9 @@ export function getHtmlStructure(host: string, port: number): string {
             <div class="tab-bar" id="tab-bar">
               <div class="tab active" data-tab="main" onclick="switchTab('main')">
                 📄 main.sql
+              </div>
+              <div class="tab-controls">
+                <button class="new-tab-btn" onclick="createNewTab()" title="新しいタブを作成">+</button>
               </div>
             </div>
             <div class="editor-header" id="editor-header">
@@ -147,6 +141,12 @@ function getCssStyles(): string {
       border-bottom: 1px solid #454545;
       display: flex;
       overflow-x: auto;
+      min-height: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+      opacity: 1;
     }
     .tab {
       padding: 10px 15px;
@@ -177,6 +177,30 @@ function getCssStyles(): string {
     }
     .tab .close-btn:hover {
       color: #fff;
+    }
+    .tab-controls {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      padding: 0 8px;
+    }
+    .new-tab-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: #3c3c3c;
+      color: #cccccc;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+    }
+    .new-tab-btn:hover {
+      background: #484848;
+      color: #ffffff;
     }
     .editor-header {
       background: #2d2d30;
