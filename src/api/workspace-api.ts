@@ -2,7 +2,9 @@ import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import { Logger } from '../utils/logging.js';
-import { SelectQueryParser, SqlFormatter, CTECollector, CTEDependencyAnalyzer, CTEDisabler } from 'rawsql-ts';
+import { SelectQueryParser, SqlFormatter, CTEDisabler, QueryFlowDiagramGenerator, CTEComposer } from 'rawsql-ts';
+import { FileManager } from '../utils/file-manager.js';
+import { CTEDecomposer } from '../utils/cte-decomposer.js';
 
 // Use any for now to avoid type compatibility issues
 type FormatterConfig = any;
@@ -29,11 +31,15 @@ export class WorkspaceApi {
   private logger: Logger;
   private workspaceBasePath: string;
   private formatterConfigPath: string;
+  private fileManager: FileManager;
+  private cteDecomposer: CTEDecomposer;
 
   constructor() {
     this.logger = Logger.getInstance();
     this.workspaceBasePath = path.join(process.cwd(), 'zosql', 'workspace');
     this.formatterConfigPath = path.join(process.cwd(), 'zosql.formatter.json');
+    this.fileManager = new FileManager();
+    this.cteDecomposer = new CTEDecomposer();
   }
 
   private async ensureWorkspaceStructure(): Promise<void> {
@@ -88,97 +94,72 @@ export class WorkspaceApi {
     }
   }
 
-  private async extractCTEsAndDecomposeQuery(sql: string): Promise<{ privateCtes: Record<string, PrivateCte>, decomposedQuery: string }> {
+  private async extractCTEsAndDecomposeQuery(sql: string): Promise<{ privateCtes: Record<string, PrivateCte>, decomposedQuery: string, flowDiagram?: string }> {
     try {
-      this.logger.log(`[WORKSPACE] Starting CTE extraction for SQL (${sql.length} chars)`);
+      this.logger.log(`[WORKSPACE] Starting CTE decomposition using FileManager (${sql.length} chars)`);
+      
+      // Clear FileManager for this operation
+      this.fileManager.clear();
       
       let privateCtes: Record<string, PrivateCte> = {};
       let decomposedQuery = sql;
+      let flowDiagram: string | undefined;
       
       try {
-        const query = SelectQueryParser.parse(sql);
-        const simpleQuery = query.toSimpleQuery();
+        // Use CTEDecomposer to extract CTEs into FileManager
+        const result = await this.cteDecomposer.decompose(sql, this.fileManager);
+        this.logger.log(`[WORKSPACE] CTEDecomposer found ${result.privateCtesCreated} CTEs`);
         
-        this.logger.log(`[WORKSPACE] rawsql-ts parse successful - hasWithClause: ${!!simpleQuery.withClause}`);
-
-        // Use CTECollector to collect all CTEs
-        const collector = new CTECollector();
-        collector.visit(simpleQuery);
-        const collectedCTEs = collector.getCommonTables();
-        
-        this.logger.log(`[WORKSPACE] CTECollector found ${collectedCTEs.length} CTEs`);
-
-        // Extract CTEs using CTECollector results and add dependency analysis
-        if (collectedCTEs.length > 0) {
-          privateCtes = await this.extractCTEsFromCollector(collectedCTEs);
-          
-          // Use CTEDependencyAnalyzer to get proper dependencies
-          const dependencyAnalyzer = new CTEDependencyAnalyzer();
-          dependencyAnalyzer.analyzeDependencies(simpleQuery);
-          
-          // Update dependencies for each CTE
-          Object.keys(privateCtes).forEach(cteName => {
-            privateCtes[cteName].dependencies = dependencyAnalyzer.getDependencies(cteName);
-          });
-          
-          this.logger.log(`[WORKSPACE] CTE dependencies analyzed. Execution order: ${dependencyAnalyzer.getExecutionOrder()}`);
-          
-          if (dependencyAnalyzer.hasCircularDependency()) {
-            this.logger.log(`[WORKSPACE] WARNING: Circular dependency detected in CTEs`);
-          }
-        }
-
-        // Extract main query using CTEDisabler
-        if (collectedCTEs.length > 0) {
-          decomposedQuery = await this.extractMainQueryWithCTEDisabler(simpleQuery);
-        }
-        
-      } catch (parseError) {
-        this.logger.log(`[WORKSPACE] rawsql-ts parse failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
-        this.logger.log(`[WORKSPACE] Cannot process without valid AST - skipping CTE extraction`);
-        // Return original SQL without decomposition if parsing fails
-        return { privateCtes: {}, decomposedQuery: sql };
-      }
-
-      this.logger.log(`[WORKSPACE] Final result - CTEs: ${Object.keys(privateCtes).length}, Decomposed query length: ${decomposedQuery.length}`);
-      return { privateCtes, decomposedQuery };
-      
-    } catch (error) {
-      this.logger.log(`[WORKSPACE] Fatal error in CTE extraction: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return { privateCtes: {}, decomposedQuery: sql };
-    }
-  }
-
-  private async extractCTEsFromCollector(collectedCTEs: any[]): Promise<Record<string, PrivateCte>> {
-    const privateCtes: Record<string, PrivateCte> = {};
-    const formatterConfig = await this.loadFormatterConfig();
-    const formatter = new SqlFormatter(formatterConfig);
-    
-    collectedCTEs.forEach((cte: any, index: number) => {
-      this.logger.log(`[WORKSPACE] Processing CTE ${index}`);
-      
-      const cteName = cte.aliasExpression?.table?.name;
-      this.logger.log(`[WORKSPACE] CTE name: ${cteName}`);
-      
-      if (cteName && cte.query) {
-        try {
-          const cteQuery = this.extractQueryFromAST(cte.query, formatter);
-          privateCtes[cteName] = {
-            name: cteName,
-            query: cteQuery,
-            description: `Extracted CTE: ${cteName}`,
+        // Convert decomposer results to our PrivateCte format
+        for (const cte of result.decomposedCTEs) {
+          privateCtes[cte.name] = {
+            name: cte.name,
+            query: cte.query, // CTEDecomposer provides executable SQL
+            description: `Extracted CTE: ${cte.name}`,
             dependencies: cte.dependencies || [],
             columns: []
           };
-          this.logger.log(`[WORKSPACE] Successfully extracted CTE ${cteName}: ${cteQuery.substring(0, 100)}...`);
-        } catch (formatError) {
-          this.logger.log(`[WORKSPACE] Failed to extract CTE ${cteName}: ${formatError instanceof Error ? formatError.message : 'Unknown error'}`);
+          
+          this.logger.log(`[WORKSPACE] Successfully extracted CTE ${cte.name}: ${cte.query.substring(0, 100)}...`);
         }
+        
+        this.logger.log(`[WORKSPACE] CTE dependencies: ${JSON.stringify(Object.fromEntries(result.decomposedCTEs.map(cte => [cte.name, cte.dependencies])))}`);
+
+        // Extract main query using CTEDisabler if CTEs exist
+        if (result.privateCtesCreated > 0) {
+          const query = SelectQueryParser.parse(sql);
+          const simpleQuery = query.toSimpleQuery();
+          decomposedQuery = await this.extractMainQueryWithCTEDisabler(simpleQuery);
+        } else {
+          this.logger.log(`[WORKSPACE] No WITH clause found - using original query`);
+        }
+
+        // Generate flow diagram
+        try {
+          const diagramGenerator = new QueryFlowDiagramGenerator();
+          flowDiagram = diagramGenerator.generateMermaidFlow(sql, {
+            direction: 'TD',
+            title: 'Query Flow Diagram'
+          });
+          this.logger.log(`[WORKSPACE] Flow diagram generated successfully (${flowDiagram.length} chars)`);
+        } catch (diagramError) {
+          this.logger.log(`[WORKSPACE] Failed to generate flow diagram: ${diagramError instanceof Error ? diagramError.message : 'Unknown error'}`);
+        }
+        
+      } catch (parseError) {
+        this.logger.log(`[WORKSPACE] CTE decomposition failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        return { privateCtes: {}, decomposedQuery: sql, flowDiagram: undefined };
       }
-    });
-    
-    return privateCtes;
+
+      this.logger.log(`[WORKSPACE] Final result - CTEs: ${Object.keys(privateCtes).length}, Decomposed query length: ${decomposedQuery.length}`);
+      return { privateCtes, decomposedQuery, flowDiagram };
+      
+    } catch (error) {
+      this.logger.log(`[WORKSPACE] Fatal error in CTE extraction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return { privateCtes: {}, decomposedQuery: sql, flowDiagram: undefined };
+    }
   }
+
 
   private async extractMainQueryWithCTEDisabler(simpleQuery: any): Promise<string> {
     try {
@@ -203,93 +184,16 @@ export class WorkspaceApi {
   }
 
 
-  private extractQueryFromAST(queryAST: any, formatter: SqlFormatter): string {
-    try {
-      // Try to format the AST directly
-      const formattedResult = formatter.format(queryAST);
-      return typeof formattedResult === 'string' ? formattedResult : formattedResult.formattedSql;
-    } catch (error) {
-      this.logger.log(`[WORKSPACE] Direct AST formatting failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
-      // Try to extract SQL string from AST if it has a toSqlString method
-      if (typeof queryAST.toSqlString === 'function') {
-        return queryAST.toSqlString();
-      }
-      
-      // If AST has basic query structure, try to reconstruct
-      if (queryAST.selectClause && queryAST.fromClause) {
-        return this.reconstructQueryFromAST(queryAST);
-      }
-      
-      throw new Error('Cannot extract SQL from AST');
-    }
-  }
-
-  private reconstructQueryFromAST(queryAST: any): string {
-    // Basic reconstruction - this is a simplified version
-    let sql = 'SELECT ';
-    
-    // Add SELECT clause
-    if (queryAST.selectClause && queryAST.selectClause.selectColumns) {
-      const columns = queryAST.selectClause.selectColumns.map((col: any) => {
-        if (col.expression && typeof col.expression.toSqlString === 'function') {
-          return col.expression.toSqlString();
-        }
-        return '*';
-      });
-      sql += columns.join(', ');
-    } else {
-      sql += '*';
-    }
-    
-    // Add FROM clause
-    if (queryAST.fromClause && queryAST.fromClause.source) {
-      sql += ' FROM ';
-      if (typeof queryAST.fromClause.source.toSqlString === 'function') {
-        sql += queryAST.fromClause.source.toSqlString();
-      } else {
-        sql += 'unknown_table';
-      }
-    }
-    
-    return sql;
-  }
 
 
 
 
 
   private async savePrivateCteFiles(privateCtes: Record<string, PrivateCte>): Promise<void> {
-    const privateCteDir = path.join(this.workspaceBasePath, 'private-cte');
-    const formatterConfig = await this.loadFormatterConfig();
-    const formatter = new SqlFormatter(formatterConfig);
+    // FileManager already contains the CTE files, so just flush them to disk
+    await this.cteDecomposer.flushToFileSystem(this.fileManager, process.cwd());
     
-    for (const [cteName, cte] of Object.entries(privateCtes)) {
-      const fileName = `${cteName}.sql`;
-      const filePath = path.join(privateCteDir, fileName);
-      
-      // Format the CTE query
-      let formattedQuery = cte.query;
-      try {
-        const parsedQuery = SelectQueryParser.parse(cte.query);
-        const formatResult = formatter.format(parsedQuery);
-        formattedQuery = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
-        this.logger.log(`[WORKSPACE] Formatted CTE ${cteName} successfully`);
-      } catch (formatError) {
-        this.logger.log(`[WORKSPACE] Failed to format CTE ${cteName}: ${formatError instanceof Error ? formatError.message : 'Unknown error'}`);
-        // Use original query if formatting fails
-      }
-      
-      // Add metadata as comments
-      const content = `/* name: ${cte.name} */
-/* description: ${cte.description || 'No description'} */
-/* dependencies: ${JSON.stringify(cte.dependencies)} */
-
-${formattedQuery}`;
-
-      await fs.writeFile(filePath, content, 'utf8');
-      this.logger.log(`[WORKSPACE] Saved private CTE: ${fileName}`);
-    }
+    this.logger.log(`[WORKSPACE] Saved ${Object.keys(privateCtes).length} private CTE files using FileManager`);
   }
 
   private async saveWorkspaceInfo(workspaceInfo: WorkspaceInfo): Promise<void> {
@@ -314,7 +218,7 @@ ${formattedQuery}`;
       await this.ensureWorkspaceStructure();
 
       // Extract CTEs and create decomposed query
-      const { privateCtes, decomposedQuery } = await this.extractCTEsAndDecomposeQuery(sql);
+      const { privateCtes, decomposedQuery, flowDiagram } = await this.extractCTEsAndDecomposeQuery(sql);
 
       // Create workspace info
       const workspaceInfo: WorkspaceInfo = {
@@ -342,6 +246,7 @@ ${formattedQuery}`;
         workspace: workspaceInfo,
         privateCteCount: Object.keys(privateCtes).length,
         decomposedQuery,
+        flowDiagram,
         message: 'Query decomposed successfully'
       });
 
@@ -401,8 +306,13 @@ ${formattedQuery}`;
             const descMatch = content.match(/\/\* description: (.*?) \*\//);
             const depsMatch = content.match(/\/\* dependencies: (.*?) \*\//);
             
-            const query = content.replace(/\/\*[\s\S]*?\*\/\s*/g, '').trim();
+            // Extract complete SQL (without metadata comments)
+            const fullQuery = content.replace(/\/\*[\s\S]*?\*\/\s*/g, '').trim();
             const cteName = nameMatch ? nameMatch[1] : path.basename(file, '.sql');
+            
+            // Use the query as-is from CTEQueryDecomposer output
+            // The library already provides the appropriate format for each use case
+            let query = fullQuery;
             
             privateCtes[cteName] = {
               name: cteName,
@@ -623,7 +533,12 @@ ${formattedQuery}`;
           const descMatch = content.match(/\/\* description: (.*?) \*\//);
           const depsMatch = content.match(/\/\* dependencies: (.*?) \*\//);
           
-          const query = content.replace(/\/\*[\s\S]*?\*\/\s*/g, '').trim();
+          // Extract complete SQL (without metadata comments)
+          const fullQuery = content.replace(/\/\*[\s\S]*?\*\/\s*/g, '').trim();
+          
+          // For compose functionality, use the complete SQL as-is
+          // Since compose needs to rebuild the WITH clause structure
+          let query = fullQuery;
           const cteName = nameMatch ? nameMatch[1] : path.basename(file, '.sql');
           
           privateCtes[cteName] = {
@@ -654,13 +569,29 @@ ${formattedQuery}`;
       return decomposedQuery;
     }
 
-    // Build WITH clause
-    const cteDefinitions = Object.values(privateCtes).map(cte => {
-      return `${cte.name} AS (\n  ${cte.query.replace(/\n/g, '\n  ')}\n)`;
-    });
-
-    const withClause = `WITH ${cteDefinitions.join(',\n')}`;
-    
-    return `${withClause}\n${decomposedQuery}`;
+    try {
+      // Use CTEComposer with library specifications
+      const composer = new CTEComposer({
+        preset: 'postgres',
+        withClauseStyle: 'full-oneline'
+      });
+      
+      // Convert to library format - use queries as-is
+      const editedCTEs = Object.values(privateCtes).map(cte => ({
+        name: cte.name,
+        query: cte.query
+      }));
+      
+      const composedSQL = composer.compose(editedCTEs, decomposedQuery);
+      this.logger.log(`[WORKSPACE] CTEComposer successfully composed query (${composedSQL.length} chars)`);
+      
+      return composedSQL;
+      
+    } catch (error) {
+      this.logger.log(`[WORKSPACE] CTEComposer failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Return decomposed query if composition fails
+      return decomposedQuery;
+    }
   }
+
 }
