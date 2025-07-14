@@ -110,6 +110,9 @@ dist
 # Temporary files for development
 .tmp/
 
+# Workspace directories - runtime generated content
+zosql/workspace/
+
 # Serverless directories
 .serverless/
 
