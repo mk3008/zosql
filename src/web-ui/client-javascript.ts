@@ -1,6 +1,7 @@
 import { getIntelliSenseSetup, getIntelliSenseTestFunctions } from './intellisense-client.js';
 import { getHelperFunctions, getSchemaManagement } from './helper-functions.js';
 import { getUtilityFunctions } from './utility-functions.js';
+import { getCteValidationCode } from './cte-validation-client.js';
 
 export function getJavaScriptCode(): string {
   return `
@@ -13,6 +14,7 @@ export function getJavaScriptCode(): string {
     ${getSchemaManagement()}
     ${getHelperFunctions()}
     ${getUtilityFunctions()}
+    ${getCteValidationCode()}
   `;
 }
 
@@ -125,6 +127,12 @@ function getInitializationCode(): string {
       checkDatabaseStatus();
       // Initialize tabs (will be called again in initMonacoEditor but that's ok)
       initializeTabs();
+      
+      // Initialize diagram area
+      const diagramContent = document.getElementById('diagram-content');
+      if (diagramContent) {
+        diagramContent.innerHTML = '<div class="diagram-placeholder">Enter SQL in the editor to see flow diagram</div>';
+      }
     });
     
     // Check database status
@@ -764,6 +772,11 @@ function getQueryExecutionCode(): string {
             }
           }
           
+          // Update flow diagram if available
+          if (decomposeData.flowDiagram) {
+            updateFlowDiagram(decomposeData.flowDiagram);
+          }
+          
           await loadWorkspaceInfo();
         } else {
           showToast(\`Decompose failed: \${decomposeData.error}\`, 'error');
@@ -868,6 +881,289 @@ function getQueryExecutionCode(): string {
       }
     }
     
+    // ====================================================================
+    // Diagram Management Functions
+    // ====================================================================
+    
+    let currentFlowDiagram = null;
+    let isDiagramVisible = true;
+    
+    function updateFlowDiagram(mermaidCode) {
+      currentFlowDiagram = mermaidCode;
+      renderFlowDiagram();
+    }
+    
+    async function renderFlowDiagram() {
+      const diagramContent = document.getElementById('diagram-content');
+      if (!diagramContent || !currentFlowDiagram) {
+        logToServer('Diagram: No diagram content element or flow diagram data');
+        return;
+      }
+      
+      try {
+        logToServer('Diagram: Rendering flow diagram', { length: currentFlowDiagram.length });
+        
+        // Show loading state
+        diagramContent.innerHTML = '<div class="diagram-placeholder">Rendering diagram...</div>';
+        
+        // Try to use Mermaid if available, otherwise show textual diagram
+        if (window.mermaid && typeof window.mermaid.render === 'function') {
+          logToServer('Diagram: Using Mermaid rendering');
+          const diagramId = 'flow-diagram-' + Date.now();
+          const { svg } = await window.mermaid.render(diagramId, currentFlowDiagram);
+          diagramContent.innerHTML = svg;
+          logToServer('Diagram: Mermaid diagram rendered successfully');
+        } else {
+          // Fallback: render as formatted text
+          logToServer('Diagram: Using fallback text rendering');
+          const formattedDiagram = currentFlowDiagram
+            .split('\\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map(line => \`<div style="font-family: monospace; margin: 2px 0; color: #cccccc;">\${line}</div>\`)
+            .join('');
+          
+          diagramContent.innerHTML = \`
+            <div style="background: #2d2d30; padding: 15px; border-radius: 4px; border: 1px solid #454545;">
+              <div style="color: #ffa500; font-weight: bold; margin-bottom: 10px;">📊 Query Flow (Text Mode)</div>
+              <div style="max-height: 400px; overflow-y: auto;">
+                \${formattedDiagram}
+              </div>
+              <div style="margin-top: 10px; font-size: 12px; color: #888888;">
+                <em>Mermaid.js not available - showing textual representation</em>
+              </div>
+            </div>
+          \`;
+          logToServer('Diagram: Fallback text diagram rendered');
+        }
+        
+      } catch (error) {
+        logToServer('Diagram: Error rendering flow diagram', { error: error.message });
+        diagramContent.innerHTML = \`
+          <div class="diagram-placeholder" style="color: #f44336;">
+            Error rendering diagram: \${error.message}<br>
+            <small>Check debug logs for details</small><br>
+            <button onclick="refreshDiagram()" style="margin-top: 10px; padding: 5px 10px;">Retry</button>
+          </div>
+        \`;
+      }
+    }
+    
+    async function loadMermaidJs() {
+      return new Promise((resolve, reject) => {
+        // Try to use existing mermaid if available
+        if (window.mermaid && typeof window.mermaid.render === 'function') {
+          logToServer('Diagram: Mermaid already available');
+          resolve();
+          return;
+        }
+        
+        // Remove any existing mermaid scripts to avoid conflicts
+        const existingScripts = document.querySelectorAll('script[src*="mermaid"]');
+        existingScripts.forEach(script => script.remove());
+        
+        logToServer('Diagram: Loading fresh Mermaid script');
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js';
+        
+        // Set up a timeout as fallback
+        const timeout = setTimeout(() => {
+          logToServer('Diagram: Mermaid load timeout');
+          reject(new Error('Mermaid load timeout'));
+        }, 10000);
+        
+        script.onload = () => {
+          clearTimeout(timeout);
+          logToServer('Diagram: Mermaid script loaded, checking availability');
+          
+          // Simple polling with shorter intervals
+          let retries = 0;
+          const maxRetries = 100;
+          
+          const checkMermaid = () => {
+            retries++;
+            logToServer('Diagram: Checking mermaid availability', { 
+              retries, 
+              hasMermaid: !!window.mermaid,
+              hasRender: !!(window.mermaid && window.mermaid.render)
+            });
+            
+            if (window.mermaid && typeof window.mermaid.render === 'function') {
+              logToServer('Diagram: Mermaid render() function confirmed available', { retries });
+              resolve();
+            } else if (retries < maxRetries) {
+              setTimeout(checkMermaid, 25); // Very frequent checks
+            } else {
+              logToServer('Diagram: Mermaid not available after maximum retries', { retries });
+              reject(new Error('Mermaid not available after script load'));
+            }
+          };
+          
+          // Start checking with a minimal delay
+          setTimeout(checkMermaid, 10);
+        };
+        
+        script.onerror = (error) => {
+          clearTimeout(timeout);
+          logToServer('Diagram: Mermaid script load error', { error: error.toString() });
+          reject(error);
+        };
+        
+        document.head.appendChild(script);
+      });
+    }
+    
+    async function refreshDiagram() {
+      try {
+        if (!editor) {
+          showToast('Editor not available', 'warning');
+          return;
+        }
+        
+        const currentSql = editor.getValue().trim();
+        if (!currentSql) {
+          showToast('No SQL query to generate diagram', 'warning');
+          return;
+        }
+        
+        showToast('Generating diagram...', 'info');
+        
+        // Generate diagram for current active tab's query
+        const response = await fetch('/api/generate-diagram', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            sql: currentSql,
+            includeCteSupplement: true 
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.flowDiagram) {
+          updateFlowDiagram(data.flowDiagram);
+          showToast('Diagram generated successfully', 'success');
+          
+          // Log composed SQL info if available
+          if (data.composedSql && data.composedSql !== currentSql) {
+            console.log('Diagram generated with CTE supplementation:', data.composedSql);
+          }
+        } else {
+          showToast(\`Failed to generate diagram: \${data.error || 'Unknown error'}\`, 'error');
+        }
+        
+      } catch (error) {
+        showToast(\`Error generating diagram: \${error.message}\`, 'error');
+        console.error('Diagram generation error:', error);
+      }
+    }
+    
+    function toggleDiagramSidebar() {
+      const diagramSidebar = document.getElementById('diagram-sidebar');
+      const toggleButton = document.getElementById('diagram-toggle-btn');
+      
+      if (diagramSidebar && toggleButton) {
+        isDiagramVisible = !isDiagramVisible;
+        
+        if (isDiagramVisible) {
+          // Show sidebar, hide floating button
+          diagramSidebar.style.display = 'flex';
+          toggleButton.style.display = 'none';
+        } else {
+          // Hide sidebar, show floating button
+          diagramSidebar.style.display = 'none';
+          toggleButton.style.display = 'block';
+        }
+        
+        showToast(\`Diagram panel \${isDiagramVisible ? 'shown' : 'hidden'}\`, 'info');
+      }
+    }
+    
+    // ====================================================================
+    // Auto Diagram Generation
+    // ====================================================================
+    
+    let diagramUpdateTimeout = null;
+    
+    function setupAutoDiagramGeneration() {
+      if (!editor) return;
+      
+      // Listen to content changes in editor
+      editor.onDidChangeModelContent(() => {
+        // Debounce diagram updates (wait 2 seconds after last change)
+        if (diagramUpdateTimeout) {
+          clearTimeout(diagramUpdateTimeout);
+        }
+        
+        diagramUpdateTimeout = setTimeout(() => {
+          updateDiagramForCurrentTab();
+        }, 2000);
+      });
+    }
+    
+    async function updateDiagramForCurrentTab() {
+      try {
+        logToServer('Diagram: Auto update triggered', { isDiagramVisible });
+        
+        if (!editor || !isDiagramVisible) {
+          logToServer('Diagram: Auto update skipped - editor or visibility issue');
+          return;
+        }
+        
+        const currentSql = editor.getValue().trim();
+        logToServer('Diagram: Auto update SQL', { length: currentSql.length });
+        
+        if (!currentSql || currentSql.length < 10) {
+          // Clear diagram for very short queries
+          logToServer('Diagram: SQL too short, clearing diagram');
+          const diagramContent = document.getElementById('diagram-content');
+          if (diagramContent) {
+            diagramContent.innerHTML = '<div class="diagram-placeholder">Enter a SQL query to see the flow diagram</div>';
+          }
+          return;
+        }
+        
+        logToServer('Diagram: Generating auto diagram', { sqlPreview: currentSql.substring(0, 50) });
+        
+        // Generate diagram for current query with CTE supplementation
+        const response = await fetch('/api/generate-diagram', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            sql: currentSql,
+            includeCteSupplement: true 
+          })
+        });
+        
+        const data = await response.json();
+        logToServer('Diagram: Auto diagram API response', { success: data.success, error: data.error });
+        
+        if (data.success && data.flowDiagram) {
+          logToServer('Diagram: Auto updating flow diagram');
+          updateFlowDiagram(data.flowDiagram);
+        } else {
+          logToServer('Diagram: Auto diagram generation failed', { error: data.error });
+        }
+        
+      } catch (error) {
+        logToServer('Diagram: Auto diagram update error', { error: error.message });
+        // Show error in diagram area for auto-updates too
+        const diagramContent = document.getElementById('diagram-content');
+        if (diagramContent) {
+          diagramContent.innerHTML = \`
+            <div class="diagram-placeholder" style="color: #f44336;">
+              Auto diagram failed: \${error.message}<br>
+              <button onclick="refreshDiagram()" style="margin-top: 5px; padding: 3px 8px; font-size: 12px;">Manual Refresh</button>
+            </div>
+          \`;
+        }
+      }
+    }
+    
     // Make functions globally accessible
     window.openSharedCteTab = openSharedCteTab;
     window.switchTab = switchTab;
@@ -877,6 +1173,9 @@ function getQueryExecutionCode(): string {
     window.decomposeCurrentQuery = decomposeCurrentQuery;
     window.clearWorkspace = clearWorkspace;
     window.openPrivateCteTab = openPrivateCteTab;
+    window.updateFlowDiagram = updateFlowDiagram;
+    window.refreshDiagram = refreshDiagram;
+    window.toggleDiagramSidebar = toggleDiagramSidebar;
   `;
 }
 
@@ -898,11 +1197,16 @@ function getMonacoEditorCode(): string {
             enabled: false
           },
           scrollBeyondLastLine: false,
-          wordWrap: 'on',
+          wordWrap: 'off',
           lineNumbers: 'on',
           folding: false,
           renderLineHighlight: 'line',
           selectOnLineNumbers: true,
+          // Enable horizontal scroll bar for long lines
+          scrollbar: {
+            horizontal: 'visible',
+            vertical: 'visible'
+          },
           // Disable word-based suggestions to prevent meaningless string suggestions
           wordBasedSuggestions: false,
           // Configure suggest options to disable snippet and word suggestions
@@ -959,6 +1263,9 @@ function getMonacoEditorCode(): string {
         
         // Setup IntelliSense
         setupIntelliSense();
+        
+        // Setup auto-diagram generation
+        setupAutoDiagramGeneration();
         
         // Initialize tabs after editor is ready
         setTimeout(() => {

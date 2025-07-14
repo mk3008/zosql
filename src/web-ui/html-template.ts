@@ -28,6 +28,9 @@ export function getHtmlStructure(host: string, port: number): string {
           <button class="action-button" onclick="decomposeCurrentQuery()">🔧 Decompose Query</button>
           <button class="action-button secondary" onclick="clearWorkspace()">🗑️ Clear Workspace</button>
           
+          <h3>Validation</h3>
+          <button class="action-button" onclick="toggleCteValidationPanel()">🔍 CTE Validation</button>
+          
           <h3 class="collapsible" onclick="toggleSection('tables-section')">
             <span class="collapse-icon" id="tables-icon">▼</span> Tables
           </h3>
@@ -97,6 +100,26 @@ export function getHtmlStructure(host: string, port: number): string {
             </div>
           </div>
         </div>
+        
+        <div class="diagram-sidebar" id="diagram-sidebar">
+          <div class="diagram-header">
+            <div class="diagram-title">📊 Query Flow Diagram</div>
+            <div class="diagram-controls">
+              <button class="diagram-btn" onclick="refreshDiagram()" title="Refresh Diagram">🔄</button>
+              <button class="diagram-btn" onclick="toggleDiagramSidebar()" title="Toggle Diagram Panel">✕</button>
+            </div>
+          </div>
+          <div class="diagram-content" id="diagram-content">
+            <div class="diagram-placeholder">
+              Decompose a query to see the flow diagram
+            </div>
+          </div>
+        </div>
+        
+        <!-- Floating toggle button for when diagram sidebar is hidden -->
+        <button class="diagram-toggle-btn" id="diagram-toggle-btn" onclick="toggleDiagramSidebar()" title="Show Diagram Panel" style="display: none;">
+          📊
+        </button>
       </div>
       
       <script>
@@ -343,8 +366,7 @@ function getCssStyles(): string {
       border-radius: 3px;
     }
     .schema-section {
-      max-height: 200px;
-      overflow-y: auto;
+      /* Remove individual scrollbars - use sidebar's main scrollbar */
     }
     .table-resource {
       background: rgba(0,122,204,0.1);
@@ -353,6 +375,97 @@ function getCssStyles(): string {
     .shared-cte-resource {
       background: rgba(255,165,0,0.1);
       border-left: 3px solid #ffa500;
+    }
+    .diagram-sidebar {
+      width: 400px;
+      min-width: 300px;
+      max-width: 600px;
+      background: #252526;
+      border-left: 1px solid #454545;
+      display: flex;
+      flex-direction: column;
+      resize: horizontal;
+    }
+    .diagram-header {
+      background: #2d2d30;
+      border-bottom: 1px solid #454545;
+      padding: 10px 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .diagram-title {
+      color: #cccccc;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .diagram-controls {
+      display: flex;
+      gap: 5px;
+    }
+    .diagram-btn {
+      background: #0e639c;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .diagram-btn:hover {
+      background: #1177bb;
+    }
+    .diagram-content {
+      flex: 1;
+      padding: 15px;
+      overflow: auto;
+      background: #1e1e1e;
+    }
+    .diagram-placeholder {
+      color: #888888;
+      text-align: center;
+      padding: 40px 20px;
+      font-style: italic;
+    }
+    .mermaid-container {
+      background: white;
+      border-radius: 4px;
+      padding: 15px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .mermaid {
+      max-width: 100%;
+      height: auto;
+    }
+    /* Direct SVG rendering support */
+    .diagram-content svg {
+      max-width: 100%;
+      height: auto;
+      background: white;
+      border-radius: 4px;
+    }
+    .diagram-toggle-btn {
+      position: fixed;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      background: #0e639c;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      font-size: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+    .diagram-toggle-btn:hover {
+      background: #1177bb;
+      transform: translateY(-50%) scale(1.1);
     }
   `;
 }

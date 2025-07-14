@@ -10,6 +10,7 @@ import { FileBasedSharedCteApi } from './api/file-based-shared-cte-api.js';
 import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
 import { SqlFormatterApi } from './api/sql-formatter-api.js';
 import { WorkspaceApi } from './api/workspace-api.js';
+import { CteValidatorApi } from './api/cte-validator-api.js';
 import { getHtmlTemplate } from './web-ui/template-system.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -34,6 +35,7 @@ export class WebServer {
   private intelliSenseDebugApi: IntelliSenseDebugApi;
   private sqlFormatterApi: SqlFormatterApi;
   private workspaceApi: WorkspaceApi;
+  private cteValidatorApi: CteValidatorApi;
 
   constructor(options: WebServerOptions) {
     this.app = express();
@@ -51,6 +53,7 @@ export class WebServer {
     this.intelliSenseDebugApi = new IntelliSenseDebugApi();
     this.sqlFormatterApi = new SqlFormatterApi();
     this.workspaceApi = new WorkspaceApi();
+    this.cteValidatorApi = new CteValidatorApi();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -130,6 +133,12 @@ export class WebServer {
     this.app.get('/api/workspace/private-cte', this.workspaceApi.handleGetPrivateCtes.bind(this.workspaceApi));
     this.app.put('/api/workspace/private-cte/:cteName', this.workspaceApi.handleUpdatePrivateCte.bind(this.workspaceApi));
     this.app.delete('/api/workspace', this.workspaceApi.handleClearWorkspace.bind(this.workspaceApi));
+    
+    // Diagram Generation API
+    this.app.post('/api/generate-diagram', this.queryExecutorApi.handleGenerateDiagram.bind(this.queryExecutorApi));
+    
+    // CTE Validation API
+    this.app.get('/api/validate-ctes', this.cteValidatorApi.handleValidateCtes.bind(this.cteValidatorApi));
     
     // Main application route
     this.app.get('/', (_req, res) => {

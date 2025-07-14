@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import { Logger } from '../utils/logging.js';
 
 export class SchemaApi {
@@ -61,12 +62,39 @@ export class SchemaApi {
           'LIKE', 'LIMIT', 'OFFSET', 'DISTINCT', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'
         ];
 
+        // Include Private CTEs from workspace if available
+        let privateCtes: any[] = [];
+        let privateCteColumns: Record<string, string[]> = {};
+        
+        try {
+          const workspaceBasePath = path.join(process.cwd(), 'zosql', 'workspace');
+          const privateCteDir = path.join(workspaceBasePath, 'private-cte');
+          
+          if (fs.existsSync(privateCteDir)) {
+            const files = await fsPromises.readdir(privateCteDir);
+            privateCtes = files
+              .filter(file => file.endsWith('.sql'))
+              .map(file => path.basename(file, '.sql'));
+            
+            this.logger.log(`[SCHEMA-COMPLETION] Found ${privateCtes.length} private CTEs for IntelliSense`);
+            
+            // For now, we can't easily determine columns without parsing the SQL
+            // This could be enhanced later by using rawsql-ts to parse each CTE
+            privateCtes.forEach(cteName => {
+              privateCteColumns[cteName] = []; // Empty for now
+            });
+          }
+        } catch (error) {
+          this.logger.log(`[SCHEMA-COMPLETION] Error loading private CTEs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+
         res.json({
           success: true,
-          tables,
-          columns,
+          tables: [...tables, ...privateCtes], // Include Private CTEs as tables
+          columns: { ...columns, ...privateCteColumns },
           functions: schema.functions || [],
-          keywords
+          keywords,
+          privateCtes // Also provide as separate property
         });
       } else {
         this.logger.log(`[SCHEMA-COMPLETION] Schema file not found`);
