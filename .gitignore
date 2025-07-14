@@ -112,6 +112,7 @@ dist
 
 # Workspace directories - runtime generated content
 zosql/workspace/
+zosql/resources/cache/
 
 # Serverless directories
 .serverless/
