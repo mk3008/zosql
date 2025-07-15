@@ -825,7 +825,11 @@ function getQueryExecutionCode(): string {
         if (workspaceData.success && workspaceData.hasWorkspace) {
           if (privateCteData.success && privateCteData.count > 0) {
             workspaceHtml += '<div style="margin-bottom: 10px;"><strong>Private CTE Tree:</strong></div>';
-            workspaceHtml += buildCTETree(privateCteData.privateCtes, workspaceData.mainQuery);
+            // Extract original file name from workspace data
+            var originalFileName = workspaceData.workspace && workspaceData.workspace.originalFilePath 
+              ? workspaceData.workspace.originalFilePath.replace(/^.*[\\\/]/, '') // Extract filename from path
+              : 'main.sql';
+            workspaceHtml += buildCTETree(privateCteData.privateCtes, workspaceData.workspace.originalQuery, originalFileName);
           }
         } else {
           workspaceHtml = '<div style="color: #666;">No workspace active</div>';
@@ -840,9 +844,7 @@ function getQueryExecutionCode(): string {
       }
     }
     
-    function buildCTETree(privateCtes, mainQuery) {
-      console.log('Building CTE tree with', Object.keys(privateCtes).length, 'CTEs');
-      console.log('Main query available:', !!mainQuery, mainQuery ? 'length: ' + mainQuery.length : 'no mainQuery');
+    function buildCTETree(privateCtes, mainQuery, originalFileName) {
       
       // Build dependency graph
       const cteMap = new Map();
@@ -875,13 +877,36 @@ function getQueryExecutionCode(): string {
       if (mainQuery) {
         // Extract CTE references from main query
         // Look for patterns like "from {cte_name}" or "join {cte_name}"
+        console.log('Available CTE names:', Array.from(cteMap.keys()));
+        console.log('Main query preview (first 500 chars):', mainQuery.substring(0, 500));
+        
         cteMap.forEach(function(cte) {
           var regex = new RegExp('\\b' + cte.name + '\\b', 'i');
           if (regex.test(mainQuery)) {
             mainCteRefs.push(cte);
+            console.log('Found CTE reference:', cte.name);
+          } else {
+            console.log('CTE not found in main query:', cte.name);
           }
         });
         console.log('Main query references CTEs:', mainCteRefs.map(function(c) { return c.name; }));
+        
+        // If no CTEs found in main query, fallback to root CTEs
+        if (mainCteRefs.length === 0) {
+          console.log('No CTEs found in main query, falling back to root CTEs');
+          cteMap.forEach(function(cte) {
+            var isUsedAsDependency = false;
+            cteMap.forEach(function(otherCte) {
+              if (otherCte.dependencies.includes(cte.name)) {
+                isUsedAsDependency = true;
+              }
+            });
+            if (!isUsedAsDependency) {
+              mainCteRefs.push(cte);
+            }
+          });
+          console.log('Using root CTEs as fallback:', mainCteRefs.map(function(c) { return c.name; }));
+        }
       } else {
         // If mainQuery is not available, find root CTEs (CTEs that are not dependencies of others)
         cteMap.forEach(function(cte) {
@@ -901,16 +926,20 @@ function getQueryExecutionCode(): string {
       // Render tree HTML
       var html = '<div style="font-family: monospace; font-size: 13px;">';
       
-      // Show main.sql at top
-      html += renderCTENode('main.sql', 0, true, false);
+      // Show original file name at top (fallback to main.sql if not available)
+      var mainFileName = originalFileName || 'main.sql';
+      html += renderCTENode(mainFileName, 0, true, false);
       
       // Render each CTE referenced by main.sql and their dependency trees
+      console.log('About to render mainCteRefs, count:', mainCteRefs.length);
       mainCteRefs.forEach(function(cte) {
+        console.log('Rendering CTE:', cte.name, 'with children:', cte.children.length);
         html += renderCTETreeRecursive(cte, 1, new Set());
       });
       
       html += '</div>';
       console.log('Generated tree HTML length:', html.length);
+      console.log('Generated HTML:', html);
       return html;
     }
     
