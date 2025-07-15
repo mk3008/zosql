@@ -824,13 +824,8 @@ function getQueryExecutionCode(): string {
         
         if (workspaceData.success && workspaceData.hasWorkspace) {
           if (privateCteData.success && privateCteData.count > 0) {
-            workspaceHtml += '<div style="margin-bottom: 10px;"><strong>Private CTEs:</strong></div>';
-            Object.values(privateCteData.privateCtes).forEach(cte => {
-              workspaceHtml += \`<div style="margin-bottom: 6px; padding: 6px; background: rgba(255,193,7,0.1); border-radius: 3px; cursor: pointer;" 
-                                    onclick="openPrivateCteTab('\${cte.name}')">
-                <strong style="color: #ffc107;">🔶 \${cte.name}</strong>
-              </div>\`;
-            });
+            workspaceHtml += '<div style="margin-bottom: 10px;"><strong>Private CTE Tree:</strong></div>';
+            workspaceHtml += buildCTETree(privateCteData.privateCtes, workspaceData.mainQuery);
           }
         } else {
           workspaceHtml = '<div style="color: #666;">No workspace active</div>';
@@ -845,8 +840,122 @@ function getQueryExecutionCode(): string {
       }
     }
     
+    function buildCTETree(privateCtes, mainQuery) {
+      console.log('Building CTE tree with', Object.keys(privateCtes).length, 'CTEs');
+      console.log('Main query available:', !!mainQuery, mainQuery ? 'length: ' + mainQuery.length : 'no mainQuery');
+      
+      // Build dependency graph
+      const cteMap = new Map();
+      const rootCtes = [];
+      
+      // Create map of all CTEs
+      Object.values(privateCtes).forEach(function(cte) {
+        cteMap.set(cte.name, {
+          name: cte.name,
+          query: cte.query,
+          description: cte.description,
+          dependencies: cte.dependencies || [],
+          children: [],
+          isRoot: !cte.dependencies || cte.dependencies.length === 0
+        });
+      });
+      
+      // Build parent-child relationships based on dependencies
+      cteMap.forEach(function(cte) {
+        cte.dependencies.forEach(function(depName) {
+          var depCte = cteMap.get(depName);
+          if (depCte) {
+            cte.children.push(depCte);
+          }
+        });
+      });
+      
+      // Find CTEs referenced by main.sql or all CTEs if mainQuery is not available
+      var mainCteRefs = [];
+      if (mainQuery) {
+        // Extract CTE references from main query
+        // Look for patterns like "from {cte_name}" or "join {cte_name}"
+        cteMap.forEach(function(cte) {
+          var regex = new RegExp('\\b' + cte.name + '\\b', 'i');
+          if (regex.test(mainQuery)) {
+            mainCteRefs.push(cte);
+          }
+        });
+        console.log('Main query references CTEs:', mainCteRefs.map(function(c) { return c.name; }));
+      } else {
+        // If mainQuery is not available, find root CTEs (CTEs that are not dependencies of others)
+        cteMap.forEach(function(cte) {
+          var isUsedAsDependency = false;
+          cteMap.forEach(function(otherCte) {
+            if (otherCte.dependencies.includes(cte.name)) {
+              isUsedAsDependency = true;
+            }
+          });
+          if (!isUsedAsDependency) {
+            mainCteRefs.push(cte);
+          }
+        });
+        console.log('No mainQuery available, using root CTEs:', mainCteRefs.map(function(c) { return c.name; }));
+      }
+      
+      // Render tree HTML
+      var html = '<div style="font-family: monospace; font-size: 13px;">';
+      
+      // Show main.sql at top
+      html += renderCTENode('main.sql', 0, true, false);
+      
+      // Render each CTE referenced by main.sql and their dependency trees
+      mainCteRefs.forEach(function(cte) {
+        html += renderCTETreeRecursive(cte, 1, new Set());
+      });
+      
+      html += '</div>';
+      console.log('Generated tree HTML length:', html.length);
+      return html;
+    }
+    
+    function renderCTENode(name, level, isMainQuery = false, hasChildren = false) {
+      const indent = '  '.repeat(level);
+      const icon = isMainQuery ? '📄' : (hasChildren ? '📂' : '🔹');
+      const color = isMainQuery ? '#4CAF50' : '#FFC107';
+      const clickHandler = isMainQuery ? '' : 'onclick="openPrivateCteTab(&quot;' + name.replace('.sql', '') + '&quot;)" style="cursor: pointer;"';
+      
+      return '<div style="margin: 2px 0; color: ' + color + ';" ' + clickHandler + '>' +
+        indent + icon + ' ' + name +
+      '</div>';
+    }
+    
+    function renderCTETreeRecursive(cte, level, visited) {
+      if (!cte || visited.has(cte.name)) {
+        return '';
+      }
+      
+      var newVisited = new Set(visited);
+      newVisited.add(cte.name);
+      
+      var html = '';
+      var indent = '';
+      for (var i = 0; i < level; i++) {
+        indent += '  ';
+      }
+      var hasChildren = cte.children.length > 0;
+      var icon = hasChildren ? '📂' : '🔹';
+      
+      // Main CTE node with proper indentation
+      html += '<div style="margin: 2px 0; color: #FFC107; cursor: pointer; margin-left: ' + (level * 16) + 'px;" onclick="openPrivateCteTab(&quot;' + cte.name + '&quot;)">' +
+        icon + ' ' + cte.name + '.sql' +
+      '</div>';
+      
+      // Render dependencies recursively
+      cte.children.forEach(function(child) {
+        html += renderCTETreeRecursive(child, level + 1, newVisited);
+      });
+      
+      return html;
+    }
+    
     async function openPrivateCteTab(cteName) {
-      const tabId = \`private-cte-\${cteName}\`;
+      const tabId = 'private-cte-' + cteName;
       
       if (openTabs.has(tabId)) {
         switchTab(tabId);
@@ -862,7 +971,7 @@ function getQueryExecutionCode(): string {
           const cte = data.privateCtes[cteName];
           
           openTabs.set(tabId, {
-            name: \`\${cteName}.cte.sql\`,
+            name: cteName + '.cte.sql',
             type: 'private-cte',
             content: cte.query,
             isModified: false,
@@ -873,11 +982,11 @@ function getQueryExecutionCode(): string {
           switchTab(tabId);
           console.log('Private CTE tab opened successfully:', cteName);
         } else {
-          showToast(\`Failed to load Private CTE: \${cteName}\`, 'error');
+          showToast('Failed to load Private CTE: ' + cteName, 'error');
         }
       } catch (error) {
         console.error('Error loading Private CTE:', error);
-        showToast(\`Error loading Private CTE: \${error.message}\`, 'error');
+        showToast('Error loading Private CTE: ' + error.message, 'error');
       }
     }
     
