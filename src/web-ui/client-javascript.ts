@@ -127,6 +127,8 @@ function getInitializationCode(): string {
       checkDatabaseStatus();
       // Initialize tabs (will be called again in initMonacoEditor but that's ok)
       initializeTabs();
+      // Initialize resize handles
+      initializeResizeHandles();
       
       // Initialize diagram area
       const diagramContent = document.getElementById('diagram-content');
@@ -546,7 +548,7 @@ function getQueryExecutionCode(): string {
           const content = data.sharedCte.editableQuery || data.sharedCte.query || '';
           
           openTabs.set(tabId, {
-            name: \`\${cteName}.cte.sql\`,
+            name: cteName,  // Just the CTE name without .cte.sql extension
             type: 'shared-cte',
             content: content,
             isModified: false,
@@ -564,6 +566,123 @@ function getQueryExecutionCode(): string {
         alert(\`Error loading Shared CTE: \${error.message}\`);
       }
     }
+    
+    // Function to open main file tab from workspace
+    async function openMainFileTab(fileName) {
+      const tabId = 'main-file-' + fileName;
+      
+      if (openTabs.has(tabId)) {
+        switchTab(tabId);
+        return;
+      }
+      
+      try {
+        // Load workspace info to get the original query
+        const response = await fetch('/api/workspace');
+        const data = await response.json();
+        
+        if (data.success && data.hasWorkspace && data.workspace.originalQuery) {
+          openTabs.set(tabId, {
+            name: fileName,
+            type: 'main-file',
+            content: data.workspace.originalQuery,
+            isModified: false,
+            originalContent: data.workspace.originalQuery
+          });
+          
+          switchTab(tabId);
+          console.log('Main file tab opened successfully:', fileName);
+        } else {
+          showToast('Failed to load main file: No workspace active', 'error');
+        }
+      } catch (error) {
+        console.error('Error loading main file:', error);
+        showToast('Error loading main file: ' + error.message, 'error');
+      }
+    }
+    
+    // Make functions globally accessible
+    window.openMainFileTab = openMainFileTab;
+    
+    // Sidebar toggle functions
+    function toggleLeftSidebar() {
+      const sidebar = document.getElementById('left-sidebar');
+      const toggleBtn = document.getElementById('toggle-left-sidebar');
+      
+      if (sidebar.classList.contains('hidden')) {
+        sidebar.classList.remove('hidden');
+        toggleBtn.textContent = '◀';
+        toggleBtn.title = 'Hide Left Sidebar';
+      } else {
+        sidebar.classList.add('hidden');
+        toggleBtn.textContent = '▶';
+        toggleBtn.title = 'Show Left Sidebar';
+      }
+    }
+    
+    function toggleRightSidebar() {
+      const sidebar = document.getElementById('diagram-sidebar');
+      const toggleBtn = document.getElementById('toggle-right-sidebar');
+      
+      if (sidebar.classList.contains('hidden')) {
+        sidebar.classList.remove('hidden');
+        toggleBtn.textContent = '▶';
+        toggleBtn.title = 'Hide Right Sidebar';
+      } else {
+        sidebar.classList.add('hidden');
+        toggleBtn.textContent = '◀';
+        toggleBtn.title = 'Show Right Sidebar';
+      }
+    }
+    
+    // Resize functionality
+    function initializeResizeHandles() {
+      const leftHandle = document.getElementById('left-resize-handle');
+      const rightHandle = document.getElementById('right-resize-handle');
+      const leftSidebar = document.getElementById('left-sidebar');
+      const rightSidebar = document.getElementById('diagram-sidebar');
+      
+      let isResizing = false;
+      let currentHandle = null;
+      
+      function startResize(e, handle, sidebar) {
+        isResizing = true;
+        currentHandle = handle;
+        document.addEventListener('mousemove', resize);
+        document.addEventListener('mouseup', stopResize);
+        e.preventDefault();
+      }
+      
+      function resize(e) {
+        if (!isResizing || !currentHandle) return;
+        
+        if (currentHandle === leftHandle) {
+          const newWidth = e.clientX;
+          if (newWidth >= 200 && newWidth <= 500) {
+            leftSidebar.style.width = newWidth + 'px';
+          }
+        } else if (currentHandle === rightHandle) {
+          const newWidth = window.innerWidth - e.clientX;
+          if (newWidth >= 200 && newWidth <= 600) {
+            rightSidebar.style.width = newWidth + 'px';
+          }
+        }
+      }
+      
+      function stopResize() {
+        isResizing = false;
+        currentHandle = null;
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+      }
+      
+      leftHandle.addEventListener('mousedown', (e) => startResize(e, leftHandle, leftSidebar));
+      rightHandle.addEventListener('mousedown', (e) => startResize(e, rightHandle, rightSidebar));
+    }
+    
+    // Make functions globally accessible
+    window.toggleLeftSidebar = toggleLeftSidebar;
+    window.toggleRightSidebar = toggleRightSidebar;
     
     function updateEditorHeader(tab) {
       const header = document.getElementById('editor-header');

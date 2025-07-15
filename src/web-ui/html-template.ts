@@ -13,11 +13,15 @@ export function getHtmlStructure(host: string, port: number): string {
     <body>
       <div class="header">
         <div class="logo">🚀 zosql Browser</div>
-        <div class="status">● Server Running</div>
+        <div class="header-controls">
+          <button id="toggle-left-sidebar" class="sidebar-toggle-btn" onclick="toggleLeftSidebar()" title="Toggle Left Sidebar">◀</button>
+          <button id="toggle-right-sidebar" class="sidebar-toggle-btn" onclick="toggleRightSidebar()" title="Toggle Right Sidebar">▶</button>
+        </div>
       </div>
       
       <div class="main-container">
-        <div class="sidebar">
+        <div class="sidebar" id="left-sidebar">
+          <div class="resize-handle" id="left-resize-handle"></div>
           <h3>Actions</h3>
           <button class="action-button" onclick="runQuery()">▶️ Run Query (Ctrl+Enter)</button>
           <button class="action-button" onclick="formatCurrentSQL()">🎨 Format SQL (Ctrl+K, Ctrl+D)</button>
@@ -52,23 +56,16 @@ export function getHtmlStructure(host: string, port: number): string {
           <h3 class="collapsible" onclick="toggleSection('shared-cte-section')">
             <span class="collapse-icon" id="shared-cte-icon">▶</span> Shared CTEs
           </h3>
-          <div id="shared-cte-section" class="collapsible-section">
+          <div id="shared-cte-section" class="collapsible-section" style="display: none;">
             <div id="shared-cte-info" class="schema-section" style="font-size: 12px; margin-top: 10px;">
               <div>Loading shared CTEs...</div>
             </div>
           </div>
           
-          <h3>IntelliSense Debug</h3>
-          <div id="intellisense-debug" style="font-size: 11px; margin-top: 10px; max-height: 200px; overflow-y: auto;">
-            <div>Waiting for SQL input...</div>
-          </div>
-          
-          <h3>Development Info</h3>
+          <h3>System Status</h3>
           <div style="font-size: 12px; margin-top: 10px;">
-            <div>Server: ${host}:${port}</div>
-            <div>Started: ${new Date().toLocaleString()}</div>
-            <div>Monaco Editor: Loading...</div>
-            <div>PGlite: <span id="pglite-status">Initializing...</span></div>
+            <div>Database: <span id="pglite-status">Initializing...</span></div>
+            <div>Logs: <a href="#" onclick="window.open('.tmp/debug.log', '_blank'); return false;" style="color: #007acc;">View Debug Logs</a></div>
           </div>
         </div>
         
@@ -102,6 +99,7 @@ export function getHtmlStructure(host: string, port: number): string {
         </div>
         
         <div class="diagram-sidebar" id="diagram-sidebar">
+          <div class="diagram-resize-handle" id="right-resize-handle"></div>
           <div class="diagram-header">
             <div class="diagram-title">📊 Query Flow Diagram</div>
             <div class="diagram-controls">
@@ -147,33 +145,69 @@ function getCssStyles(): string {
       justify-content: space-between;
       align-items: center;
     }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sidebar-toggle-btn {
+      background: #3c3c3c;
+      color: #cccccc;
+      border: none;
+      border-radius: 3px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.2s;
+    }
+    .sidebar-toggle-btn:hover {
+      background: #484848;
+      color: #ffffff;
+    }
     .logo {
       font-size: 18px;
       font-weight: bold;
       color: #ffffff;
     }
-    .status {
-      color: #4caf50;
-      font-size: 14px;
-    }
     .main-container {
       display: flex;
       height: calc(100vh - 60px);
+      position: relative;
     }
     .sidebar {
       width: 300px;
-      min-width: 250px;
+      min-width: 200px;
       max-width: 500px;
       background: #252526;
       border-right: 1px solid #454545;
       padding: 20px;
       overflow-y: auto;
-      resize: horizontal;
+      position: relative;
+    }
+    .sidebar.hidden {
+      width: 0;
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
     }
     .content-area {
       flex: 1;
       display: flex;
       flex-direction: column;
+      min-width: 0;
+    }
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 5px;
+      height: 100%;
+      background: transparent;
+      cursor: col-resize;
+      z-index: 10;
+    }
+    .resize-handle:hover {
+      background: #454545;
     }
     .editor-container {
       flex: 1;
@@ -192,6 +226,7 @@ function getCssStyles(): string {
       position: relative;
       z-index: 10;
       opacity: 1;
+      max-width: 100%;
     }
     .tab {
       padding: 10px 15px;
@@ -204,6 +239,9 @@ function getCssStyles(): string {
       display: flex;
       align-items: center;
       gap: 5px;
+      flex-shrink: 0;
+      max-width: 200px;
+      overflow: hidden;
     }
     .tab:hover {
       background: #383838;
@@ -378,13 +416,31 @@ function getCssStyles(): string {
     }
     .diagram-sidebar {
       width: 400px;
-      min-width: 300px;
+      min-width: 200px;
       max-width: 600px;
       background: #252526;
       border-left: 1px solid #454545;
       display: flex;
       flex-direction: column;
-      resize: horizontal;
+      position: relative;
+    }
+    .diagram-sidebar.hidden {
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .diagram-resize-handle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 5px;
+      height: 100%;
+      background: transparent;
+      cursor: col-resize;
+      z-index: 10;
+    }
+    .diagram-resize-handle:hover {
+      background: #454545;
     }
     .diagram-header {
       background: #2d2d30;
