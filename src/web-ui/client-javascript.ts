@@ -137,6 +137,9 @@ function getInitializationCode(): string {
       // Initialize tab scroll handling
       initializeTabScrollHandling();
       
+      // Initialize context panel
+      updateContextPanel();
+      
       // Initialize diagram area
       const diagramContent = document.getElementById('diagram-content');
       if (diagramContent) {
@@ -179,12 +182,18 @@ function getQueryExecutionCode(): string {
         return;
       }
       
-      const resultsContent = document.getElementById('results-content');
-      const executionInfo = document.getElementById('execution-info');
+      const resultsContentId = activePanel === 'left' ? 'left-results-content' : 'right-results-content';
+      const executionInfoId = activePanel === 'left' ? 'left-execution-info' : 'right-execution-info';
+      const resultsContent = document.getElementById(resultsContentId);
+      const executionInfo = document.getElementById(executionInfoId);
       
       // Show loading state
-      resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Executing query...</div>';
-      executionInfo.textContent = 'Executing...';
+      if (resultsContent) {
+        resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Executing query...</div>';
+      }
+      if (executionInfo) {
+        executionInfo.textContent = 'Executing...';
+      }
       
       try {
         const response = await fetch('/api/execute-query', {
@@ -205,9 +214,11 @@ function getQueryExecutionCode(): string {
           storeQueryResult(resultHtml);
           
           // Update the display
-          updateQueryResults();
+          updateQueryResults(activePanel);
           
-          executionInfo.textContent = \`Executed in \${data.result.executionTime}ms (\${data.result.rows.length} rows)\`;
+          if (executionInfo) {
+            executionInfo.textContent = \`Executed in \${data.result.executionTime}ms (\${data.result.rows.length} rows)\`;
+          }
         } else {
           const errorHtml = \`
             <div style="color: #f44336; padding: 20px;">
@@ -220,9 +231,11 @@ function getQueryExecutionCode(): string {
           storeQueryResult(errorHtml);
           
           // Update the display
-          updateQueryResults();
+          updateQueryResults(activePanel);
           
-          executionInfo.textContent = 'Error';
+          if (executionInfo) {
+            executionInfo.textContent = 'Error';
+          }
         }
       } catch (error) {
         const errorHtml = \`
@@ -236,9 +249,11 @@ function getQueryExecutionCode(): string {
         storeQueryResult(errorHtml);
         
         // Update the display
-        updateQueryResults();
+        updateQueryResults(activePanel);
         
-        executionInfo.textContent = 'Network Error';
+        if (executionInfo) {
+          executionInfo.textContent = 'Network Error';
+        }
       }
     }
     
@@ -302,12 +317,15 @@ function getQueryExecutionCode(): string {
 
     // SQL Formatting function
     async function formatCurrentSQL() {
-      if (!editor) {
+      // Determine which editor to use based on active panel
+      const currentEditor = activePanel === 'left' ? leftEditor : rightEditor;
+      
+      if (!currentEditor) {
         showToast('Editor not available', 'error');
         return;
       }
       
-      const sql = editor.getValue();
+      const sql = currentEditor.getValue();
       if (!sql || sql.trim().length === 0) {
         showToast('No SQL to format', 'warning');
         return;
@@ -326,19 +344,22 @@ function getQueryExecutionCode(): string {
         
         if (data.success && data.formattedSql) {
           // Get current cursor position
-          const position = editor.getPosition();
+          const position = currentEditor.getPosition();
           
           // Replace editor content with formatted SQL
-          editor.setValue(data.formattedSql);
+          currentEditor.setValue(data.formattedSql);
           
           // Try to restore cursor position (approximately)
           if (position) {
-            editor.setPosition(position);
+            currentEditor.setPosition(position);
           }
           
           // Mark current tab as modified if content actually changed
-          if (openTabs.has(activeTabId)) {
-            const currentTab = openTabs.get(activeTabId);
+          const tabs = activePanel === 'left' ? leftTabs : rightTabs;
+          const activeTabId = activePanel === 'left' ? activeLeftTabId : activeRightTabId;
+          
+          if (activeTabId && tabs.has(activeTabId)) {
+            const currentTab = tabs.get(activeTabId);
             const oldContent = currentTab.content;
             currentTab.content = data.formattedSql;
             // Only mark as modified if the original content was different from formatted
@@ -346,7 +367,7 @@ function getQueryExecutionCode(): string {
             if (oldContent !== data.formattedSql) {
               currentTab.isModified = data.formattedSql !== currentTab.originalContent;
             }
-            openTabs.set(activeTabId, currentTab);
+            tabs.set(activeTabId, currentTab);
             renderTabs();
           }
           
@@ -438,7 +459,8 @@ function getQueryExecutionCode(): string {
         if (data.success) {
           alert('Database reset successfully');
           // Re-run current query if there is one
-          if (editor && editor.getValue().trim()) {
+          const currentEditor = activePanel === 'left' ? leftEditor : rightEditor;
+          if (currentEditor && currentEditor.getValue().trim()) {
             runQuery();
           }
         } else {
@@ -567,7 +589,10 @@ function getQueryExecutionCode(): string {
       updateEditorHeader(newTab);
       
       // Update query results for the new tab
-      updateQueryResults();
+      updateQueryResults(panel);
+      
+      // Update context panel when switching tabs
+      updateContextPanel();
     }
     
     function closeTab(event, tabId, panel) {
@@ -624,14 +649,18 @@ function getQueryExecutionCode(): string {
       }
       
       renderTabs();
-      updateQueryResults(); // Update results when tab is closed
+      updateQueryResults(panel); // Update results when tab is closed
     }
     
-    async function openSharedCteTab(cteName) {
-      const tabId = \`cte-\${cteName}\`;
+    async function openSharedCteTab(cteName, panel) {
+      // Default to current active panel if no panel specified
+      panel = panel || activePanel;
       
-      if (openTabs.has(tabId)) {
-        switchTab(tabId);
+      const tabId = \`cte-\${cteName}\`;
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      
+      if (tabs.has(tabId)) {
+        switchTab(tabId, panel);
         return;
       }
       
@@ -643,17 +672,18 @@ function getQueryExecutionCode(): string {
         if (data.success && data.sharedCte) {
           const content = data.sharedCte.editableQuery || data.sharedCte.query || '';
           
-          openTabs.set(tabId, {
+          tabs.set(tabId, {
             name: cteName,  // Just the CTE name without .cte.sql extension
             type: 'shared-cte',
             content: content,
             isModified: false,
             cteName: cteName,
-            originalContent: content
+            originalContent: content,
+            queryResult: null
           });
           
-          switchTab(tabId);
-          console.log('Shared CTE tab opened successfully:', cteName);
+          switchTab(tabId, panel);
+          console.log('Shared CTE tab opened successfully:', cteName, 'in panel:', panel);
         } else {
           alert(\`Failed to load Shared CTE: \${data.error || 'Unknown error'}\`);
         }
@@ -664,11 +694,15 @@ function getQueryExecutionCode(): string {
     }
     
     // Function to open main file tab from workspace
-    async function openMainFileTab(fileName) {
-      const tabId = 'main-file-' + fileName;
+    async function openMainFileTab(fileName, panel) {
+      // Default to current active panel if no panel specified
+      panel = panel || activePanel;
       
-      if (openTabs.has(tabId)) {
-        switchTab(tabId);
+      const tabId = 'main-file-' + fileName;
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      
+      if (tabs.has(tabId)) {
+        switchTab(tabId, panel);
         return;
       }
       
@@ -678,16 +712,17 @@ function getQueryExecutionCode(): string {
         const data = await response.json();
         
         if (data.success && data.hasWorkspace && data.workspace.originalQuery) {
-          openTabs.set(tabId, {
+          tabs.set(tabId, {
             name: fileName,
             type: 'main-file',
             content: data.workspace.originalQuery,
             isModified: false,
-            originalContent: data.workspace.originalQuery
+            originalContent: data.workspace.originalQuery,
+            queryResult: null
           });
           
-          switchTab(tabId);
-          console.log('Main file tab opened successfully:', fileName);
+          switchTab(tabId, panel);
+          console.log('Main file tab opened successfully:', fileName, 'in panel:', panel);
         } else {
           showToast('Failed to load main file: No workspace active', 'error');
         }
@@ -721,7 +756,7 @@ function getQueryExecutionCode(): string {
     }
     
     function toggleRightSidebar() {
-      const sidebar = document.getElementById('diagram-sidebar');
+      const sidebar = document.getElementById('context-sidebar');
       const toggleBtn = document.getElementById('toggle-right-sidebar');
       
       if (sidebar.classList.contains('hidden')) {
@@ -730,6 +765,8 @@ function getQueryExecutionCode(): string {
         sidebar.style.width = '';
         toggleBtn.textContent = '▶';
         toggleBtn.title = 'Hide Right Sidebar';
+        // Update context content when sidebar is shown
+        updateContextPanel();
       } else {
         sidebar.classList.add('hidden');
         // Clear inline width to allow CSS to take precedence
@@ -739,12 +776,218 @@ function getQueryExecutionCode(): string {
       }
     }
     
+    // Context Panel Management
+    function updateContextPanel() {
+      const contextContent = document.getElementById('context-content');
+      const contextTitle = document.getElementById('context-title');
+      
+      if (!contextContent || !contextTitle) return;
+      
+      // Get current active tab info
+      const currentPanel = activePanel;
+      const currentTabId = currentPanel === 'left' ? activeLeftTabId : activeRightTabId;
+      const currentTabs = currentPanel === 'left' ? leftTabs : rightTabs;
+      
+      if (!currentTabId || !currentTabs.has(currentTabId)) {
+        contextTitle.textContent = '📄 Context Panel';
+        contextContent.innerHTML = '<div class="context-placeholder">Open a tab to see context information</div>';
+        return;
+      }
+      
+      const currentTab = currentTabs.get(currentTabId);
+      const tabType = currentTab.type;
+      const tabName = currentTab.name;
+      
+      // Update title based on tab type
+      let titleIcon = '📄';
+      switch (tabType) {
+        case 'shared-cte':
+          titleIcon = '🔶';
+          break;
+        case 'private-cte':
+          titleIcon = '🔧';
+          break;
+        case 'main-file':
+          titleIcon = '📄';
+          break;
+        default:
+          titleIcon = '📝';
+      }
+      
+      contextTitle.textContent = \`\${titleIcon} \${tabName} Context\`;
+      
+      // Generate context content based on tab type and content
+      generateContextContent(currentTab, contextContent);
+    }
+    
+    function generateContextContent(tab, contentElement) {
+      let html = '';
+      
+      switch (tab.type) {
+        case 'shared-cte':
+          html = generateSharedCteContext(tab);
+          break;
+        case 'private-cte':
+          html = generatePrivateCteContext(tab);
+          break;
+        case 'main-file':
+        case 'sql':
+        default:
+          html = generateSqlContext(tab);
+          break;
+      }
+      
+      contentElement.innerHTML = html;
+    }
+    
+    function generateSharedCteContext(tab) {
+      return \`
+        <div class="context-section">
+          <h4>🔶 Shared CTE Information</h4>
+          <div class="context-item cte">
+            <strong>CTE Name:</strong> \${tab.name.replace('.cte.sql', '')}
+          </div>
+          <div class="context-item cte">
+            <strong>Type:</strong> Shared Common Table Expression
+          </div>
+          <div class="context-item cte">
+            <strong>Usage:</strong> Can be referenced in multiple queries
+          </div>
+        </div>
+        <div class="context-section">
+          <h4>📊 Query Analysis</h4>
+          <div class="context-item">
+            <strong>Lines:</strong> \${tab.content.split('\\n').length}
+          </div>
+          <div class="context-item">
+            <strong>Characters:</strong> \${tab.content.length}
+          </div>
+        </div>
+      \`;
+    }
+    
+    function generatePrivateCteContext(tab) {
+      return \`
+        <div class="context-section">
+          <h4>🔧 Private CTE Information</h4>
+          <div class="context-item cte">
+            <strong>CTE Name:</strong> \${tab.name.replace('.cte.sql', '')}
+          </div>
+          <div class="context-item cte">
+            <strong>Type:</strong> Private Common Table Expression
+          </div>
+          <div class="context-item cte">
+            <strong>Usage:</strong> Used in specific query decomposition
+          </div>
+        </div>
+        <div class="context-section">
+          <h4>📊 Query Analysis</h4>
+          <div class="context-item">
+            <strong>Lines:</strong> \${tab.content.split('\\n').length}
+          </div>
+          <div class="context-item">
+            <strong>Characters:</strong> \${tab.content.length}
+          </div>
+        </div>
+      \`;
+    }
+    
+    function generateSqlContext(tab) {
+      const content = tab.content || '';
+      const lines = content.split('\\n');
+      
+      // Simple SQL analysis
+      const hasSelect = /\\bselect\\b/i.test(content);
+      const hasFrom = /\\bfrom\\b/i.test(content);
+      const hasWhere = /\\bwhere\\b/i.test(content);
+      const hasJoin = /\\bjoin\\b/i.test(content);
+      const hasGroupBy = /\\bgroup\\s+by\\b/i.test(content);
+      const hasOrderBy = /\\border\\s+by\\b/i.test(content);
+      const hasUnion = /\\bunion\\b/i.test(content);
+      const hasWith = /\\bwith\\b/i.test(content);
+      
+      // Extract table references
+      const tableMatches = content.match(/from\\s+([a-zA-Z_][a-zA-Z0-9_]*)/gi) || [];
+      const tables = [...new Set(tableMatches.map(match => match.replace(/from\\s+/i, '')))];
+      
+      // Extract CTE references
+      const cteMatches = content.match(/with\\s+([a-zA-Z_][a-zA-Z0-9_]*)/gi) || [];
+      const ctes = [...new Set(cteMatches.map(match => match.replace(/with\\s+/i, '')))];
+      
+      let html = \`
+        <div class="context-section">
+          <h4>📝 SQL File Information</h4>
+          <div class="context-item">
+            <strong>File:</strong> \${tab.name}
+          </div>
+          <div class="context-item">
+            <strong>Lines:</strong> \${lines.length}
+          </div>
+          <div class="context-item">
+            <strong>Characters:</strong> \${content.length}
+          </div>
+        </div>
+        
+        <div class="context-section">
+          <h4>🔍 Query Structure</h4>
+          <div class="context-item \${hasSelect ? 'table' : ''}">
+            SELECT: \${hasSelect ? '✓' : '✗'}
+          </div>
+          <div class="context-item \${hasFrom ? 'table' : ''}">
+            FROM: \${hasFrom ? '✓' : '✗'}
+          </div>
+          <div class="context-item \${hasWhere ? 'column' : ''}">
+            WHERE: \${hasWhere ? '✓' : '✗'}
+          </div>
+          <div class="context-item \${hasJoin ? 'column' : ''}">
+            JOIN: \${hasJoin ? '✓' : '✗'}
+          </div>
+          <div class="context-item \${hasGroupBy ? 'column' : ''}">
+            GROUP BY: \${hasGroupBy ? '✓' : '✗'}
+          </div>
+          <div class="context-item \${hasOrderBy ? 'column' : ''}">
+            ORDER BY: \${hasOrderBy ? '✓' : '✗'}
+          </div>
+          <div class="context-item \${hasUnion ? 'cte' : ''}">
+            UNION: \${hasUnion ? '✓' : '✗'}
+          </div>
+          <div class="context-item \${hasWith ? 'cte' : ''}">
+            WITH (CTE): \${hasWith ? '✓' : '✗'}
+          </div>
+        </div>
+      \`;
+      
+      if (tables.length > 0) {
+        html += \`
+          <div class="context-section">
+            <h4>🗂️ Referenced Tables</h4>
+            \${tables.map(table => \`<div class="context-item table">\${table}</div>\`).join('')}
+          </div>
+        \`;
+      }
+      
+      if (ctes.length > 0) {
+        html += \`
+          <div class="context-section">
+            <h4>🔶 Common Table Expressions</h4>
+            \${ctes.map(cte => \`<div class="context-item cte">\${cte}</div>\`).join('')}
+          </div>
+        \`;
+      }
+      
+      return html;
+    }
+    
+    function refreshContextPanel() {
+      updateContextPanel();
+    }
+    
     // Resize functionality
     function initializeResizeHandles() {
       const leftHandle = document.getElementById('left-resize-handle');
       const rightHandle = document.getElementById('right-resize-handle');
       const leftSidebar = document.getElementById('left-sidebar');
-      const rightSidebar = document.getElementById('diagram-sidebar');
+      const rightSidebar = document.getElementById('context-sidebar');
       
       let isResizing = false;
       let currentHandle = null;
@@ -782,18 +1025,129 @@ function getQueryExecutionCode(): string {
       
       leftHandle.addEventListener('mousedown', (e) => startResize(e, leftHandle, leftSidebar));
       rightHandle.addEventListener('mousedown', (e) => startResize(e, rightHandle, rightSidebar));
+      
+      // Initialize split resize handle
+      const splitHandle = document.getElementById('split-resize-handle');
+      if (splitHandle) {
+        splitHandle.addEventListener('mousedown', (e) => startSplitResize(e));
+      }
+      
+      // Initialize panel results resize handles
+      initializePanelResultsResize();
+    }
+    
+    // Split view resize functionality
+    function startSplitResize(e) {
+      e.preventDefault();
+      
+      let isResizing = true;
+      const leftPanel = document.getElementById('left-editor-panel');
+      const rightPanel = document.getElementById('right-editor-panel');
+      
+      function resize(e) {
+        if (!isResizing) return;
+        
+        const container = document.getElementById('editor-split-container');
+        const containerRect = container.getBoundingClientRect();
+        const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+        
+        // Limit the width between 20% and 80%
+        if (newLeftWidth >= 20 && newLeftWidth <= 80) {
+          leftPanel.style.flex = newLeftWidth + '%';
+          rightPanel.style.flex = (100 - newLeftWidth) + '%';
+        }
+      }
+      
+      function stopResize() {
+        isResizing = false;
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+      }
+      
+      document.addEventListener('mousemove', resize);
+      document.addEventListener('mouseup', stopResize);
+    }
+    
+    // Panel results resize functionality
+    function initializePanelResultsResize() {
+      const leftResultsHandle = document.getElementById('left-results-resize-handle');
+      const rightResultsHandle = document.getElementById('right-results-resize-handle');
+      
+      if (leftResultsHandle) {
+        leftResultsHandle.addEventListener('mousedown', (e) => startPanelResultsResize(e, 'left'));
+      }
+      
+      if (rightResultsHandle) {
+        rightResultsHandle.addEventListener('mousedown', (e) => startPanelResultsResize(e, 'right'));
+      }
+    }
+    
+    function startPanelResultsResize(e, panel) {
+      e.preventDefault();
+      
+      let isResizing = true;
+      const resultsContainer = document.getElementById(panel + '-results-container');
+      const editorContainer = document.getElementById(panel + '-editor');
+      
+      function resize(e) {
+        if (!isResizing) return;
+        
+        const editorPanel = document.getElementById(panel + '-editor-panel');
+        const editorPanelRect = editorPanel.getBoundingClientRect();
+        const mouseY = e.clientY - editorPanelRect.top;
+        
+        // Calculate new height for results (from bottom up)
+        const newResultsHeight = editorPanelRect.height - mouseY;
+        
+        // Limit the height between 100px and 80% of panel height
+        const minHeight = 100;
+        const maxHeight = editorPanelRect.height * 0.8;
+        
+        if (newResultsHeight >= minHeight && newResultsHeight <= maxHeight) {
+          resultsContainer.style.height = newResultsHeight + 'px';
+          
+          // Update editor height accordingly
+          const newEditorHeight = editorPanelRect.height - newResultsHeight;
+          editorContainer.style.height = newEditorHeight + 'px';
+          
+          // Trigger Monaco editor layout update
+          const editor = panel === 'left' ? leftEditor : rightEditor;
+          if (editor) {
+            editor.layout();
+          }
+        }
+      }
+      
+      function stopResize() {
+        isResizing = false;
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+      }
+      
+      document.addEventListener('mousemove', resize);
+      document.addEventListener('mouseup', stopResize);
     }
     
     // Tab scroll handling (VS Code style)
     function initializeTabScrollHandling() {
-      const tabBar = document.getElementById('tab-bar');
-      if (!tabBar) return;
+      const leftTabBar = document.getElementById('left-tab-bar');
+      const rightTabBar = document.getElementById('right-tab-bar');
       
-      tabBar.addEventListener('wheel', function(e) {
-        e.preventDefault();
-        const scrollAmount = e.deltaY > 0 ? 100 : -100;
-        tabBar.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-      });
+      if (leftTabBar) {
+        leftTabBar.addEventListener('wheel', function(e) {
+          e.preventDefault();
+          const scrollAmount = e.deltaY > 0 ? 100 : -100;
+          leftTabBar.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        });
+      }
+      
+      if (rightTabBar) {
+        rightTabBar.addEventListener('wheel', function(e) {
+          e.preventDefault();
+          const scrollAmount = e.deltaY > 0 ? 100 : -100;
+          rightTabBar.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        });
+      }
     }
     
     // Split view management
@@ -848,7 +1202,7 @@ function getQueryExecutionCode(): string {
         theme: 'vs-dark',
         automaticLayout: true,
         minimap: { enabled: false },
-        wordWrap: 'on',
+        wordWrap: 'off',
         lineNumbers: 'on',
         folding: true,
         selectOnLineNumbers: true,
@@ -876,6 +1230,7 @@ function getQueryExecutionCode(): string {
       rightEditor.onDidFocusEditorWidget(function() {
         activePanel = 'right';
         updateQueryResults(); // Update results when switching panels
+        updateContextPanel(); // Update context panel when switching panels
       });
       
       console.log('Right Monaco Editor initialized successfully');
@@ -887,20 +1242,16 @@ function getQueryExecutionCode(): string {
     window.toggleSplitView = toggleSplitView;
     window.closeSplitView = closeSplitView;
     
-    // Update query results based on active panel and tab
-    function updateQueryResults() {
-      const resultsContent = document.getElementById('results-content');
+    // Update query results for specific panel
+    function updateQueryResults(panel) {
+      panel = panel || activePanel;
+      
+      const resultsContentId = panel === 'left' ? 'left-results-content' : 'right-results-content';
+      const resultsContent = document.getElementById(resultsContentId);
       if (!resultsContent) return;
       
-      let activeTabId, activeTabs;
-      
-      if (activePanel === 'left') {
-        activeTabId = activeLeftTabId;
-        activeTabs = leftTabs;
-      } else {
-        activeTabId = activeRightTabId;
-        activeTabs = rightTabs;
-      }
+      const activeTabId = panel === 'left' ? activeLeftTabId : activeRightTabId;
+      const activeTabs = panel === 'left' ? leftTabs : rightTabs;
       
       if (activeTabId && activeTabs.has(activeTabId)) {
         const tab = activeTabs.get(activeTabId);
@@ -911,6 +1262,14 @@ function getQueryExecutionCode(): string {
         }
       } else {
         resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Run a query to see results here</div>';
+      }
+    }
+    
+    // Update query results for all panels
+    function updateAllQueryResults() {
+      updateQueryResults('left');
+      if (isSplitView) {
+        updateQueryResults('right');
       }
     }
     
@@ -944,8 +1303,9 @@ function getQueryExecutionCode(): string {
       }
     }
     
-    function getOriginalContent(tabId) {
-      const tab = openTabs.get(tabId);
+    function getOriginalContent(tabId, panel) {
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      const tab = tabs.get(tabId);
       if (!tab) return '';
       
       // Always use stored original content for all tab types
@@ -953,10 +1313,15 @@ function getQueryExecutionCode(): string {
     }
     
     async function saveCurrentTab() {
-      if (!editor || !openTabs.has(activeTabId)) return;
+      // Determine which editor and tab system to use based on active panel
+      const currentEditor = activePanel === 'left' ? leftEditor : rightEditor;
+      const tabs = activePanel === 'left' ? leftTabs : rightTabs;
+      const activeTabId = activePanel === 'left' ? activeLeftTabId : activeRightTabId;
       
-      const tab = openTabs.get(activeTabId);
-      const content = editor.getValue();
+      if (!currentEditor || !activeTabId || !tabs.has(activeTabId)) return;
+      
+      const tab = tabs.get(activeTabId);
+      const content = currentEditor.getValue();
       
       if (tab.type === 'shared-cte') {
         try {
@@ -975,7 +1340,7 @@ function getQueryExecutionCode(): string {
           if (data.success) {
             tab.isModified = false;
             tab.originalContent = content;
-            openTabs.set(activeTabId, tab);
+            tabs.set(activeTabId, tab);
             renderTabs();
             showToast('Shared CTE saved successfully', 'success');
             
@@ -1005,7 +1370,7 @@ function getQueryExecutionCode(): string {
           if (data.success) {
             tab.isModified = false;
             tab.originalContent = content;
-            openTabs.set(activeTabId, tab);
+            tabs.set(activeTabId, tab);
             renderTabs();
             showToast('Private CTE saved successfully', 'success');
             
@@ -1039,7 +1404,7 @@ function getQueryExecutionCode(): string {
               tab.content = content;
               tab.isModified = false;
               tab.originalContent = content;
-              openTabs.set(activeTabId, tab);
+              tabs.set(activeTabId, tab);
               renderTabs();
             } else {
               showToast(\`Failed to compose query: \${data.error || 'Unknown error'}\`, 'error');
@@ -1052,7 +1417,7 @@ function getQueryExecutionCode(): string {
           tab.content = content;
           tab.isModified = false;
           tab.originalContent = content;
-          openTabs.set(activeTabId, tab);
+          tabs.set(activeTabId, tab);
           renderTabs();
           showToast('Tab content saved', 'success');
         }
@@ -1060,21 +1425,27 @@ function getQueryExecutionCode(): string {
     }
     
     // Create new SQL tab
-    function createNewTab() {
+    function createNewTab(panel) {
+      // Default to current active panel if no panel specified
+      panel = panel || activePanel;
+      
       tabCounter++;
       const tabId = \`tab-\${tabCounter}\`;
       const tabName = \`untitled-\${tabCounter}.sql\`;
       
-      openTabs.set(tabId, {
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      
+      tabs.set(tabId, {
         name: tabName,
         type: 'sql',
         content: '',
         isModified: false,
-        originalContent: ''
+        originalContent: '',
+        queryResult: null
       });
       
-      switchTab(tabId);
-      console.log('New tab created:', tabId);
+      switchTab(tabId, panel);
+      console.log('New tab created:', tabId, 'in panel:', panel);
     }
     
     // ====================================================================
@@ -1339,11 +1710,15 @@ function getQueryExecutionCode(): string {
       return html;
     }
     
-    async function openPrivateCteTab(cteName) {
-      const tabId = 'private-cte-' + cteName;
+    async function openPrivateCteTab(cteName, panel) {
+      // Default to current active panel if no panel specified
+      panel = panel || activePanel;
       
-      if (openTabs.has(tabId)) {
-        switchTab(tabId);
+      const tabId = 'private-cte-' + cteName;
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      
+      if (tabs.has(tabId)) {
+        switchTab(tabId, panel);
         return;
       }
       
@@ -1355,17 +1730,18 @@ function getQueryExecutionCode(): string {
         if (data.success && data.privateCtes[cteName]) {
           const cte = data.privateCtes[cteName];
           
-          openTabs.set(tabId, {
+          tabs.set(tabId, {
             name: cteName,  // Just the CTE name without .cte.sql extension
             type: 'private-cte',
             content: cte.query,
             isModified: false,
             cteName: cteName,
-            originalContent: cte.query
+            originalContent: cte.query,
+            queryResult: null
           });
           
-          switchTab(tabId);
-          console.log('Private CTE tab opened successfully:', cteName);
+          switchTab(tabId, panel);
+          console.log('Private CTE tab opened successfully:', cteName, 'in panel:', panel);
         } else {
           showToast('Failed to load Private CTE: ' + cteName, 'error');
         }
@@ -1375,38 +1751,6 @@ function getQueryExecutionCode(): string {
       }
     }
     
-    async function openMainFileTab(fileName) {
-      const tabId = 'main-file-' + fileName;
-      
-      if (openTabs.has(tabId)) {
-        switchTab(tabId);
-        return;
-      }
-      
-      try {
-        // Load workspace info to get the original query
-        const response = await fetch('/api/workspace');
-        const data = await response.json();
-        
-        if (data.success && data.workspace && data.workspace.originalQuery) {
-          openTabs.set(tabId, {
-            name: fileName,
-            type: 'main-file',
-            content: data.workspace.originalQuery,
-            isModified: false,
-            originalContent: data.workspace.originalQuery
-          });
-          
-          switchTab(tabId);
-          console.log('Main file tab opened successfully:', fileName);
-        } else {
-          showToast('Failed to load main file: ' + fileName, 'error');
-        }
-      } catch (error) {
-        console.error('Error loading main file:', error);
-        showToast('Error loading main file: ' + error.message, 'error');
-      }
-    }
     
     // ====================================================================
     // Diagram Management Functions
@@ -1542,12 +1886,14 @@ function getQueryExecutionCode(): string {
     
     async function refreshDiagram() {
       try {
-        if (!editor) {
+        const currentEditor = activePanel === 'left' ? leftEditor : rightEditor;
+        
+        if (!currentEditor) {
           showToast('Editor not available', 'warning');
           return;
         }
         
-        const currentSql = editor.getValue().trim();
+        const currentSql = currentEditor.getValue().trim();
         if (!currentSql) {
           showToast('No SQL query to generate diagram', 'warning');
           return;
@@ -1634,12 +1980,14 @@ function getQueryExecutionCode(): string {
       try {
         logToServer('Diagram: Auto update triggered', { isDiagramVisible });
         
-        if (!editor || !isDiagramVisible) {
+        const currentEditor = activePanel === 'left' ? leftEditor : rightEditor;
+        
+        if (!currentEditor || !isDiagramVisible) {
           logToServer('Diagram: Auto update skipped - editor or visibility issue');
           return;
         }
         
-        const currentSql = editor.getValue().trim();
+        const currentSql = currentEditor.getValue().trim();
         logToServer('Diagram: Auto update SQL', { length: currentSql.length });
         
         if (!currentSql || currentSql.length < 10) {
@@ -1704,6 +2052,8 @@ function getQueryExecutionCode(): string {
     window.updateFlowDiagram = updateFlowDiagram;
     window.refreshDiagram = refreshDiagram;
     window.toggleDiagramSidebar = toggleDiagramSidebar;
+    window.updateContextPanel = updateContextPanel;
+    window.refreshContextPanel = refreshContextPanel;
   `;
 }
 
@@ -1715,8 +2065,8 @@ function getMonacoEditorCode(): string {
         // Load Monaco Editor
         await loadMonacoEditor();
         
-        // Create editor instance
-        editor = monaco.editor.create(document.getElementById('editor'), {
+        // Create left editor instance  
+        leftEditor = monaco.editor.create(document.getElementById('left-editor'), {
           value: 'SELECT * FROM users;',
           language: 'sql',
           theme: 'vs-dark',
@@ -1775,8 +2125,14 @@ function getMonacoEditorCode(): string {
           }
         });
         
-        // Assign to leftEditor for tab system compatibility
-        leftEditor = editor;
+        // Assign to editor for backward compatibility
+        editor = leftEditor;
+        
+        // Track active panel for left editor
+        leftEditor.onDidFocusEditorWidget(function() {
+          activePanel = 'left';
+          updateQueryResults(); // Update results when switching to left panel
+        });
         
         // Setup keyboard shortcuts
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
@@ -1787,8 +2143,8 @@ function getMonacoEditorCode(): string {
           saveCurrentTab();
         });
         
-        // Add SQL formatting keybinding (Ctrl+K, Ctrl+D)
-        editor.addCommand(monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD), function() {
+        // Add SQL formatting keybinding (Ctrl+Shift+F)
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, function() {
           formatCurrentSQL();
         });
         
@@ -1802,6 +2158,7 @@ function getMonacoEditorCode(): string {
         leftEditor.onDidFocusEditorWidget(function() {
           activePanel = 'left';
           updateQueryResults(); // Update results when switching panels
+          updateContextPanel(); // Update context panel when switching panels
         });
         
         // Initialize tabs after editor is ready

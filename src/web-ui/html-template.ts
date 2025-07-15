@@ -22,15 +22,10 @@ export function getHtmlStructure(_host: string, _port: number): string {
       <div class="main-container">
         <div class="sidebar" id="left-sidebar">
           <div class="resize-handle" id="left-resize-handle"></div>
-          <h3>Actions</h3>
-          <button class="action-button" onclick="runQuery()">▶️ Run Query (Ctrl+Enter)</button>
-          <button class="action-button" onclick="formatCurrentSQL()">🎨 Format SQL (Ctrl+K, Ctrl+D)</button>
-          <button class="action-button secondary" onclick="resetDatabase()">🗑️ Reset Database</button>
-          
-          <h3>File Operations</h3>
-          <button class="action-button" onclick="saveCurrentTab()">💾 Save (Ctrl+S)</button>
+          <h3>Navigation</h3>
           <button class="action-button" onclick="decomposeCurrentQuery()">🔧 Decompose Query</button>
           <button class="action-button secondary" onclick="clearWorkspace()">🗑️ Clear Workspace</button>
+          <button class="action-button secondary" onclick="resetDatabase()">🗑️ Reset Database</button>
           
           <h3>Validation</h3>
           <button class="action-button" onclick="toggleCteValidationPanel()">🔍 CTE Validation</button>
@@ -83,7 +78,42 @@ export function getHtmlStructure(_host: string, _port: number): string {
                 <div class="editor-header" id="left-editor-header">
                   📝 Start by opening a file or creating a new tab
                 </div>
+                
+                <!-- Left Panel Toolbar -->
+                <div class="editor-toolbar" id="left-editor-toolbar">
+                  <button class="toolbar-btn primary" onclick="runQuery()" title="Run Query (Ctrl+Enter)">
+                    <span class="btn-icon">▶️</span>
+                    <span class="btn-text">Run</span>
+                  </button>
+                  <button class="toolbar-btn" onclick="formatCurrentSQL()" title="Format SQL (Ctrl+Shift+F)">
+                    <span class="btn-icon">🎨</span>
+                    <span class="btn-text">Format</span>
+                  </button>
+                  <button class="toolbar-btn" onclick="saveCurrentTab()" title="Save (Ctrl+S)">
+                    <span class="btn-icon">💾</span>
+                    <span class="btn-text">Save</span>
+                  </button>
+                  <div class="toolbar-spacer"></div>
+                  <div class="toolbar-info" id="left-toolbar-info">
+                    Ready
+                  </div>
+                </div>
+                
                 <div id="left-editor"></div>
+                
+                <!-- Left Panel Results -->
+                <div class="panel-results-container" id="left-results-container">
+                  <div class="panel-results-resize-handle" id="left-results-resize-handle"></div>
+                  <div class="panel-results-header">
+                    <div>📊 Query Results</div>
+                    <div class="panel-execution-info" id="left-execution-info"></div>
+                  </div>
+                  <div class="panel-results-content" id="left-results-content">
+                    <div style="color: #666; text-align: center; padding: 40px;">
+                      Run a query to see results here
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -102,35 +132,58 @@ export function getHtmlStructure(_host: string, _port: number): string {
                 <div class="editor-header" id="right-editor-header">
                   📝 Right editor panel
                 </div>
+                
+                <!-- Right Panel Toolbar -->
+                <div class="editor-toolbar" id="right-editor-toolbar">
+                  <button class="toolbar-btn primary" onclick="runQuery()" title="Run Query (Ctrl+Enter)">
+                    <span class="btn-icon">▶️</span>
+                    <span class="btn-text">Run</span>
+                  </button>
+                  <button class="toolbar-btn" onclick="formatCurrentSQL()" title="Format SQL (Ctrl+Shift+F)">
+                    <span class="btn-icon">🎨</span>
+                    <span class="btn-text">Format</span>
+                  </button>
+                  <button class="toolbar-btn" onclick="saveCurrentTab()" title="Save (Ctrl+S)">
+                    <span class="btn-icon">💾</span>
+                    <span class="btn-text">Save</span>
+                  </button>
+                  <div class="toolbar-spacer"></div>
+                  <div class="toolbar-info" id="right-toolbar-info">
+                    Ready
+                  </div>
+                </div>
+                
                 <div id="right-editor"></div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="results-container">
-            <div class="results-header">
-              <div>📊 Query Results</div>
-              <div class="execution-info" id="execution-info"></div>
-            </div>
-            <div class="results-content" id="results-content">
-              <div style="color: #666; text-align: center; padding: 40px;">
-                Run a query to see results here
+                
+                <!-- Right Panel Results -->
+                <div class="panel-results-container" id="right-results-container">
+                  <div class="panel-results-resize-handle" id="right-results-resize-handle"></div>
+                  <div class="panel-results-header">
+                    <div>📊 Query Results</div>
+                    <div class="panel-execution-info" id="right-execution-info"></div>
+                  </div>
+                  <div class="panel-results-content" id="right-results-content">
+                    <div style="color: #666; text-align: center; padding: 40px;">
+                      Run a query to see results here
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
         
-        <div class="diagram-sidebar" id="diagram-sidebar">
-          <div class="diagram-resize-handle" id="right-resize-handle"></div>
-          <div class="diagram-header">
-            <div class="diagram-title">📊 Query Flow Diagram</div>
-            <div class="diagram-controls">
-              <button class="diagram-btn" onclick="refreshDiagram()" title="Refresh Diagram">🔄</button>
+        <div class="context-sidebar" id="context-sidebar">
+          <div class="context-resize-handle" id="right-resize-handle"></div>
+          <div class="context-header">
+            <div class="context-title" id="context-title">📄 Context Panel</div>
+            <div class="context-controls">
+              <button class="context-btn" onclick="refreshContextPanel()" title="Refresh Context">🔄</button>
             </div>
           </div>
-          <div class="diagram-content" id="diagram-content">
-            <div class="diagram-placeholder">
-              Decompose a query to see the flow diagram
+          <div class="context-content" id="context-content">
+            <div class="context-placeholder">
+              Open a tab to see context information
             </div>
           </div>
         </div>
@@ -243,6 +296,48 @@ function getCssStyles(): string {
       display: flex;
       flex-direction: column;
       min-height: 0;
+    }
+    .panel-results-container {
+      height: 300px;
+      min-height: 100px;
+      max-height: 80%;
+      border-top: 1px solid #454545;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .panel-results-resize-handle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: transparent;
+      cursor: row-resize;
+      z-index: 10;
+    }
+    .panel-results-resize-handle:hover {
+      background: #454545;
+    }
+    .panel-results-header {
+      background: #2d2d30;
+      padding: 10px 15px;
+      border-bottom: 1px solid #454545;
+      font-size: 14px;
+      color: #cccccc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .panel-execution-info {
+      font-size: 12px;
+      color: #888888;
+    }
+    .panel-results-content {
+      flex: 1;
+      overflow: auto;
+      background: #1e1e1e;
     }
     .split-resize-handle {
       width: 5px;
@@ -358,34 +453,57 @@ function getCssStyles(): string {
       color: #cccccc;
       display: none;
     }
+    .editor-toolbar {
+      background: #2d2d30;
+      border-bottom: 1px solid #454545;
+      padding: 8px 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #3c3c3c;
+      color: #cccccc;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .toolbar-btn:hover {
+      background: #484848;
+      color: #ffffff;
+    }
+    .toolbar-btn.primary {
+      background: #0e639c;
+      color: #ffffff;
+    }
+    .toolbar-btn.primary:hover {
+      background: #1177bb;
+    }
+    .toolbar-btn .btn-icon {
+      font-size: 14px;
+    }
+    .toolbar-btn .btn-text {
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .toolbar-spacer {
+      flex: 1;
+    }
+    .toolbar-info {
+      font-size: 12px;
+      color: #888888;
+      font-style: italic;
+    }
     #left-editor, #right-editor {
       flex: 1;
       min-height: 300px;
-    }
-    .results-container {
-      height: 300px;
-      border-top: 1px solid #454545;
-      display: flex;
-      flex-direction: column;
-    }
-    .results-header {
-      background: #2d2d30;
-      padding: 10px 15px;
-      border-bottom: 1px solid #454545;
-      font-size: 14px;
-      color: #cccccc;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .execution-info {
-      font-size: 12px;
-      color: #888888;
-    }
-    .results-content {
-      flex: 1;
-      overflow: auto;
-      background: #1e1e1e;
     }
     .action-button {
       width: 100%;
@@ -479,7 +597,7 @@ function getCssStyles(): string {
       background: rgba(255,165,0,0.1);
       border-left: 3px solid #ffa500;
     }
-    .diagram-sidebar {
+    .context-sidebar {
       width: 400px;
       min-width: 200px;
       max-width: 600px;
@@ -489,12 +607,12 @@ function getCssStyles(): string {
       flex-direction: column;
       position: relative;
     }
-    .diagram-sidebar.hidden {
+    .context-sidebar.hidden {
       width: 0;
       min-width: 0;
       overflow: hidden;
     }
-    .diagram-resize-handle {
+    .context-resize-handle {
       position: absolute;
       top: 0;
       left: 0;
@@ -504,10 +622,10 @@ function getCssStyles(): string {
       cursor: col-resize;
       z-index: 10;
     }
-    .diagram-resize-handle:hover {
+    .context-resize-handle:hover {
       background: #454545;
     }
-    .diagram-header {
+    .context-header {
       background: #2d2d30;
       border-bottom: 1px solid #454545;
       padding: 10px 15px;
@@ -516,16 +634,16 @@ function getCssStyles(): string {
       align-items: center;
       flex-shrink: 0;
     }
-    .diagram-title {
+    .context-title {
       color: #cccccc;
       font-size: 14px;
       font-weight: bold;
     }
-    .diagram-controls {
+    .context-controls {
       display: flex;
       gap: 5px;
     }
-    .diagram-btn {
+    .context-btn {
       background: #0e639c;
       color: white;
       border: none;
@@ -534,20 +652,48 @@ function getCssStyles(): string {
       cursor: pointer;
       font-size: 12px;
     }
-    .diagram-btn:hover {
+    .context-btn:hover {
       background: #1177bb;
     }
-    .diagram-content {
+    .context-content {
       flex: 1;
       padding: 15px;
       overflow: auto;
       background: #1e1e1e;
     }
-    .diagram-placeholder {
+    .context-placeholder {
       color: #888888;
       text-align: center;
       padding: 40px 20px;
       font-style: italic;
+    }
+    .context-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+      border-left: 3px solid #007acc;
+    }
+    .context-section h4 {
+      margin: 0 0 10px 0;
+      color: #ffffff;
+      font-size: 13px;
+    }
+    .context-section .context-item {
+      margin-bottom: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    .context-section .context-item.cte {
+      border-left: 3px solid #ffa500;
+    }
+    .context-section .context-item.table {
+      border-left: 3px solid #4caf50;
+    }
+    .context-section .context-item.column {
+      border-left: 3px solid #2196f3;
     }
     .mermaid-container {
       background: white;
@@ -561,7 +707,7 @@ function getCssStyles(): string {
       height: auto;
     }
     /* Direct SVG rendering support */
-    .diagram-content svg {
+    .context-content svg {
       max-width: 100%;
       height: auto;
       background: white;
