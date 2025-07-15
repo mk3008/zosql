@@ -457,7 +457,8 @@ function getQueryExecutionCode(): string {
         
         const icon = tab.type === 'main' ? '📄' : 
                      (tab.type === 'shared-cte' ? '🔶' : 
-                      (tab.type === 'private-cte' ? '🔧' : '📝'));
+                      (tab.type === 'private-cte' ? '🔧' : 
+                       (tab.type === 'main-file' ? '📄' : '📝')));
         const modifiedIndicator = tab.isModified ? '●' : '';
         const tabName = tab.name || 'Untitled';
         
@@ -569,7 +570,8 @@ function getQueryExecutionCode(): string {
       if (header) {
         const icon = tab.type === 'main' ? '📄' : 
                      (tab.type === 'shared-cte' ? '🔶' : 
-                      (tab.type === 'private-cte' ? '🔧' : '📝'));
+                      (tab.type === 'private-cte' ? '🔧' : 
+                       (tab.type === 'main-file' ? '📄' : '📝')));
         header.textContent = \`\${icon} \${tab.name}\`;
       }
     }
@@ -947,7 +949,9 @@ function getQueryExecutionCode(): string {
       const indent = '  '.repeat(level);
       const icon = isMainQuery ? '📄' : (hasChildren ? '📂' : '🔹');
       const color = isMainQuery ? '#4CAF50' : '#FFC107';
-      const clickHandler = isMainQuery ? '' : 'onclick="openPrivateCteTab(&quot;' + name.replace('.sql', '') + '&quot;)" style="cursor: pointer;"';
+      const clickHandler = isMainQuery 
+        ? 'onclick="openMainFileTab(&quot;' + name + '&quot;)" style="cursor: pointer;"' 
+        : 'onclick="openPrivateCteTab(&quot;' + name.replace('.sql', '') + '&quot;)" style="cursor: pointer;"';
       
       return '<div style="margin: 2px 0; color: ' + color + ';" ' + clickHandler + '>' +
         indent + icon + ' ' + name +
@@ -972,7 +976,7 @@ function getQueryExecutionCode(): string {
       
       // Main CTE node with proper indentation
       html += '<div style="margin: 2px 0; color: #FFC107; cursor: pointer; margin-left: ' + (level * 16) + 'px;" onclick="openPrivateCteTab(&quot;' + cte.name + '&quot;)">' +
-        icon + ' ' + cte.name + '.sql' +
+        icon + ' ' + cte.name +
       '</div>';
       
       // Render dependencies recursively
@@ -1000,7 +1004,7 @@ function getQueryExecutionCode(): string {
           const cte = data.privateCtes[cteName];
           
           openTabs.set(tabId, {
-            name: cteName + '.cte.sql',
+            name: cteName,  // Just the CTE name without .cte.sql extension
             type: 'private-cte',
             content: cte.query,
             isModified: false,
@@ -1016,6 +1020,39 @@ function getQueryExecutionCode(): string {
       } catch (error) {
         console.error('Error loading Private CTE:', error);
         showToast('Error loading Private CTE: ' + error.message, 'error');
+      }
+    }
+    
+    async function openMainFileTab(fileName) {
+      const tabId = 'main-file-' + fileName;
+      
+      if (openTabs.has(tabId)) {
+        switchTab(tabId);
+        return;
+      }
+      
+      try {
+        // Load workspace info to get the original query
+        const response = await fetch('/api/workspace');
+        const data = await response.json();
+        
+        if (data.success && data.workspace && data.workspace.originalQuery) {
+          openTabs.set(tabId, {
+            name: fileName,
+            type: 'main-file',
+            content: data.workspace.originalQuery,
+            isModified: false,
+            originalContent: data.workspace.originalQuery
+          });
+          
+          switchTab(tabId);
+          console.log('Main file tab opened successfully:', fileName);
+        } else {
+          showToast('Failed to load main file: ' + fileName, 'error');
+        }
+      } catch (error) {
+        console.error('Error loading main file:', error);
+        showToast('Error loading main file: ' + error.message, 'error');
       }
     }
     
@@ -1311,6 +1348,7 @@ function getQueryExecutionCode(): string {
     window.decomposeCurrentQuery = decomposeCurrentQuery;
     window.clearWorkspace = clearWorkspace;
     window.openPrivateCteTab = openPrivateCteTab;
+    window.openMainFileTab = openMainFileTab;
     window.updateFlowDiagram = updateFlowDiagram;
     window.refreshDiagram = refreshDiagram;
     window.toggleDiagramSidebar = toggleDiagramSidebar;
