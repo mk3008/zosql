@@ -1,4 +1,4 @@
-export function getHtmlStructure(host: string, port: number): string {
+export function getHtmlStructure(_host: string, _port: number): string {
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -72,15 +72,12 @@ export function getHtmlStructure(host: string, port: number): string {
         <div class="content-area">
           <div class="editor-container">
             <div class="tab-bar" id="tab-bar">
-              <div class="tab active" data-tab="main" onclick="switchTab('main')">
-                📄 main.sql
-              </div>
               <div class="tab-controls">
                 <button class="new-tab-btn" onclick="createNewTab()" title="新しいタブを作成">+</button>
               </div>
             </div>
             <div class="editor-header" id="editor-header">
-              📄 main.sql
+              📝 Start by opening a file or creating a new tab
             </div>
             <div id="editor"></div>
           </div>
@@ -104,7 +101,6 @@ export function getHtmlStructure(host: string, port: number): string {
             <div class="diagram-title">📊 Query Flow Diagram</div>
             <div class="diagram-controls">
               <button class="diagram-btn" onclick="refreshDiagram()" title="Refresh Diagram">🔄</button>
-              <button class="diagram-btn" onclick="toggleDiagramSidebar()" title="Toggle Diagram Panel">✕</button>
             </div>
           </div>
           <div class="diagram-content" id="diagram-content">
@@ -114,10 +110,6 @@ export function getHtmlStructure(host: string, port: number): string {
           </div>
         </div>
         
-        <!-- Floating toggle button for when diagram sidebar is hidden -->
-        <button class="diagram-toggle-btn" id="diagram-toggle-btn" onclick="toggleDiagramSidebar()" title="Show Diagram Panel" style="display: none;">
-          📊
-        </button>
       </div>
       
       <script>
@@ -227,10 +219,15 @@ function getCssStyles(): string {
       z-index: 10;
       opacity: 1;
       max-width: 100%;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE and Edge */
+    }
+    .tab-bar::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Opera */
     }
     .tab {
-      padding: 10px 15px;
-      font-size: 13px;
+      padding: 8px 12px;
+      font-size: 11px;
       color: #cccccc;
       cursor: pointer;
       border-right: 1px solid #454545;
@@ -238,10 +235,11 @@ function getCssStyles(): string {
       white-space: nowrap;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       flex-shrink: 0;
-      max-width: 200px;
+      max-width: 160px;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
     .tab:hover {
       background: #383838;
@@ -501,27 +499,6 @@ function getCssStyles(): string {
       height: auto;
       background: white;
       border-radius: 4px;
-    }
-    .diagram-toggle-btn {
-      position: fixed;
-      top: 50%;
-      right: 10px;
-      transform: translateY(-50%);
-      background: #0e639c;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      cursor: pointer;
-      font-size: 18px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      z-index: 1000;
-      transition: all 0.3s ease;
-    }
-    .diagram-toggle-btn:hover {
-      background: #1177bb;
-      transform: translateY(-50%) scale(1.1);
     }
   `;
 }

@@ -129,6 +129,8 @@ function getInitializationCode(): string {
       initializeTabs();
       // Initialize resize handles
       initializeResizeHandles();
+      // Initialize tab scroll handling
+      initializeTabScrollHandling();
       
       // Initialize diagram area
       const diagramContent = document.getElementById('diagram-content');
@@ -421,24 +423,18 @@ function getQueryExecutionCode(): string {
       // Clear existing tabs
       openTabs.clear();
       
-      // Initialize main tab
-      const defaultContent = 'SELECT * FROM users;';
-      const currentContent = editor ? editor.getValue() : defaultContent;
-      
-      openTabs.set('main', {
-        name: 'main.sql',
-        type: 'main',
-        content: currentContent,
-        isModified: false,
-        originalContent: currentContent
-      });
-      
-      activeTabId = 'main';
+      // No default tabs - start with empty tab bar
+      activeTabId = null;
       
       // Always render tabs to ensure visibility
       renderTabs();
       
-      console.log('Tabs initialized with main tab');
+      // Show welcome message in editor
+      if (editor) {
+        editor.setValue('-- Welcome to zosql Browser\\n-- Create a new tab with + or open a file from the workspace');
+      }
+      
+      console.log('Tabs initialized without default tabs');
     }
     
     function renderTabs() {
@@ -466,7 +462,7 @@ function getQueryExecutionCode(): string {
         
         tabElement.innerHTML = \`
           \${icon} \${tabName}\${modifiedIndicator}
-          \${tab.type !== 'main' ? '<span class="close-btn" onclick="closeTab(event, \\''+tabId+'\\')">×</span>' : ''}
+          <span class="close-btn" onclick="closeTab(event, \\''+tabId+'\\')">×</span>
         \`;
         
         tabBar.appendChild(tabElement);
@@ -509,8 +505,6 @@ function getQueryExecutionCode(): string {
     function closeTab(event, tabId) {
       event.stopPropagation();
       
-      if (tabId === 'main') return; // Cannot close main tab
-      
       const tab = openTabs.get(tabId);
       if (tab && tab.isModified) {
         if (!confirm(\`Close \${tab.name}? Unsaved changes will be lost.\`)) {
@@ -521,10 +515,21 @@ function getQueryExecutionCode(): string {
       openTabs.delete(tabId);
       
       if (activeTabId === tabId) {
-        // Switch to main tab or another open tab
-        activeTabId = openTabs.has('main') ? 'main' : openTabs.keys().next().value;
-        if (activeTabId) {
+        // Switch to another open tab or clear editor
+        const remainingTabs = Array.from(openTabs.keys());
+        if (remainingTabs.length > 0) {
+          activeTabId = remainingTabs[0];
           switchTab(activeTabId);
+        } else {
+          // No tabs left - clear editor and show welcome message
+          activeTabId = null;
+          if (editor) {
+            editor.setValue('-- Welcome to zosql Browser\\n-- Create a new tab with + or open a file from the workspace');
+          }
+          const header = document.getElementById('editor-header');
+          if (header) {
+            header.textContent = '📝 Start by opening a file or creating a new tab';
+          }
         }
       }
       
@@ -611,10 +616,14 @@ function getQueryExecutionCode(): string {
       
       if (sidebar.classList.contains('hidden')) {
         sidebar.classList.remove('hidden');
+        // Clear any inline width style that might interfere with CSS
+        sidebar.style.width = '';
         toggleBtn.textContent = '◀';
         toggleBtn.title = 'Hide Left Sidebar';
       } else {
         sidebar.classList.add('hidden');
+        // Clear inline width to allow CSS to take precedence
+        sidebar.style.width = '';
         toggleBtn.textContent = '▶';
         toggleBtn.title = 'Show Left Sidebar';
       }
@@ -626,10 +635,14 @@ function getQueryExecutionCode(): string {
       
       if (sidebar.classList.contains('hidden')) {
         sidebar.classList.remove('hidden');
+        // Clear any inline width style that might interfere with CSS
+        sidebar.style.width = '';
         toggleBtn.textContent = '▶';
         toggleBtn.title = 'Hide Right Sidebar';
       } else {
         sidebar.classList.add('hidden');
+        // Clear inline width to allow CSS to take precedence
+        sidebar.style.width = '';
         toggleBtn.textContent = '◀';
         toggleBtn.title = 'Show Right Sidebar';
       }
@@ -678,6 +691,18 @@ function getQueryExecutionCode(): string {
       
       leftHandle.addEventListener('mousedown', (e) => startResize(e, leftHandle, leftSidebar));
       rightHandle.addEventListener('mousedown', (e) => startResize(e, rightHandle, rightSidebar));
+    }
+    
+    // Tab scroll handling (VS Code style)
+    function initializeTabScrollHandling() {
+      const tabBar = document.getElementById('tab-bar');
+      if (!tabBar) return;
+      
+      tabBar.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        const scrollAmount = e.deltaY > 0 ? 100 : -100;
+        tabBar.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      });
     }
     
     // Make functions globally accessible
@@ -876,28 +901,12 @@ function getQueryExecutionCode(): string {
         if (decomposeData.success) {
           showToast(\`Query decomposed: \${decomposeData.privateCteCount} CTEs extracted\`, 'success');
           
-          // エディターにdecomposed query（CTE除去済み）を表示
-          if (editor && decomposeData.decomposedQuery) {
-            editor.setValue(decomposeData.decomposedQuery);
-            
-            // タブを更新してdecomposed queryを表示
-            if (openTabs.has(activeTabId)) {
-              const currentTab = openTabs.get(activeTabId);
-              currentTab.content = decomposeData.decomposedQuery;
-              currentTab.name = \`\${queryName}_decomposed.sql\`;
-              currentTab.isModified = false;
-              currentTab.originalContent = decomposeData.decomposedQuery;
-              openTabs.set(activeTabId, currentTab);
-              renderTabs();
-              updateEditorHeader(currentTab);
-            }
-          }
-          
           // Update flow diagram if available
           if (decomposeData.flowDiagram) {
             updateFlowDiagram(decomposeData.flowDiagram);
           }
           
+          // Update workspace info to show the new Private CTE tree
           await loadWorkspaceInfo();
         } else {
           showToast(\`Decompose failed: \${decomposeData.error}\`, 'error');
@@ -1072,7 +1081,7 @@ function getQueryExecutionCode(): string {
         ? 'onclick="openMainFileTab(&quot;' + name + '&quot;)" style="cursor: pointer;"' 
         : 'onclick="openPrivateCteTab(&quot;' + name.replace('.sql', '') + '&quot;)" style="cursor: pointer;"';
       
-      return '<div style="margin: 2px 0; color: ' + color + ';" ' + clickHandler + '>' +
+      return '<div style="margin: 2px 0; color: ' + color + '; cursor: pointer;" ' + clickHandler + '>' +
         indent + icon + ' ' + name +
       '</div>';
     }
