@@ -70,16 +70,41 @@ export function getHtmlStructure(_host: string, _port: number): string {
         </div>
         
         <div class="content-area">
-          <div class="editor-container">
-            <div class="tab-bar" id="tab-bar">
-              <div class="tab-controls">
-                <button class="new-tab-btn" onclick="createNewTab()" title="新しいタブを作成">+</button>
+          <div class="editor-split-container" id="editor-split-container">
+            <!-- Left Editor Panel -->
+            <div class="editor-panel" id="left-editor-panel">
+              <div class="editor-container">
+                <div class="tab-bar" id="left-tab-bar">
+                  <div class="tab-controls">
+                    <button class="new-tab-btn" onclick="createNewTab('left')" title="新しいタブを作成">+</button>
+                    <button class="split-btn" onclick="toggleSplitView()" title="分割表示の切り替え">⚏</button>
+                  </div>
+                </div>
+                <div class="editor-header" id="left-editor-header">
+                  📝 Start by opening a file or creating a new tab
+                </div>
+                <div id="left-editor"></div>
               </div>
             </div>
-            <div class="editor-header" id="editor-header">
-              📝 Start by opening a file or creating a new tab
+            
+            <!-- Split Resize Handle -->
+            <div class="split-resize-handle" id="split-resize-handle" style="display: none;"></div>
+            
+            <!-- Right Editor Panel (hidden by default) -->
+            <div class="editor-panel" id="right-editor-panel" style="display: none;">
+              <div class="editor-container">
+                <div class="tab-bar" id="right-tab-bar">
+                  <div class="tab-controls">
+                    <button class="new-tab-btn" onclick="createNewTab('right')" title="新しいタブを作成">+</button>
+                    <button class="close-split-btn" onclick="closeSplitView()" title="分割表示を閉じる">×</button>
+                  </div>
+                </div>
+                <div class="editor-header" id="right-editor-header">
+                  📝 Right editor panel
+                </div>
+                <div id="right-editor"></div>
+              </div>
             </div>
-            <div id="editor"></div>
           </div>
           
           <div class="results-container">
@@ -201,11 +226,34 @@ function getCssStyles(): string {
     .resize-handle:hover {
       background: #454545;
     }
+    .editor-split-container {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      min-height: 0;
+    }
+    .editor-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
     .editor-container {
       flex: 1;
       display: flex;
       flex-direction: column;
       min-height: 0;
+    }
+    .split-resize-handle {
+      width: 5px;
+      background: transparent;
+      cursor: col-resize;
+      flex-shrink: 0;
+      border-left: 1px solid #454545;
+      border-right: 1px solid #454545;
+    }
+    .split-resize-handle:hover {
+      background: #454545;
     }
     .tab-bar {
       background: #252526;
@@ -283,6 +331,25 @@ function getCssStyles(): string {
       background: #484848;
       color: #ffffff;
     }
+    .split-btn, .close-split-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: #3c3c3c;
+      color: #cccccc;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+      margin-left: 4px;
+    }
+    .split-btn:hover, .close-split-btn:hover {
+      background: #484848;
+      color: #ffffff;
+    }
     .editor-header {
       background: #2d2d30;
       padding: 10px 15px;
@@ -291,7 +358,7 @@ function getCssStyles(): string {
       color: #cccccc;
       display: none;
     }
-    #editor {
+    #left-editor, #right-editor {
       flex: 1;
       min-height: 300px;
     }

@@ -20,17 +20,22 @@ export function getJavaScriptCode(): string {
 
 function getGlobalVariables(): string {
   return `
-    let editor = null;
+    let leftEditor = null;
+    let rightEditor = null;
     let schemaData = null;
     let sharedCteData = null;
     let lastValidQuery = null;
     let currentSchemaData = null;
     let lastSuccessfulParseResult = null; // キャッシュ用
     let isIntelliSenseEnabled = true;
+    let isSplitView = false;
     
     // Tab management
-    let openTabs = new Map(); // Map<tabId, { name, type, content, isModified }>
-    let activeTabId = 'main';
+    let leftTabs = new Map(); // Map<tabId, { name, type, content, isModified, queryResult }>
+    let rightTabs = new Map(); // Map<tabId, { name, type, content, isModified, queryResult }>
+    let activeLeftTabId = null;
+    let activeRightTabId = null;
+    let activePanel = 'left'; // 'left' or 'right'
     let tabCounter = 0;
     
     // Server logging helper
@@ -160,12 +165,15 @@ function getQueryExecutionCode(): string {
   return `
     // Query execution
     async function runQuery() {
-      if (!editor) {
+      // Determine which editor to use based on active panel
+      const currentEditor = activePanel === 'left' ? leftEditor : rightEditor;
+      
+      if (!currentEditor) {
         alert('Editor not ready');
         return;
       }
       
-      const sql = editor.getValue().trim();
+      const sql = currentEditor.getValue().trim();
       if (!sql) {
         alert('Please enter a SQL query');
         return;
@@ -190,34 +198,53 @@ function getQueryExecutionCode(): string {
         const data = await response.json();
         
         if (data.success) {
-          displayQueryResults(data.result, data.originalSql, data.composedSql);
+          // Generate HTML for results
+          const resultHtml = generateQueryResultsHtml(data.result, data.originalSql, data.composedSql);
+          
+          // Store results for the active tab
+          storeQueryResult(resultHtml);
+          
+          // Update the display
+          updateQueryResults();
+          
           executionInfo.textContent = \`Executed in \${data.result.executionTime}ms (\${data.result.rows.length} rows)\`;
         } else {
-          resultsContent.innerHTML = \`
+          const errorHtml = \`
             <div style="color: #f44336; padding: 20px;">
               <strong>Query Error:</strong><br>
               \${escapeHtml(data.error)}
             </div>
           \`;
+          
+          // Store error for the active tab
+          storeQueryResult(errorHtml);
+          
+          // Update the display
+          updateQueryResults();
+          
           executionInfo.textContent = 'Error';
         }
       } catch (error) {
-        resultsContent.innerHTML = \`
+        const errorHtml = \`
           <div style="color: #f44336; padding: 20px;">
             <strong>Network Error:</strong><br>
             \${escapeHtml(error.message)}
           </div>
         \`;
+        
+        // Store error for the active tab
+        storeQueryResult(errorHtml);
+        
+        // Update the display
+        updateQueryResults();
+        
         executionInfo.textContent = 'Network Error';
       }
     }
     
-    function displayQueryResults(result, originalSql, composedSql) {
-      const resultsContent = document.getElementById('results-content');
-      
+    function generateQueryResultsHtml(result, originalSql, composedSql) {
       if (!result.rows || result.rows.length === 0) {
-        resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">No results returned</div>';
-        return;
+        return '<div style="color: #666; text-align: center; padding: 40px;">No results returned</div>';
       }
       
       // Generate table HTML
@@ -257,6 +284,13 @@ function getQueryExecutionCode(): string {
         \`;
       }
       
+      return html;
+    }
+    
+    // Legacy function for backward compatibility (if needed)
+    function displayQueryResults(result, originalSql, composedSql) {
+      const resultsContent = document.getElementById('results-content');
+      const html = generateQueryResultsHtml(result, originalSql, composedSql);
       resultsContent.innerHTML = html;
     }
     
@@ -421,37 +455,53 @@ function getQueryExecutionCode(): string {
     
     function initializeTabs() {
       // Clear existing tabs
-      openTabs.clear();
+      leftTabs.clear();
+      rightTabs.clear();
       
-      // No default tabs - start with empty tab bar
-      activeTabId = null;
+      // No default tabs - start with empty tab bars
+      activeLeftTabId = null;
+      activeRightTabId = null;
+      activePanel = 'left';
       
       // Always render tabs to ensure visibility
       renderTabs();
       
-      // Show welcome message in editor
-      if (editor) {
-        editor.setValue('-- Welcome to zosql Browser\\n-- Create a new tab with + or open a file from the workspace');
+      // Show welcome message in left editor
+      if (leftEditor) {
+        leftEditor.setValue('-- Welcome to zosql Browser\\n-- Create a new tab with + or open a file from the workspace');
       }
       
       console.log('Tabs initialized without default tabs');
     }
     
     function renderTabs() {
-      const tabBar = document.getElementById('tab-bar');
+      renderTabsForPanel('left');
+      if (isSplitView) {
+        renderTabsForPanel('right');
+      }
+    }
+    
+    function renderTabsForPanel(panel) {
+      const tabBarId = panel === 'left' ? 'left-tab-bar' : 'right-tab-bar';
+      const tabBar = document.getElementById(tabBarId);
       if (!tabBar) {
-        console.warn('Tab bar element not found');
+        console.warn(\`Tab bar element not found: \${tabBarId}\`);
         return;
       }
       
-      // Force clear and rebuild all tabs
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      const activeTabId = panel === 'left' ? activeLeftTabId : activeRightTabId;
+      
+      // Clear existing tabs content but preserve controls
+      const tabControls = tabBar.querySelector('.tab-controls');
       tabBar.innerHTML = '';
       
-      for (const [tabId, tab] of openTabs) {
+      // Re-add tabs
+      for (const [tabId, tab] of tabs) {
         const tabElement = document.createElement('div');
         tabElement.className = \`tab \${tabId === activeTabId ? 'active' : ''}\`;
         tabElement.dataset.tab = tabId;
-        tabElement.onclick = () => switchTab(tabId);
+        tabElement.onclick = () => switchTab(tabId, panel);
         
         const icon = tab.type === 'main' ? '📄' : 
                      (tab.type === 'shared-cte' ? '🔶' : 
@@ -462,10 +512,15 @@ function getQueryExecutionCode(): string {
         
         tabElement.innerHTML = \`
           \${icon} \${tabName}\${modifiedIndicator}
-          <span class="close-btn" onclick="closeTab(event, \\''+tabId+'\\')">×</span>
+          <span class="close-btn" onclick="closeTab(event, '\${tabId}', '\${panel}')">×</span>
         \`;
         
         tabBar.appendChild(tabElement);
+      }
+      
+      // Re-add controls
+      if (tabControls) {
+        tabBar.appendChild(tabControls);
       }
       
       // Force visibility
@@ -474,25 +529,35 @@ function getQueryExecutionCode(): string {
       tabBar.style.opacity = '1';
       tabBar.style.height = '40px';
       
-      console.log('Tabs rendered:', openTabs.size, 'tabs');
-      console.log('Tab bar innerHTML:', tabBar.innerHTML);
+      console.log(\`Tabs rendered for \${panel}:\`, tabs.size, 'tabs');
     }
     
-    function switchTab(tabId) {
-      if (!openTabs.has(tabId)) return;
+    function switchTab(tabId, panel) {
+      panel = panel || activePanel; // Default to current active panel
+      
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      const editor = panel === 'left' ? leftEditor : rightEditor;
+      const currentActiveTabId = panel === 'left' ? activeLeftTabId : activeRightTabId;
+      
+      if (!tabs.has(tabId)) return;
       
       // Save current tab content
-      if (editor && openTabs.has(activeTabId)) {
-        const currentTab = openTabs.get(activeTabId);
+      if (editor && tabs.has(currentActiveTabId)) {
+        const currentTab = tabs.get(currentActiveTabId);
         const currentContent = editor.getValue();
         currentTab.content = currentContent;
-        currentTab.isModified = currentContent !== getOriginalContent(activeTabId);
-        openTabs.set(activeTabId, currentTab);
+        currentTab.isModified = currentContent !== getOriginalContent(currentActiveTabId, panel);
+        tabs.set(currentActiveTabId, currentTab);
       }
       
       // Switch to new tab
-      activeTabId = tabId;
-      const newTab = openTabs.get(tabId);
+      if (panel === 'left') {
+        activeLeftTabId = tabId;
+      } else {
+        activeRightTabId = tabId;
+      }
+      
+      const newTab = tabs.get(tabId);
       
       if (editor) {
         editor.setValue(newTab.content);
@@ -500,40 +565,66 @@ function getQueryExecutionCode(): string {
       
       renderTabs();
       updateEditorHeader(newTab);
+      
+      // Update query results for the new tab
+      updateQueryResults();
     }
     
-    function closeTab(event, tabId) {
+    function closeTab(event, tabId, panel) {
       event.stopPropagation();
       
-      const tab = openTabs.get(tabId);
+      panel = panel || activePanel; // Default to current active panel
+      
+      const tabs = panel === 'left' ? leftTabs : rightTabs;
+      const editor = panel === 'left' ? leftEditor : rightEditor;
+      const currentActiveTabId = panel === 'left' ? activeLeftTabId : activeRightTabId;
+      
+      const tab = tabs.get(tabId);
       if (tab && tab.isModified) {
         if (!confirm(\`Close \${tab.name}? Unsaved changes will be lost.\`)) {
           return;
         }
       }
       
-      openTabs.delete(tabId);
+      tabs.delete(tabId);
       
-      if (activeTabId === tabId) {
+      if (currentActiveTabId === tabId) {
         // Switch to another open tab or clear editor
-        const remainingTabs = Array.from(openTabs.keys());
+        const remainingTabs = Array.from(tabs.keys());
         if (remainingTabs.length > 0) {
-          activeTabId = remainingTabs[0];
-          switchTab(activeTabId);
+          if (panel === 'left') {
+            activeLeftTabId = remainingTabs[0];
+          } else {
+            activeRightTabId = remainingTabs[0];
+          }
+          switchTab(remainingTabs[0], panel);
         } else {
           // No tabs left - clear editor and show welcome message
-          activeTabId = null;
-          if (editor) {
-            editor.setValue('-- Welcome to zosql Browser\\n-- Create a new tab with + or open a file from the workspace');
+          if (panel === 'left') {
+            activeLeftTabId = null;
+          } else {
+            activeRightTabId = null;
           }
-          const header = document.getElementById('editor-header');
+          
+          if (editor) {
+            const welcomeMessage = panel === 'left' ? 
+              '-- Welcome to zosql Browser\\n-- Create a new tab with + or open a file from the workspace' :
+              '-- Right editor panel';
+            editor.setValue(welcomeMessage);
+          }
+          
+          const headerId = panel === 'left' ? 'left-editor-header' : 'right-editor-header';
+          const header = document.getElementById(headerId);
           if (header) {
-            header.textContent = '📝 Start by opening a file or creating a new tab';
+            header.textContent = panel === 'left' ? 
+              '📝 Start by opening a file or creating a new tab' :
+              '📝 Right editor panel';
           }
         }
       }
       
       renderTabs();
+      updateQueryResults(); // Update results when tab is closed
     }
     
     async function openSharedCteTab(cteName) {
@@ -705,9 +796,142 @@ function getQueryExecutionCode(): string {
       });
     }
     
+    // Split view management
+    function toggleSplitView() {
+      const rightPanel = document.getElementById('right-editor-panel');
+      const splitHandle = document.getElementById('split-resize-handle');
+      
+      if (isSplitView) {
+        // Close split view
+        rightPanel.style.display = 'none';
+        splitHandle.style.display = 'none';
+        isSplitView = false;
+        activePanel = 'left';
+        
+        // Update results to show left panel results
+        updateQueryResults();
+      } else {
+        // Open split view
+        rightPanel.style.display = 'flex';
+        splitHandle.style.display = 'block';
+        isSplitView = true;
+        
+        // Initialize right editor if not already done
+        initRightEditor();
+        
+        // Update results to show active panel results
+        updateQueryResults();
+      }
+    }
+    
+    function closeSplitView() {
+      if (!isSplitView) return;
+      
+      const rightPanel = document.getElementById('right-editor-panel');
+      const splitHandle = document.getElementById('split-resize-handle');
+      
+      rightPanel.style.display = 'none';
+      splitHandle.style.display = 'none';
+      isSplitView = false;
+      activePanel = 'left';
+      
+      // Update results to show left panel results
+      updateQueryResults();
+    }
+    
+    function initRightEditor() {
+      if (rightEditor) return; // Already initialized
+      
+      rightEditor = monaco.editor.create(document.getElementById('right-editor'), {
+        value: '-- Right editor panel',
+        language: 'sql',
+        theme: 'vs-dark',
+        automaticLayout: true,
+        minimap: { enabled: false },
+        wordWrap: 'on',
+        lineNumbers: 'on',
+        folding: true,
+        selectOnLineNumbers: true,
+        roundedSelection: false,
+        readOnly: false,
+        cursorStyle: 'line',
+        automaticLayout: true,
+        scrollBeyondLastLine: false
+      });
+      
+      // Add keyboard shortcuts to right editor
+      rightEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runQuery);
+      rightEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveCurrentTab);
+      rightEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, formatCurrentSQL);
+      
+      // Auto-update diagram when content changes
+      rightEditor.onDidChangeModelContent(function() {
+        clearTimeout(window.diagramUpdateTimeout);
+        window.diagramUpdateTimeout = setTimeout(function() {
+          updateDiagramAuto();
+        }, 1000);
+      });
+      
+      // Track active panel
+      rightEditor.onDidFocusEditorWidget(function() {
+        activePanel = 'right';
+        updateQueryResults(); // Update results when switching panels
+      });
+      
+      console.log('Right Monaco Editor initialized successfully');
+    }
+    
     // Make functions globally accessible
     window.toggleLeftSidebar = toggleLeftSidebar;
     window.toggleRightSidebar = toggleRightSidebar;
+    window.toggleSplitView = toggleSplitView;
+    window.closeSplitView = closeSplitView;
+    
+    // Update query results based on active panel and tab
+    function updateQueryResults() {
+      const resultsContent = document.getElementById('results-content');
+      if (!resultsContent) return;
+      
+      let activeTabId, activeTabs;
+      
+      if (activePanel === 'left') {
+        activeTabId = activeLeftTabId;
+        activeTabs = leftTabs;
+      } else {
+        activeTabId = activeRightTabId;
+        activeTabs = rightTabs;
+      }
+      
+      if (activeTabId && activeTabs.has(activeTabId)) {
+        const tab = activeTabs.get(activeTabId);
+        if (tab.queryResult) {
+          resultsContent.innerHTML = tab.queryResult;
+        } else {
+          resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Run a query to see results here</div>';
+        }
+      } else {
+        resultsContent.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Run a query to see results here</div>';
+      }
+    }
+    
+    // Store query results for active tab
+    function storeQueryResult(html) {
+      let activeTabId, activeTabs;
+      
+      if (activePanel === 'left') {
+        activeTabId = activeLeftTabId;
+        activeTabs = leftTabs;
+      } else {
+        activeTabId = activeRightTabId;
+        activeTabs = rightTabs;
+      }
+      
+      if (activeTabId && activeTabs.has(activeTabId)) {
+        const tab = activeTabs.get(activeTabId);
+        tab.queryResult = html;
+        activeTabs.set(activeTabId, tab);
+      }
+    }
     
     function updateEditorHeader(tab) {
       const header = document.getElementById('editor-header');
@@ -1551,6 +1775,9 @@ function getMonacoEditorCode(): string {
           }
         });
         
+        // Assign to leftEditor for tab system compatibility
+        leftEditor = editor;
+        
         // Setup keyboard shortcuts
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
           runQuery();
@@ -1570,6 +1797,12 @@ function getMonacoEditorCode(): string {
         
         // Setup auto-diagram generation
         setupAutoDiagramGeneration();
+        
+        // Track active panel when left editor gains focus
+        leftEditor.onDidFocusEditorWidget(function() {
+          activePanel = 'left';
+          updateQueryResults(); // Update results when switching panels
+        });
         
         // Initialize tabs after editor is ready
         setTimeout(() => {
