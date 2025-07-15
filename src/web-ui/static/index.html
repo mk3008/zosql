@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>zosql Browser</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🚀 zosql Browser</div>
+    <div class="header-controls">
+      <button id="toggle-left-sidebar" class="sidebar-toggle-btn" title="Toggle Left Sidebar">◀</button>
+      <button id="toggle-right-sidebar" class="sidebar-toggle-btn" title="Toggle Right Sidebar">▶</button>
+    </div>
+  </div>
+  
+  <div class="main-container">
+    <div class="sidebar" id="left-sidebar">
+      <div class="resize-handle" id="left-resize-handle"></div>
+      <h3>Navigation</h3>
+      <button class="action-button" id="decompose-query-btn">🔧 Decompose Query</button>
+      <button class="action-button secondary" id="clear-workspace-btn">🗑️ Clear Workspace</button>
+      <button class="action-button secondary" id="reset-database-btn">🗑️ Reset Database</button>
+      
+      <h3>Validation</h3>
+      <button class="action-button" id="cte-validation-btn">🔍 CTE Validation</button>
+      
+      <h3 class="collapsible" data-target="tables-section">
+        <span class="collapse-icon" id="tables-icon">▼</span> Tables
+      </h3>
+      <div id="tables-section" class="collapsible-section" style="display: none;">
+        <div id="tables-info" class="schema-section">
+          <div>Loading tables...</div>
+        </div>
+      </div>
+      
+      <h3 class="collapsible" data-target="workspace-section">
+        <span class="collapse-icon" id="workspace-icon">▶</span> Workspace
+      </h3>
+      <div id="workspace-section" class="collapsible-section">
+        <div id="workspace-info" class="schema-section">
+          <div>No workspace active</div>
+        </div>
+      </div>
+      
+      <h3 class="collapsible" data-target="shared-cte-section">
+        <span class="collapse-icon" id="shared-cte-icon">▶</span> Shared CTEs
+      </h3>
+      <div id="shared-cte-section" class="collapsible-section" style="display: none;">
+        <div id="shared-cte-info" class="schema-section">
+          <div>Loading shared CTEs...</div>
+        </div>
+      </div>
+      
+      <h3>System Status</h3>
+      <div class="system-status">
+        <div>Database: <span id="pglite-status">Initializing...</span></div>
+        <div>Logs: <a href="#" id="view-debug-logs" class="log-link">View Debug Logs</a></div>
+      </div>
+    </div>
+    
+    <div class="content-area">
+      <div class="editor-split-container" id="editor-split-container">
+        <!-- Left Editor Panel -->
+        <div class="editor-panel" id="left-editor-panel">
+          <div class="editor-container">
+            <div class="tab-bar" id="left-tab-bar">
+              <div class="tab-controls">
+                <button class="new-tab-btn" data-panel="left" title="新しいタブを作成">+</button>
+                <button class="split-btn" id="toggle-split-btn" title="分割表示の切り替え">⚏</button>
+              </div>
+            </div>
+            <div class="editor-header" id="left-editor-header">
+              📝 Start by opening a file or creating a new tab
+            </div>
+            
+            <!-- Left Panel Toolbar -->
+            <div class="editor-toolbar" id="left-editor-toolbar">
+              <button class="toolbar-btn primary run-query-btn" title="Run Query (Ctrl+Enter)">
+                <span class="btn-icon">▶️</span>
+                <span class="btn-text">Run</span>
+              </button>
+              <button class="toolbar-btn format-sql-btn" title="Format SQL (Ctrl+Shift+F)">
+                <span class="btn-icon">🎨</span>
+                <span class="btn-text">Format</span>
+              </button>
+              <button class="toolbar-btn save-tab-btn" title="Save (Ctrl+S)">
+                <span class="btn-icon">💾</span>
+                <span class="btn-text">Save</span>
+              </button>
+              <div class="toolbar-spacer"></div>
+              <div class="toolbar-info" id="left-toolbar-info">
+                Ready
+              </div>
+            </div>
+            
+            <div id="left-editor" class="monaco-editor-container"></div>
+            
+            <!-- Left Panel Results -->
+            <div class="panel-results-container" id="left-results-container">
+              <div class="panel-results-resize-handle" id="left-results-resize-handle"></div>
+              <div class="panel-results-header">
+                <div>📊 Query Results</div>
+                <div class="panel-execution-info" id="left-execution-info"></div>
+              </div>
+              <div class="panel-results-content" id="left-results-content">
+                <div class="results-placeholder">
+                  Run a query to see results here
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Split Resize Handle -->
+        <div class="split-resize-handle" id="split-resize-handle" style="display: none;"></div>
+        
+        <!-- Right Editor Panel (hidden by default) -->
+        <div class="editor-panel" id="right-editor-panel" style="display: none;">
+          <div class="editor-container">
+            <div class="tab-bar" id="right-tab-bar">
+              <div class="tab-controls">
+                <button class="new-tab-btn" data-panel="right" title="新しいタブを作成">+</button>
+                <button class="close-split-btn" id="close-split-btn" title="分割表示を閉じる">×</button>
+              </div>
+            </div>
+            <div class="editor-header" id="right-editor-header">
+              📝 Right editor panel
+            </div>
+            
+            <!-- Right Panel Toolbar -->
+            <div class="editor-toolbar" id="right-editor-toolbar">
+              <button class="toolbar-btn primary run-query-btn" title="Run Query (Ctrl+Enter)">
+                <span class="btn-icon">▶️</span>
+                <span class="btn-text">Run</span>
+              </button>
+              <button class="toolbar-btn format-sql-btn" title="Format SQL (Ctrl+Shift+F)">
+                <span class="btn-icon">🎨</span>
+                <span class="btn-text">Format</span>
+              </button>
+              <button class="toolbar-btn save-tab-btn" title="Save (Ctrl+S)">
+                <span class="btn-icon">💾</span>
+                <span class="btn-text">Save</span>
+              </button>
+              <div class="toolbar-spacer"></div>
+              <div class="toolbar-info" id="right-toolbar-info">
+                Ready
+              </div>
+            </div>
+            
+            <div id="right-editor" class="monaco-editor-container"></div>
+            
+            <!-- Right Panel Results -->
+            <div class="panel-results-container" id="right-results-container">
+              <div class="panel-results-resize-handle" id="right-results-resize-handle"></div>
+              <div class="panel-results-header">
+                <div>📊 Query Results</div>
+                <div class="panel-execution-info" id="right-execution-info"></div>
+              </div>
+              <div class="panel-results-content" id="right-results-content">
+                <div class="results-placeholder">
+                  Run a query to see results here
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="context-sidebar" id="context-sidebar">
+      <div class="context-resize-handle" id="right-resize-handle"></div>
+      <div class="context-header">
+        <div class="context-title" id="context-title">📄 Context Panel</div>
+        <div class="context-controls">
+          <button class="context-btn" id="refresh-context-btn" title="Refresh Context">🔄</button>
+        </div>
+      </div>
+      <div class="context-content" id="context-content">
+        <div class="context-placeholder">
+          Open a tab to see context information
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+  <!-- Monaco Editor loader -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs/loader.js"></script>
+  
+  <!-- Application Scripts -->
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

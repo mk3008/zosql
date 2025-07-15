@@ -81,6 +81,7 @@ export class SqlFormatterApi {
         
         res.json({
           success: true,
+          formatted: formattedSql,
           formattedSql,
           originalSql: sql
         });

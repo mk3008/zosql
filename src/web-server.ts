@@ -11,7 +11,7 @@ import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
 import { SqlFormatterApi } from './api/sql-formatter-api.js';
 import { WorkspaceApi } from './api/workspace-api.js';
 import { CteValidatorApi } from './api/cte-validator-api.js';
-import { getHtmlTemplate } from './web-ui/template-system.js';
+// import { getHtmlTemplate } from './web-ui/template-system.js'; // No longer needed - using static HTML
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,7 +64,10 @@ export class WebServer {
   }
 
   private setupMiddleware(): void {
-    // Static files
+    // Static files - serve from web-ui/static directory
+    this.app.use('/static', express.static(path.join(__dirname, 'web-ui/static')));
+    
+    // Legacy public folder support
     this.app.use(express.static(path.join(__dirname, '../public')));
     
     // JSON parsing
@@ -125,6 +128,9 @@ export class WebServer {
     this.app.get('/api/formatter-config', this.sqlFormatterApi.handleGetFormatterConfig.bind(this.sqlFormatterApi));
     this.app.put('/api/formatter-config', this.sqlFormatterApi.handleUpdateFormatterConfig.bind(this.sqlFormatterApi));
     
+    // Decompose API (direct endpoint for convenience)
+    this.app.post('/api/decompose', this.workspaceApi.handleDecomposeQuery.bind(this.workspaceApi));
+    
     // Workspace API
     this.app.post('/api/workspace/decompose', this.workspaceApi.handleDecomposeQuery.bind(this.workspaceApi));
     this.app.post('/api/workspace/compose', this.workspaceApi.handleComposeQuery.bind(this.workspaceApi));
@@ -140,9 +146,9 @@ export class WebServer {
     // CTE Validation API
     this.app.get('/api/validate-ctes', this.cteValidatorApi.handleValidateCtes.bind(this.cteValidatorApi));
     
-    // Main application route
+    // Main application route - serve static HTML file
     this.app.get('/', (_req, res) => {
-      res.send(getHtmlTemplate(this.host, this.port));
+      res.sendFile(path.join(__dirname, 'web-ui/static/index.html'));
     });
   }
 

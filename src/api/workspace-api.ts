@@ -125,13 +125,22 @@ export class WorkspaceApi {
         
         this.logger.log(`[WORKSPACE] CTE dependencies: ${JSON.stringify(Object.fromEntries(result.decomposedCTEs.map(cte => [cte.name, cte.dependencies])))}`);
 
-        // Extract main query using CTEDisabler if CTEs exist
-        if (result.privateCtesCreated > 0) {
+        // Format the main query with full-oneline WITH clause (new spec: keep WITH clause)
+        try {
           const query = SelectQueryParser.parse(sql);
           const simpleQuery = query.toSimpleQuery();
-          decomposedQuery = await this.extractMainQueryWithCTEDisabler(simpleQuery);
-        } else {
-          this.logger.log(`[WORKSPACE] No WITH clause found - using original query`);
+          
+          // Format using full-oneline WITH clause style
+          const formatterConfig = await this.loadFormatterConfig();
+          const formatter = new SqlFormatter(formatterConfig);
+          
+          const formatResult = formatter.format(simpleQuery);
+          decomposedQuery = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
+          
+          this.logger.log(`[WORKSPACE] Successfully formatted main query with full-oneline WITH clause`);
+        } catch (formatError) {
+          this.logger.log(`[WORKSPACE] Failed to format main query, using original SQL: ${formatError instanceof Error ? formatError.message : 'Unknown error'}`);
+          decomposedQuery = sql;
         }
 
         // Generate flow diagram

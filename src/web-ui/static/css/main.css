@@ -1,0 +1,125 @@
+/* main.css - Core styles and theme */
+
+/* CSS Reset and Base Styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #1e1e1e;
+  color: #cccccc;
+  overflow: hidden;
+}
+
+/* Theme Variables */
+:root {
+  /* Dark Theme Colors */
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary: #2d2d30;
+  --bg-hover: #383838;
+  --bg-active: #3c3c3c;
+  --bg-button: #3c3c3c;
+  --bg-button-hover: #484848;
+  --bg-button-primary: #0e639c;
+  --bg-button-primary-hover: #1177bb;
+  
+  /* Text Colors */
+  --text-primary: #cccccc;
+  --text-secondary: #888888;
+  --text-white: #ffffff;
+  --text-muted: #666666;
+  
+  /* Border Colors */
+  --border-primary: #454545;
+  --border-accent: #007acc;
+  
+  /* Status Colors */
+  --color-success: #4caf50;
+  --color-warning: #ffa500;
+  --color-error: #f44336;
+  --color-info: #2196f3;
+  
+  /* Layout Dimensions */
+  --header-height: 60px;
+  --tab-height: 40px;
+  --toolbar-height: 40px;
+  --sidebar-width: 300px;
+  --context-sidebar-width: 400px;
+  --resize-handle-width: 5px;
+  
+  /* Animation */
+  --transition-fast: 0.2s;
+  --transition-normal: 0.3s;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: normal;
+}
+
+h3 {
+  color: var(--text-white);
+  font-size: 14px;
+  margin: 20px 0 10px 0;
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 5px;
+}
+
+h3:first-child {
+  margin-top: 0;
+}
+
+/* Links */
+a {
+  color: var(--border-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-active);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-button-hover);
+}
+
+/* Utility Classes */
+.hidden {
+  display: none !important;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.mt-10 {
+  margin-top: 10px;
+}
+
+.p-40 {
+  padding: 40px;
+}

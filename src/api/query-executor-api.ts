@@ -483,6 +483,11 @@ export class QueryExecutorApi {
         
         res.json({
           success: true,
+          results: {
+            rows: result.rows || [],
+            fields: result.fields || [],
+            executionTime
+          },
           result: {
             rows: result.rows || [],
             fields: result.fields || [],
