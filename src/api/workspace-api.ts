@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import { Logger } from '../utils/logging.js';
-import { SelectQueryParser, SqlFormatter, CTEDisabler, QueryFlowDiagramGenerator, CTEComposer } from 'rawsql-ts';
+import { SelectQueryParser, SqlFormatter, QueryFlowDiagramGenerator, CTEComposer } from 'rawsql-ts';
 import { FileManager } from '../utils/file-manager.js';
 import { CTEDecomposer } from '../utils/cte-decomposer.js';
 
@@ -168,30 +168,6 @@ export class WorkspaceApi {
       return { privateCtes: {}, decomposedQuery: sql, flowDiagram: undefined };
     }
   }
-
-
-  private async extractMainQueryWithCTEDisabler(simpleQuery: any): Promise<string> {
-    try {
-      // Use CTEDisabler to remove CTEs from the query  
-      const disabler = new CTEDisabler();
-      const queryWithoutCTEs = disabler.visit(simpleQuery);
-      
-      // Format the main query using the custom formatter config
-      const formatterConfig = await this.loadFormatterConfig();
-      const formatter = new SqlFormatter(formatterConfig);
-      
-      const formatResult = formatter.format(queryWithoutCTEs);
-      const formattedMainQuery = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
-      
-      this.logger.log(`[WORKSPACE] Successfully extracted and formatted main query using CTEDisabler`);
-      return formattedMainQuery;
-      
-    } catch (error) {
-      this.logger.log(`[WORKSPACE] Failed to extract main query with CTEDisabler: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
-    }
-  }
-
 
 
 
