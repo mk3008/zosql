@@ -331,6 +331,62 @@ export class WorkspaceApi {
     }
   }
 
+  public async handleGetSinglePrivateCte(req: Request, res: Response): Promise<void> {
+    try {
+      const { cteName } = req.params;
+      
+      if (!cteName) {
+        res.status(400).json({ success: false, error: 'CTE name is required' });
+        return;
+      }
+
+      const privateCteDir = path.join(this.workspaceBasePath, 'private-cte');
+      const filePath = path.join(privateCteDir, `${cteName}.sql`);
+      
+      try {
+        const content = await fs.readFile(filePath, 'utf8');
+        
+        // Parse metadata from comments
+        const nameMatch = content.match(/\/\* name: (.*?) \*\//);
+        const descMatch = content.match(/\/\* description: (.*?) \*\//);
+        const depsMatch = content.match(/\/\* dependencies: (.*?) \*\//);
+        
+        // Extract complete SQL (without metadata comments)
+        const fullQuery = content.replace(/\/\*[\s\S]*?\*\/\s*/g, '').trim();
+        const actualCteName = nameMatch ? nameMatch[1] : cteName;
+        
+        const privateCte: PrivateCte = {
+          name: actualCteName,
+          query: fullQuery,
+          description: descMatch ? descMatch[1] : '',
+          dependencies: depsMatch ? JSON.parse(depsMatch[1]) : [],
+          columns: []
+        };
+
+        this.logger.log(`[WORKSPACE] Retrieved single private CTE: ${cteName}`);
+
+        res.json({
+          success: true,
+          cte: privateCte,
+          message: `Private CTE ${cteName} retrieved successfully`
+        });
+
+      } catch (fileError) {
+        this.logger.log(`[WORKSPACE] Private CTE file not found: ${cteName}`);
+        res.status(404).json({
+          success: false,
+          error: `Private CTE not found: ${cteName}`
+        });
+      }
+    } catch (error) {
+      this.logger.log(`[WORKSPACE] Error getting single private CTE: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  }
+
   public async handleUpdatePrivateCte(req: Request, res: Response): Promise<void> {
     try {
       const { cteName } = req.params;

@@ -21,14 +21,27 @@
     <div class="sidebar" id="left-sidebar">
       <div class="resize-handle" id="left-resize-handle"></div>
       <h3>Navigation</h3>
-      <button class="action-button" id="decompose-query-btn">🔧 Decompose Query</button>
+      <button class="action-button" id="open-file-btn">📂 Open File</button>
+      <!-- <button class="action-button secondary" id="open-path-btn">🔗 Open Path</button> -->
+      <div style="font-size: 11px; color: #888; margin: 8px 0; padding: 4px;">
+        💡 URL開く: <code>?file=sql/analytics.sql</code>
+      </div>
       <button class="action-button secondary" id="clear-workspace-btn">🗑️ Clear Workspace</button>
       <button class="action-button secondary" id="reset-database-btn">🗑️ Reset Database</button>
       
       <h3>Validation</h3>
       <button class="action-button" id="cte-validation-btn">🔍 CTE Validation</button>
       
-      <h3 class="collapsible" data-target="tables-section">
+      <h3 class="collapsible" data-target="workspace-section" onclick="window.toggleSection('workspace-section')">
+        <span class="collapse-icon" id="workspace-icon">▼</span> Workspace
+      </h3>
+      <div id="workspace-section" class="collapsible-section" style="display: block;">
+        <div id="workspace-info" class="schema-section">
+          <div>No workspace active</div>
+        </div>
+      </div>
+      
+      <h3 class="collapsible" data-target="tables-section" onclick="window.toggleSection('tables-section')">
         <span class="collapse-icon" id="tables-icon">▼</span> Tables
       </h3>
       <div id="tables-section" class="collapsible-section" style="display: none;">
@@ -37,15 +50,8 @@
         </div>
       </div>
       
-      <h3 class="collapsible" data-target="workspace-section">
-        <span class="collapse-icon" id="workspace-icon">▶</span> Workspace
-      </h3>
-      <div id="workspace-section" class="collapsible-section">
-        <div id="workspace-info" class="schema-section">
-          <div>No workspace active</div>
-        </div>
-      </div>
-      
+      <!-- Shared CTE section temporarily hidden -->
+      <!-- 
       <h3 class="collapsible" data-target="shared-cte-section">
         <span class="collapse-icon" id="shared-cte-icon">▶</span> Shared CTEs
       </h3>
@@ -54,6 +60,7 @@
           <div>Loading shared CTEs...</div>
         </div>
       </div>
+      -->
       
       <h3>System Status</h3>
       <div class="system-status">
@@ -187,6 +194,9 @@
     </div>
     
   </div>
+  
+  <!-- Toast notifications container -->
+  <div id="toast-container" class="toast-container"></div>
   
   <!-- Monaco Editor loader -->
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs/loader.js"></script>

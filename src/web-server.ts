@@ -137,6 +137,7 @@ export class WebServer {
     this.app.post('/api/workspace/read-sql-file', this.workspaceApi.handleReadSqlFile.bind(this.workspaceApi));
     this.app.get('/api/workspace', this.workspaceApi.handleGetWorkspace.bind(this.workspaceApi));
     this.app.get('/api/workspace/private-cte', this.workspaceApi.handleGetPrivateCtes.bind(this.workspaceApi));
+    this.app.get('/api/workspace/private-cte/:cteName', this.workspaceApi.handleGetSinglePrivateCte.bind(this.workspaceApi));
     this.app.put('/api/workspace/private-cte/:cteName', this.workspaceApi.handleUpdatePrivateCte.bind(this.workspaceApi));
     this.app.delete('/api/workspace', this.workspaceApi.handleClearWorkspace.bind(this.workspaceApi));
     
@@ -145,6 +146,46 @@ export class WebServer {
     
     // CTE Validation API
     this.app.get('/api/validate-ctes', this.cteValidatorApi.handleValidateCtes.bind(this.cteValidatorApi));
+    
+    // File reading API
+    this.app.get('/api/file', async (req, res) => {
+      try {
+        const filePath = req.query.path as string;
+        this.logger.info(`File API called with path: ${filePath}`);
+        
+        if (!filePath) {
+          res.status(400).json({ error: 'File path is required' });
+          return;
+        }
+        
+        // Security: Only allow .sql files and prevent directory traversal
+        if (!filePath.endsWith('.sql') || filePath.includes('..')) {
+          this.logger.error(`Invalid file path: ${filePath}`);
+          res.status(403).json({ error: 'Invalid file path' });
+          return;
+        }
+        
+        const fs = await import('fs/promises');
+        const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+        this.logger.info(`Resolved absolute path: ${absolutePath}`);
+        
+        try {
+          const content = await fs.readFile(absolutePath, 'utf8');
+          this.logger.info(`File read successfully: ${filePath} (${content.length} chars)`);
+          res.type('text/plain').send(content);
+        } catch (error) {
+          this.logger.error(`File read error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          if ((error as any).code === 'ENOENT') {
+            res.status(404).json({ error: 'File not found' });
+          } else {
+            res.status(500).json({ error: 'Failed to read file' });
+          }
+        }
+      } catch (error) {
+        this.logger.error(`Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
     
     // Main application route - serve static HTML file
     this.app.get('/', (_req, res) => {

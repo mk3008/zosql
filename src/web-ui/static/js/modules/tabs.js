@@ -16,9 +16,15 @@ export function initializeTabs() {
 }
 
 function setupInitialTabs() {
-  // Create initial tab for left panel
-  createNewTab('left', 'welcome-left', 'Welcome', 'main-file', 
-    '-- Welcome to zosql Browser\n-- Enter your SQL query here\n\nSELECT * FROM users;');
+  // Check if a file will be opened from URL parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasFileParam = urlParams.get('file');
+  
+  // Only create welcome tab if no file parameter is present
+  if (!hasFileParam) {
+    createNewTab('left', 'welcome-left', 'Welcome', 'main-file', 
+      '-- Welcome to zosql Browser\n-- Enter your SQL query here\n\nSELECT * FROM users;');
+  }
 }
 
 function setupTabEventHandlers() {
@@ -29,6 +35,17 @@ function setupTabEventHandlers() {
       if (panel) {
         createNewTab(panel);
       }
+    });
+  });
+  
+  // Tab bar mouse wheel scrolling
+  document.querySelectorAll('.tab-bar').forEach(tabBar => {
+    tabBar.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      
+      // Scroll horizontally
+      const scrollAmount = e.deltaY * 2; // Multiply for faster scrolling
+      tabBar.scrollLeft += scrollAmount;
     });
   });
 }
@@ -54,6 +71,56 @@ function setupToolbarHandlers() {
       window.saveCurrentTab();
     });
   });
+}
+
+export function findTabByName(name, panel = null) {
+  // Search in specific panel or both panels
+  const panelsToSearch = panel ? [panel] : ['left', 'right'];
+  
+  for (const searchPanel of panelsToSearch) {
+    const tabs = searchPanel === 'left' ? window.appState.leftTabs : window.appState.rightTabs;
+    
+    for (const [tabId, tab] of tabs) {
+      if (tab.name === name) {
+        return { tabId, panel: searchPanel, tab };
+      }
+    }
+  }
+  
+  return null;
+}
+
+export function findTabByType(type, panel = null) {
+  // Search in specific panel or both panels
+  const panelsToSearch = panel ? [panel] : ['left', 'right'];
+  
+  for (const searchPanel of panelsToSearch) {
+    const tabs = searchPanel === 'left' ? window.appState.leftTabs : window.appState.rightTabs;
+    
+    for (const [tabId, tab] of tabs) {
+      if (tab.type === type) {
+        return { tabId, panel: searchPanel, tab };
+      }
+    }
+  }
+  
+  return null;
+}
+
+export function createOrActivateTab(panel, tabId = null, name = null, type = 'main-file', content = '') {
+  // First, try to find existing tab by name
+  if (name) {
+    const existing = findTabByName(name);
+    if (existing) {
+      // Tab exists, activate it
+      switchToTab(existing.tabId, existing.panel);
+      window.logger.info(`Activated existing tab: ${name} (${existing.panel})`);
+      return existing.tabId;
+    }
+  }
+  
+  // Tab doesn't exist, create new one
+  return createNewTab(panel, tabId, name, type, content);
 }
 
 export function createNewTab(panel, tabId = null, name = null, type = 'main-file', content = '') {

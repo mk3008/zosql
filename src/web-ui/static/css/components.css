@@ -1,5 +1,98 @@
 /* components.css - UI component styles */
 
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 280px;
+  max-width: 400px;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s ease-out;
+  pointer-events: auto;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast.success {
+  border-left: 4px solid #4caf50;
+}
+
+.toast.error {
+  border-left: 4px solid #f44336;
+}
+
+.toast.warning {
+  border-left: 4px solid #ff9800;
+}
+
+.toast.info {
+  border-left: 4px solid #2196f3;
+}
+
+.toast-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.toast-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.toast-message {
+  color: var(--text-secondary);
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  margin-left: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: background-color var(--transition-fast);
+}
+
+.toast-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* Workspace Display - Sidebar */
 .workspace-summary {
   padding: 8px;
@@ -10,6 +103,7 @@
 
 .workspace-name {
   font-weight: 600;
+  font-size: 12px;
   color: var(--text-primary);
   margin-bottom: 4px;
 }
@@ -34,10 +128,50 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   padding-left: 4px;
 }
 
+.cte-tree-item {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background-color var(--transition-fast);
+  margin-bottom: 2px;
+  font-size: 11px;
+}
+
+.cte-tree-item:hover {
+  background: var(--bg-hover);
+}
+
+.cte-tree-item.clickable {
+  position: relative;
+}
+
+
+.cte-tree-icon {
+  margin-right: 6px;
+  font-size: 12px;
+  min-width: 16px;
+}
+
+.cte-tree-name {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-primary);
+  margin-right: 8px;
+}
+
+.cte-tree-deps {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Legacy styles for backward compatibility */
 .private-cte-item-sidebar {
   padding: 4px 8px;
   cursor: pointer;
