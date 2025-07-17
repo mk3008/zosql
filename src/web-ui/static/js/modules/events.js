@@ -401,10 +401,12 @@ async function openAndDecomposeFile() {
           window.logger.info('File decomposed successfully', result);
           
           // Create or activate tab for the main query
+          // TODO: Replace with TabManagerComponent integration
           if (result.decomposedQuery) {
-            const { createOrActivateTab } = await import('./tabs.js');
-            const fileName = file.name.replace('.sql', '');
-            createOrActivateTab(window.appState.activePanel, null, fileName, 'main-file', result.decomposedQuery);
+            window.logger.info('Tab creation temporarily disabled - using modern components');
+            // const { createOrActivateTab } = await import('./tabs.js');
+            // const fileName = file.name.replace('.sql', '');
+            // createOrActivateTab(window.appState.activePanel, null, fileName, 'main-file', result.decomposedQuery);
           }
           
           // Update left sidebar with workspace information (Private CTEs will be shown there)
@@ -590,9 +592,10 @@ async function openFileByPath() {
       
       // Create or activate tab for the main query
       if (result.decomposedQuery) {
-        const { createOrActivateTab } = await import('./tabs.js');
-        const fileName = normalizedPath.split('/').pop().replace('.sql', '');
-        createOrActivateTab(window.appState.activePanel, null, fileName, 'main-file', result.decomposedQuery);
+        window.logger.info('Tab creation temporarily disabled - using modern components');
+        // const { createOrActivateTab } = await import('./tabs.js');
+        // const fileName = normalizedPath.split('/').pop().replace('.sql', '');
+        // createOrActivateTab(window.appState.activePanel, null, fileName, 'main-file', result.decomposedQuery);
       }
       
       // Update left sidebar with workspace information
@@ -631,14 +634,15 @@ async function openPrivateCteFile(cteName) {
     
     if (result.success && result.cte) {
       // Create or activate tab for the CTE
-      const { createOrActivateTab } = await import('./tabs.js');
-      createOrActivateTab(
-        window.appState.activePanel, 
-        null, 
-        `${cteName}.cte`, 
-        'private-cte', 
-        result.cte.query
-      );
+      window.logger.info('CTE tab creation temporarily disabled - using modern components');
+      // const { createOrActivateTab } = await import('./tabs.js');
+      // createOrActivateTab(
+      //   window.appState.activePanel, 
+      //   null, 
+      //   `${cteName}.cte`, 
+      //   'private-cte', 
+      //   result.cte.query
+      // );
       
       // Show success toast
       window.showSuccessToast(

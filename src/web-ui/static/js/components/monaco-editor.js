@@ -125,16 +125,25 @@ export class MonacoEditorComponent {
    */
   async loadMonacoFromCDN() {
     return new Promise((resolve, reject) => {
-      if (document.querySelector('script[src*="monaco-editor"]')) {
-        resolve();
+      // HTMLで既にMonacoのローダーがロードされている場合は、それを使用
+      if (typeof window.require !== 'undefined') {
+        require.config({ 
+          paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs' } 
+        });
+        require(['vs/editor/editor.main'], () => {
+          resolve();
+        }, reject);
         return;
       }
 
+      // フォールバック: 独自にローダーを読み込み
       const script = document.createElement('script');
-      script.src = 'https://unpkg.com/monaco-editor@0.52.2/min/vs/loader.js';
+      script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs/loader.js';
       script.onload = () => {
-        require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.52.2/min/vs' } });
-        require(['vs/editor/editor.main'], resolve);
+        require.config({ 
+          paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs' } 
+        });
+        require(['vs/editor/editor.main'], resolve, reject);
       };
       script.onerror = reject;
       document.head.appendChild(script);

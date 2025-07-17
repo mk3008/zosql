@@ -73,6 +73,9 @@ async function initializeApp() {
     // await initializeEditors();  // Replaced by MonacoEditorComponent
     // initializeTabs();           // Replaced by TabManagerComponent
     
+    // IMPORTANT: Legacy tabs.js is disabled to prevent querySelector errors
+    // Modern TabManagerComponent handles tab functionality instead
+    
     // Initialize event handlers
     initializeEventHandlers();
     
@@ -142,36 +145,50 @@ async function initializeModernComponents() {
     //   logger.info('Right Tab Manager component initialized');
     // }
     
-    // Initialize Monaco Editor Components (temporarily disabled for debugging)
-    // const leftMonacoElement = document.getElementById('left-monaco-editor');
-    // if (leftMonacoElement) {
-    //   if (leftMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
-    //     window.appState.components.leftMonacoEditor = leftMonacoElement.component;
-    //   } else {
-    //     window.appState.components.leftMonacoEditor = new MonacoEditorComponent(leftMonacoElement, {
-    //       onContentChange: handleEditorContentChange,
-    //       onSave: handleEditorSave,
-    //       onFormat: handleEditorFormat,
-    //       onRun: handleEditorRun
-    //     });
-    //   }
-    //   logger.info('Left Monaco Editor component initialized');
-    // }
+    // Initialize Monaco Editor Components with proper timing
+    logger.info('Waiting for Monaco Editor to load...');
     
-    // const rightMonacoElement = document.getElementById('right-monaco-editor');
-    // if (rightMonacoElement) {
-    //   if (rightMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
-    //     window.appState.components.rightMonacoEditor = rightMonacoElement.component;
-    //   } else {
-    //     window.appState.components.rightMonacoEditor = new MonacoEditorComponent(rightMonacoElement, {
-    //       onContentChange: handleEditorContentChange,
-    //       onSave: handleEditorSave,
-    //       onFormat: handleEditorFormat,
-    //       onRun: handleEditorRun
-    //     });
-    //   }
-    //   logger.info('Right Monaco Editor component initialized');
-    // }
+    // Wait for Monaco Editor to be available
+    const waitForMonaco = () => new Promise((resolve) => {
+      if (typeof window.require !== 'undefined') {
+        resolve();
+      } else {
+        setTimeout(() => waitForMonaco().then(resolve), 100);
+      }
+    });
+    
+    await waitForMonaco();
+    logger.info('Monaco Editor loader ready, initializing components...');
+    
+    const leftMonacoElement = document.getElementById('left-monaco-editor');
+    if (leftMonacoElement) {
+      if (leftMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
+        window.appState.components.leftMonacoEditor = leftMonacoElement.component;
+      } else {
+        window.appState.components.leftMonacoEditor = new MonacoEditorComponent(leftMonacoElement, {
+          onContentChange: handleEditorContentChange,
+          onSave: handleEditorSave,
+          onFormat: handleEditorFormat,
+          onRun: handleEditorRun
+        });
+      }
+      logger.info('Left Monaco Editor component initialized');
+    }
+    
+    const rightMonacoElement = document.getElementById('right-monaco-editor');
+    if (rightMonacoElement) {
+      if (rightMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
+        window.appState.components.rightMonacoEditor = rightMonacoElement.component;
+      } else {
+        window.appState.components.rightMonacoEditor = new MonacoEditorComponent(rightMonacoElement, {
+          onContentChange: handleEditorContentChange,
+          onSave: handleEditorSave,
+          onFormat: handleEditorFormat,
+          onRun: handleEditorRun
+        });
+      }
+      logger.info('Right Monaco Editor component initialized');
+    }
     
     logger.info('Modern component system initialized successfully');
   } catch (error) {
