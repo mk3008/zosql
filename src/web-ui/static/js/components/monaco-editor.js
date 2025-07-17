@@ -154,33 +154,26 @@ export class MonacoEditorComponent {
    * SQLシンタックスハイライト設定
    */
   async setupSQLLanguage() {
-    // 既存の実装からトークナイザー設定を移行
-    const sqlKeywords = [
-      'SELECT', 'FROM', 'WHERE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'FULL', 'CROSS', 'ON',
-      'GROUP', 'ORDER', 'BY', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'INTERSECT', 'EXCEPT', 'ALL',
-      'AS', 'DISTINCT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'TRUNCATE',
-      'TABLE', 'INDEX', 'VIEW', 'DATABASE', 'SCHEMA', 'SEQUENCE', 'FUNCTION', 'PROCEDURE',
-      'TRIGGER', 'GRANT', 'REVOKE', 'COMMIT', 'ROLLBACK', 'TRANSACTION', 'BEGIN', 'END',
-      'CASE', 'WHEN', 'THEN', 'ELSE', 'IF', 'WHILE', 'FOR', 'LOOP', 'RETURN', 'DECLARE',
-      'SET', 'VALUES', 'INTO', 'RECURSIVE', 'WITH'
-    ];
-
-    monaco.languages.setTokensProvider('sql', {
-      tokenizer: {
-        root: [
-          [new RegExp(`\\b(${sqlKeywords.join('|')})\\b`, 'i'), 'keyword'],
-          [/'([^'\\]|\\.)*'/, 'string'],
-          [/"([^"\\]|\\.)*"/, 'string'],
-          [/--.*$/, 'comment'],
-          [/\/\*[\s\S]*?\*\//, 'comment'],
-          [/\b\d+\.?\d*\b/, 'number'],
-          [/[a-zA-Z_][a-zA-Z0-9_]*/, 'identifier'],
-          [/[{}()\[\]]/, '@brackets'],
-          [/[<>]=?|[!=]=|<>/, 'operator'],
-          [/[+\-*\/=]/, 'operator']
-        ]
+    try {
+      // Monaco EditorにはSQL言語が組み込まれているので、カスタムトークナイザーは使用しない
+      // 代わりに、既存のSQL言語サポートを活用
+      
+      // SQL言語が登録されているか確認
+      const languages = monaco.languages.getLanguages();
+      const sqlLanguage = languages.find(lang => lang.id === 'sql');
+      
+      if (!sqlLanguage) {
+        console.warn('SQL language not found in Monaco Editor, using default text language');
+        return;
       }
-    });
+      
+      // SQL言語の設定のみ行い、カスタムトークナイザーは避ける
+      console.log('Using built-in SQL language support');
+      
+    } catch (error) {
+      console.error('Failed to setup SQL language:', error);
+      // エラーが発生した場合はスキップして続行
+    }
   }
 
   /**

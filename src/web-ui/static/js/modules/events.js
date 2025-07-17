@@ -297,16 +297,29 @@ function clearQueryResults(panel) {
 
 async function updateWorkspaceDisplay(result) {
   try {
-    // Update left sidebar workspace section
-    const workspaceInfoDiv = document.getElementById('workspace-info');
-    if (!workspaceInfoDiv) {
-      window.logger.warn('workspace-info element not found');
-      return;
+    // Update Workspace Panel component instead of legacy workspace-info
+    const workspacePanel = window.appState.components?.workspacePanel;
+    if (!workspacePanel) {
+      window.logger.warn('Workspace Panel component not found, using legacy fallback');
+      // Legacy fallback - try to find workspace-info element
+      const workspaceInfoDiv = document.getElementById('workspace-info');
+      if (!workspaceInfoDiv) {
+        window.logger.warn('workspace-info element not found, skipping workspace update');
+        return;
+      }
+      // Continue with legacy update
     }
     
     const workspaceInfo = result.workspace;
     if (!workspaceInfo) {
       window.logger.warn('No workspace info in result');
+      return;
+    }
+    
+    // Use Workspace Panel component if available
+    if (workspacePanel && workspacePanel.updateCteTree) {
+      window.logger.info('Updating Workspace Panel with CTE data');
+      workspacePanel.updateCteTree(workspaceInfo.privateCtes || {});
       return;
     }
     
