@@ -18,28 +18,32 @@
   </div>
   
   <div class="main-container">
-    <!-- Modern Workspace Panel Component -->
-    <workspace-panel id="workspace-panel"></workspace-panel>
-    
-    <!-- Legacy Navigation Section -->
-    <div class="sidebar legacy-controls" id="left-sidebar">
+    <!-- Unified Left Sidebar -->
+    <div class="sidebar" id="left-sidebar">
       <div class="resize-handle" id="left-resize-handle"></div>
-      <h3>Navigation</h3>
-      <button class="action-button" id="open-file-btn">📂 Open File</button>
-      <!-- <button class="action-button secondary" id="open-path-btn">🔗 Open Path</button> -->
-      <div style="font-size: 11px; color: #888; margin: 8px 0; padding: 4px;">
-        💡 URL開く: <code>?file=sql/analytics.sql</code>
-      </div>
-      <button class="action-button secondary" id="clear-workspace-btn">🗑️ Clear Workspace</button>
-      <button class="action-button secondary" id="reset-database-btn">🗑️ Reset Database</button>
       
-      <h3>Validation</h3>
-      <button class="action-button" id="cte-validation-btn">🔍 CTE Validation</button>
+      <!-- Modern Workspace Panel Component -->
+      <workspace-panel id="workspace-panel"></workspace-panel>
       
-      <h3>System Status</h3>
-      <div class="system-status">
-        <div>Database: <span id="pglite-status">Initializing...</span></div>
-        <div>Logs: <a href="#" id="view-debug-logs" class="log-link">View Debug Logs</a></div>
+      <!-- Legacy Navigation Section -->
+      <div class="legacy-controls">
+        <h3>Navigation</h3>
+        <button class="action-button" id="open-file-btn">📂 Open File</button>
+        <!-- <button class="action-button secondary" id="open-path-btn">🔗 Open Path</button> -->
+        <div style="font-size: 11px; color: #888; margin: 8px 0; padding: 4px;">
+          💡 URL開く: <code>?file=sql/analytics.sql</code>
+        </div>
+        <button class="action-button secondary" id="clear-workspace-btn">🗑️ Clear Workspace</button>
+        <button class="action-button secondary" id="reset-database-btn">🗑️ Reset Database</button>
+        
+        <h3>Validation</h3>
+        <button class="action-button" id="cte-validation-btn">🔍 CTE Validation</button>
+        
+        <h3>System Status</h3>
+        <div class="system-status">
+          <div>Database: <span id="pglite-status">Initializing...</span></div>
+          <div>Logs: <a href="#" id="view-debug-logs" class="log-link">View Debug Logs</a></div>
+        </div>
       </div>
     </div>
     

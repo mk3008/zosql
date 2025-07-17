@@ -68,11 +68,10 @@ async function initializeApp() {
     // Initialize schema
     await initializeSchema();
     
-    // Initialize Monaco editors (legacy support)
-    await initializeEditors();
-    
-    // Initialize tab system (legacy support)
-    initializeTabs();
+    // Legacy modules are disabled in component-based architecture
+    // Use modern components instead of legacy modules
+    // await initializeEditors();  // Replaced by MonacoEditorComponent
+    // initializeTabs();           // Replaced by TabManagerComponent
     
     // Initialize event handlers
     initializeEventHandlers();
@@ -114,65 +113,65 @@ async function initializeModernComponents() {
       logger.info('Workspace Panel component initialized');
     }
     
-    // Initialize Tab Manager Components
-    const leftTabManagerElement = document.getElementById('left-tab-manager');
-    if (leftTabManagerElement) {
-      if (leftTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
-        window.appState.components.leftTabManager = leftTabManagerElement.component;
-      } else {
-        window.appState.components.leftTabManager = new TabManagerComponent(leftTabManagerElement, {
-          onTabChange: handleTabChange,
-          onTabClose: handleTabClose,
-          onNewTab: handleNewTab
-        });
-      }
-      logger.info('Left Tab Manager component initialized');
-    }
+    // Initialize Tab Manager Components (temporarily disabled for debugging)
+    // const leftTabManagerElement = document.getElementById('left-tab-manager');
+    // if (leftTabManagerElement) {
+    //   if (leftTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
+    //     window.appState.components.leftTabManager = leftTabManagerElement.component;
+    //   } else {
+    //     window.appState.components.leftTabManager = new TabManagerComponent(leftTabManagerElement, {
+    //       onTabChange: handleTabChange,
+    //       onTabClose: handleTabClose,
+    //       onNewTab: handleNewTab
+    //     });
+    //   }
+    //   logger.info('Left Tab Manager component initialized');
+    // }
     
-    const rightTabManagerElement = document.getElementById('right-tab-manager');
-    if (rightTabManagerElement) {
-      if (rightTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
-        window.appState.components.rightTabManager = rightTabManagerElement.component;
-      } else {
-        window.appState.components.rightTabManager = new TabManagerComponent(rightTabManagerElement, {
-          onTabChange: handleTabChange,
-          onTabClose: handleTabClose,
-          onNewTab: handleNewTab
-        });
-      }
-      logger.info('Right Tab Manager component initialized');
-    }
+    // const rightTabManagerElement = document.getElementById('right-tab-manager');
+    // if (rightTabManagerElement) {
+    //   if (rightTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
+    //     window.appState.components.rightTabManager = rightTabManagerElement.component;
+    //   } else {
+    //     window.appState.components.rightTabManager = new TabManagerComponent(rightTabManagerElement, {
+    //       onTabChange: handleTabChange,
+    //       onTabClose: handleTabClose,
+    //       onNewTab: handleNewTab
+    //     });
+    //   }
+    //   logger.info('Right Tab Manager component initialized');
+    // }
     
-    // Initialize Monaco Editor Components
-    const leftMonacoElement = document.getElementById('left-monaco-editor');
-    if (leftMonacoElement) {
-      if (leftMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
-        window.appState.components.leftMonacoEditor = leftMonacoElement.component;
-      } else {
-        window.appState.components.leftMonacoEditor = new MonacoEditorComponent(leftMonacoElement, {
-          onContentChange: handleEditorContentChange,
-          onSave: handleEditorSave,
-          onFormat: handleEditorFormat,
-          onRun: handleEditorRun
-        });
-      }
-      logger.info('Left Monaco Editor component initialized');
-    }
+    // Initialize Monaco Editor Components (temporarily disabled for debugging)
+    // const leftMonacoElement = document.getElementById('left-monaco-editor');
+    // if (leftMonacoElement) {
+    //   if (leftMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
+    //     window.appState.components.leftMonacoEditor = leftMonacoElement.component;
+    //   } else {
+    //     window.appState.components.leftMonacoEditor = new MonacoEditorComponent(leftMonacoElement, {
+    //       onContentChange: handleEditorContentChange,
+    //       onSave: handleEditorSave,
+    //       onFormat: handleEditorFormat,
+    //       onRun: handleEditorRun
+    //     });
+    //   }
+    //   logger.info('Left Monaco Editor component initialized');
+    // }
     
-    const rightMonacoElement = document.getElementById('right-monaco-editor');
-    if (rightMonacoElement) {
-      if (rightMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
-        window.appState.components.rightMonacoEditor = rightMonacoElement.component;
-      } else {
-        window.appState.components.rightMonacoEditor = new MonacoEditorComponent(rightMonacoElement, {
-          onContentChange: handleEditorContentChange,
-          onSave: handleEditorSave,
-          onFormat: handleEditorFormat,
-          onRun: handleEditorRun
-        });
-      }
-      logger.info('Right Monaco Editor component initialized');
-    }
+    // const rightMonacoElement = document.getElementById('right-monaco-editor');
+    // if (rightMonacoElement) {
+    //   if (rightMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
+    //     window.appState.components.rightMonacoEditor = rightMonacoElement.component;
+    //   } else {
+    //     window.appState.components.rightMonacoEditor = new MonacoEditorComponent(rightMonacoElement, {
+    //       onContentChange: handleEditorContentChange,
+    //       onSave: handleEditorSave,
+    //       onFormat: handleEditorFormat,
+    //       onRun: handleEditorRun
+    //     });
+    //   }
+    //   logger.info('Right Monaco Editor component initialized');
+    // }
     
     logger.info('Modern component system initialized successfully');
   } catch (error) {
