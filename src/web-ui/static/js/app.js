@@ -89,6 +89,51 @@ async function initializeApp() {
     await checkAndOpenFileFromUrl();
     
     logger.info('zosql browser initialized successfully with component architecture');
+  
+  // Initialize layout diagnostics
+  if (window.LayoutDiagnostics) {
+    const layoutDiag = new window.LayoutDiagnostics(logger);
+    window.layoutDiagnostics = layoutDiag;
+    
+    // Initial measurement after 1 second
+    setTimeout(() => {
+      logger.info('Running initial layout diagnostics');
+      const measurements = layoutDiag.measureAllLayouts();
+      const summary = layoutDiag.getSummaryReport();
+      logger.info('Layout diagnostics summary', summary);
+      
+      // Monitor toolbar for changes
+      layoutDiag.monitorElement('.monaco-toolbar', 'monaco-toolbar-monitor', (measurement, mutations) => {
+        logger.warn('Monaco toolbar changed', {
+          measurement,
+          mutationType: mutations.map(m => m.type)
+        });
+      });
+    }, 1000);
+    
+    // Periodic measurement every 5 seconds for debugging
+    setInterval(() => {
+      const toolbar = document.querySelector('.monaco-toolbar');
+      if (toolbar) {
+        const rect = toolbar.getBoundingClientRect();
+        const parentRect = toolbar.parentElement?.getBoundingClientRect();
+        logger.info('Toolbar position check', {
+          toolbar: {
+            top: rect.top,
+            bottom: rect.bottom,
+            height: rect.height,
+            scrollTop: toolbar.scrollTop
+          },
+          parent: parentRect ? {
+            top: parentRect.top,
+            bottom: parentRect.bottom,
+            height: parentRect.height
+          } : null,
+          windowHeight: window.innerHeight
+        });
+      }
+    }, 5000);
+  }
   } catch (error) {
     logger.error('Failed to initialize application:', error);
     alert('Failed to initialize zosql browser. Please check the console for details.');
@@ -102,20 +147,36 @@ async function initializeModernComponents() {
     
     // Initialize Workspace Panel Component
     const workspacePanelElement = document.getElementById('workspace-panel');
+    logger.info('Workspace Panel initialization', {
+      elementFound: !!workspacePanelElement,
+      elementTag: workspacePanelElement?.tagName?.toLowerCase(),
+      isWebComponent: workspacePanelElement?.tagName?.toLowerCase() === 'workspace-panel',
+      hasComponent: !!workspacePanelElement?.component
+    });
+    
     if (workspacePanelElement) {
       // Use Web Component if available, otherwise use class directly
       if (workspacePanelElement.tagName.toLowerCase() === 'workspace-panel') {
         window.appState.components.workspacePanel = workspacePanelElement.component;
+        logger.info('Using Web Component instance', {
+          hasUpdateCteTree: typeof workspacePanelElement.component?.updateCteTree === 'function'
+        });
       } else {
         window.appState.components.workspacePanel = new WorkspacePanelComponent(workspacePanelElement, {
           onTableClick: handleTableClick,
           onCteClick: handleCteClick,
           onMainQueryClick: handleMainQueryClick
         });
+        logger.info('Created new WorkspacePanelComponent instance');
       }
-      logger.info('Workspace Panel component initialized');
+      logger.info('Workspace Panel component initialized', {
+        componentType: window.appState.components.workspacePanel?.constructor?.name,
+        hasUpdateCteTree: typeof window.appState.components.workspacePanel?.updateCteTree === 'function'
+      });
     } else {
-      logger.warn('workspace-panel element not found in DOM');
+      logger.warn('workspace-panel element not found in DOM', {
+        allElementIds: Array.from(document.querySelectorAll('[id]')).map(el => el.id)
+      });
     }
     
     // Initialize Tab Manager Components (temporarily disabled for debugging)

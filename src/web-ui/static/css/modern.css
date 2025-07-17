@@ -270,7 +270,9 @@ html {
 .editor-container {
   flex: 1;
   display: flex;
+  flex-direction: column;
   background-color: var(--bg-primary) !important;
+  overflow: hidden;
 }
 
 .editor-panel {
@@ -279,10 +281,20 @@ html {
   flex-direction: column;
   border-right: 1px solid var(--border-color);
   background-color: var(--bg-primary) !important;
+  overflow: hidden;
 }
 
 .editor-panel:last-child {
   border-right: none;
+}
+
+/* Monaco Editor Section */
+.monaco-editor-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* Monaco Editor - Dark Mode */

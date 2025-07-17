@@ -304,7 +304,11 @@ async function updateWorkspaceDisplay(result) {
     // Update Workspace Panel component instead of legacy workspace-info
     const workspacePanel = window.appState.components?.workspacePanel;
     if (!workspacePanel) {
-      window.logger.warn('Workspace Panel component not found, using legacy fallback');
+      window.logger.warn('Workspace Panel component not found, using legacy fallback', {
+        workspacePanel: workspacePanel,
+        componentState: window.appState.components,
+        workspacePanelElement: !!document.getElementById('workspace-panel')
+      });
       // Legacy fallback - try to find workspace-info element or create in workspace-panel
       let workspaceInfoDiv = document.getElementById('workspace-info');
       if (!workspaceInfoDiv) {
@@ -335,8 +339,22 @@ async function updateWorkspaceDisplay(result) {
     
     // Use Workspace Panel component if available
     if (workspacePanel && workspacePanel.updateCteTree) {
-      window.logger.info('Updating Workspace Panel with CTE data');
-      workspacePanel.updateCteTree(workspaceInfo.privateCtes || {});
+      window.logger.info('Updating Workspace Panel with CTE data', {
+        workspacePanel: !!workspacePanel,
+        updateCteTreeMethod: typeof workspacePanel.updateCteTree,
+        cteCount: Object.keys(workspaceInfo.privateCtes || {}).length,
+        cteNames: Object.keys(workspaceInfo.privateCtes || {})
+      });
+      
+      try {
+        workspacePanel.updateCteTree(workspaceInfo.privateCtes || {});
+        window.logger.info('Workspace Panel updateCteTree called successfully');
+      } catch (error) {
+        window.logger.error('Failed to update CTE tree', {
+          error: error.message,
+          stack: error.stack
+        });
+      }
       return;
     }
     
