@@ -64,8 +64,10 @@ export class WebServer {
   }
 
   private setupMiddleware(): void {
-    // Static files - serve from web-ui/static directory
-    this.app.use('/static', express.static(path.join(__dirname, 'web-ui/static')));
+    // Static files - serve from src/web-ui/static directory
+    // In development, serve from src; in production, these would be copied to dist
+    const staticPath = path.join(__dirname, '../src/web-ui/static');
+    this.app.use('/static', express.static(staticPath));
     
     // Legacy public folder support
     this.app.use(express.static(path.join(__dirname, '../public')));
@@ -189,7 +191,8 @@ export class WebServer {
     
     // Main application route - serve static HTML file
     this.app.get('/', (_req, res) => {
-      res.sendFile(path.join(__dirname, 'web-ui/static/index.html'));
+      const htmlPath = path.join(__dirname, '../src/web-ui/static/index.html');
+      res.sendFile(htmlPath);
     });
   }
 

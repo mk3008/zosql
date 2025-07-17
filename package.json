@@ -11,9 +11,7 @@
     "test:once": "vitest run",
     "test:intellisense": "node scripts/test-intellisense.js",
     "test:regression": "npm run test:once -- test/intellisense-regression.test.ts",
-    "build": "tsc && npm run build:css",
-    "build:css": "npx tailwindcss -i ./src/web-ui/static/css/tailwind.css -o ./src/web-ui/static/css/styles.css --watch",
-    "build:css:prod": "npx tailwindcss -i ./src/web-ui/static/css/tailwind.css -o ./src/web-ui/static/css/styles.css --minify",
+    "build": "tsc",
     "dev": "tsx src/index.ts"
   },
   "keywords": [],
