@@ -31,7 +31,25 @@ export class TabManagerComponent {
    */
   init() {
     this.container.classList.add('tab-container');
+    
+    // デフォルトタブを作成
+    this.createDefaultTab();
+    
     this.render();
+  }
+
+  /**
+   * デフォルトタブを作成
+   */
+  createDefaultTab() {
+    const defaultTab = {
+      name: 'New Query',
+      content: '', // 空の内容でスタート
+      type: 'sql',
+      closable: true
+    };
+    
+    this.createTab(defaultTab);
   }
 
   /**
@@ -116,6 +134,9 @@ export class TabManagerComponent {
       this.onTabChange(this.activeTabId, this.tabs.get(this.activeTabId));
     }
 
+    // Monaco Editorの表示制御
+    this.controlMonacoEditor();
+
     return true;
   }
 
@@ -133,6 +154,9 @@ export class TabManagerComponent {
     if (previousTabId !== tabId) {
       this.onTabChange(tabId, this.tabs.get(tabId));
     }
+
+    // Monaco Editorの表示制御
+    this.controlMonacoEditor();
 
     return true;
   }
@@ -216,6 +240,9 @@ export class TabManagerComponent {
    * コンテンツHTML生成
    */
   renderContent() {
+    // Monaco Editorの表示・非表示を制御
+    this.controlMonacoEditor();
+    
     if (!this.activeTabId) {
       return '<div class="tab-content-empty">No tab selected</div>';
     }
@@ -230,6 +257,30 @@ export class TabManagerComponent {
         ${activeTab.content || ''}
       </div>
     `;
+  }
+
+  /**
+   * Monaco Editorの表示・非表示制御
+   */
+  controlMonacoEditor() {
+    // Monaco Editorコンテナを取得
+    const monacoSection = document.querySelector('.monaco-editor-section');
+    if (!monacoSection) return;
+
+    if (this.activeTabId && this.tabs.has(this.activeTabId)) {
+      // アクティブタブがある場合：Monaco Editorを表示
+      monacoSection.style.display = 'flex';
+      
+      // Monaco Editorに現在のタブ内容を設定
+      const activeTab = this.tabs.get(this.activeTabId);
+      const monacoEditor = document.querySelector('monaco-editor');
+      if (monacoEditor && monacoEditor.component) {
+        monacoEditor.component.setValue(activeTab.content || '');
+      }
+    } else {
+      // アクティブタブがない場合：Monaco Editorを非表示
+      monacoSection.style.display = 'none';
+    }
   }
 
   /**
@@ -252,6 +303,9 @@ export class TabManagerComponent {
     if (contentArea) {
       contentArea.innerHTML = this.renderContent();
     }
+    
+    // Monaco Editorの表示制御（更新時も呼び出し）
+    this.controlMonacoEditor();
   }
 
   /**

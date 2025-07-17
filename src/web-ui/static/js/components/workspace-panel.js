@@ -75,11 +75,24 @@ export class WorkspacePanelComponent {
    * CTE Tree データ更新
    */
   updateCteTree(data) {
+    // データ構造を正規化 - privateCtes オブジェクトを受け取る場合と既に構造化されたデータを受け取る場合の両方をサポート
+    const normalizedData = data.privateCtes ? data : { privateCtes: data };
+    
+    if (window.logger) {
+      window.logger.info('Workspace Panel updateCteTree called', {
+        hasData: !!data,
+        dataType: typeof data,
+        dataKeys: Object.keys(data || {}),
+        normalizedData: normalizedData,
+        hasComponent: !!this.cteTreeComponent
+      });
+    }
+    
     if (this.cteTreeComponent) {
-      this.cteTreeComponent.update(data);
+      this.cteTreeComponent.update(normalizedData);
     } else {
       // CTE Tree コンポーネントを作成
-      this.createCteTreeComponent(data);
+      this.createCteTreeComponent(normalizedData);
     }
     
     // Workspace セクションを更新
@@ -92,9 +105,21 @@ export class WorkspacePanelComponent {
    * CTE Tree コンポーネント作成
    */
   createCteTreeComponent(data) {
+    if (window.logger) {
+      window.logger.info('Creating CTE Tree Component', {
+        hasData: !!data,
+        dataKeys: Object.keys(data || {}),
+        privateCteCount: Object.keys(data.privateCtes || {}).length
+      });
+    }
+    
     // まず import して CTE Tree Component をロード
     import('./cte-tree.js').then(module => {
       const { CTETreeComponent } = module;
+      
+      if (window.logger) {
+        window.logger.info('CTE Tree Component module loaded successfully');
+      }
       
       // CTE Tree 用のコンテナを作成
       const cteContainer = document.createElement('div');
@@ -106,8 +131,25 @@ export class WorkspacePanelComponent {
       });
       
       this.cteTreeComponent.update(data);
+      
+      if (window.logger) {
+        window.logger.info('CTE Tree Component created and updated successfully');
+      }
+      
+      // Workspace セクションを更新してコンポーネントを表示
+      this.updateSection('workspace', {
+        content: this.renderWorkspaceContent()
+      });
+      
     }).catch(error => {
-      console.warn('CTE Tree Component loading failed:', error);
+      if (window.logger) {
+        window.logger.error('CTE Tree Component loading failed', {
+          error: error.message,
+          stack: error.stack
+        });
+      } else {
+        console.error('CTE Tree Component loading failed:', error);
+      }
     });
   }
 

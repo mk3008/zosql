@@ -4,18 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>zosql Browser</title>
-  <link rel="stylesheet" href="/static/css/main.css">
+  <!-- CSS責務分離: 基盤→レイアウト→コンポーネント→ユーティリティ→テーマ -->
+  <link rel="stylesheet" href="/static/css/base.css">
   <link rel="stylesheet" href="/static/css/layout.css">
-  <link rel="stylesheet" href="/static/css/modern.css">
+  
+  <!-- コンポーネント別CSS (小さなファイル) -->
+  <link rel="stylesheet" href="/static/css/components/buttons.css">
+  <link rel="stylesheet" href="/static/css/components/panels.css">
+  <link rel="stylesheet" href="/static/css/components/monaco-editor.css">
+  <link rel="stylesheet" href="/static/css/components/tab-manager.css">
+  <link rel="stylesheet" href="/static/css/components/workspace-panel.css">
+  <link rel="stylesheet" href="/static/css/components/cte-tree.css">
+  <link rel="stylesheet" href="/static/css/components/toast.css">
+  
+  <!-- ユーティリティ・テーマ -->
+  <link rel="stylesheet" href="/static/css/utilities-core.css">
+  <link rel="stylesheet" href="/static/css/themes/dark-theme.css">
 </head>
 <body>
-  <div class="header">
+  <div class="header" id="header-traditional">
     <div class="logo">🚀 zosql Browser</div>
     <div class="header-controls">
+      <button id="open-file-btn-header" class="header-action-btn" title="Open File">📂 Open</button>
+      <button id="enable-shadow-dom-btn" class="header-action-btn" style="background: #10b981; display: none;" title="Enable Shadow DOM">🔓 → Shadow DOM</button>
       <button id="toggle-left-sidebar" class="sidebar-toggle-btn" title="Toggle Left Sidebar">◀</button>
       <button id="toggle-right-sidebar" class="sidebar-toggle-btn" title="Toggle Right Sidebar">▶</button>
     </div>
   </div>
+  
+  <!-- Shadow DOM版 Header (初期は非表示) -->
+  <header-shadow id="header-shadow" style="display: none;" title="zosql Browser" show-logo show-open show-sidebar-toggles show-shadow-toggle></header-shadow>
   
   <div class="main-container">
     <!-- Unified Left Sidebar -->
@@ -24,6 +42,9 @@
       
       <!-- Modern Workspace Panel Component -->
       <workspace-panel id="workspace-panel"></workspace-panel>
+      
+      <!-- Shadow DOM版 Workspace Panel (初期は非表示) -->
+      <workspace-panel-shadow id="workspace-panel-shadow" style="display: none;"></workspace-panel-shadow>
       
       <!-- Legacy Navigation Section -->
       <div class="legacy-controls">
@@ -123,6 +144,9 @@
       </div>
     </div>
     
+    <!-- Shadow DOM版 Right Panel (初期は非表示) -->
+    <right-panel-shadow id="right-panel-shadow" style="display: none;" title="Context Panel" collapsible resizable></right-panel-shadow>
+    
   </div>
   
   <!-- Toast notifications container -->
@@ -137,8 +161,16 @@
   <script type="module" src="/static/js/components/monaco-editor.js"></script>
   <script type="module" src="/static/js/components/workspace-panel.js"></script>
   
+  <!-- Shadow DOM Components (New) -->
+  <script type="module" src="/static/js/components/workspace-panel-shadow.js"></script>
+  <script type="module" src="/static/js/components/right-panel-shadow.js"></script>
+  <script type="module" src="/static/js/components/header-shadow.js"></script>
+  
   <!-- Application Scripts -->
   <script type="module" src="/static/js/modules/layout-diagnostics.js"></script>
+  <script type="module" src="/static/js/modules/shadow-dom-toggle.js"></script>
+  <script type="module" src="/static/js/modules/header-controls.js"></script>
+  <script type="module" src="/static/js/modules/sidebar-manager.js"></script>
   <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>

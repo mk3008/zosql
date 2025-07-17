@@ -18,13 +18,13 @@ export class MonacoEditorComponent {
     // 設定
     this.config = {
       language: 'sql',
-      theme: 'vs',
+      theme: 'vs-dark', // ダークテーマがデフォルト
       fontSize: 14,
       tabSize: 4,
-      wordWrap: 'on',
+      wordWrap: 'off', // ワップを無効にして横に広がる
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
-      automaticLayout: true,
+      automaticLayout: false,
       ...options.editorConfig
     };
 
@@ -53,25 +53,21 @@ export class MonacoEditorComponent {
   renderStructure() {
     this.container.innerHTML = `
       <div class="monaco-toolbar">
-        <div class="monaco-toolbar-left">
-          <button class="btn btn-primary btn-sm run-btn" title="Run Query (Ctrl+Enter)">
-            <span>▶️</span> Run
-          </button>
-          <button class="btn btn-secondary btn-sm format-btn" title="Format SQL (Ctrl+Shift+F)">
-            <span>🎨</span> Format
-          </button>
-          <button class="btn btn-secondary btn-sm save-btn" title="Save (Ctrl+S)">
-            <span>💾</span> Save
-          </button>
-        </div>
-        <div class="monaco-toolbar-right">
-          <span class="monaco-status">Ready</span>
-        </div>
+        <button class="btn btn-primary btn-sm run-btn" title="Run Query (Ctrl+Enter)">
+          <span>▶️</span> Run
+        </button>
+        <button class="btn btn-secondary btn-sm format-btn" title="Format SQL (Ctrl+Shift+F)">
+          <span>🎨</span> Format
+        </button>
+        <button class="btn btn-secondary btn-sm save-btn" title="Save (Ctrl+S)">
+          <span>💾</span> Save
+        </button>
       </div>
       <div class="monaco-editor-wrapper" id="monaco-editor-${Date.now()}">
-        <div class="monaco-loading">Loading editor...</div>
       </div>
     `;
+    
+    // CSS classes handle all styling, no inline styles needed
   }
 
   /**
@@ -98,7 +94,7 @@ export class MonacoEditorComponent {
     this.editor = monaco.editor.create(editorWrapper, {
       value: '',
       language: this.config.language,
-      theme: this.config.theme,
+      theme: 'vs-dark', // ダークテーマを明示的に設定
       fontSize: this.config.fontSize,
       tabSize: this.config.tabSize,
       insertSpaces: true,
@@ -109,7 +105,13 @@ export class MonacoEditorComponent {
       lineNumbers: 'on',
       renderWhitespace: 'boundary',
       folding: true,
-      foldingStrategy: 'indentation'
+      foldingStrategy: 'indentation',
+      scrollbar: {
+        horizontal: 'auto', // 横スクロールを有効
+        vertical: 'auto',
+        horizontalScrollbarSize: 10,
+        verticalScrollbarSize: 10
+      }
     });
 
     // 変更リスナー
@@ -117,7 +119,7 @@ export class MonacoEditorComponent {
       this.onContentChange(this.getValue(), e);
     });
 
-    this.updateStatus('Ready');
+    // Editor initialized, no status message needed
     
     // Manual layout after initialization to prevent height issues
     setTimeout(() => {
@@ -333,7 +335,7 @@ export class MonacoEditorComponent {
       // 一定時間後にクリア
       setTimeout(() => {
         if (status.textContent === message) {
-          status.textContent = 'Ready';
+          status.textContent = '';
         }
       }, 3000);
     }
@@ -355,7 +357,7 @@ export class MonacoEditorComponent {
   /**
    * テーマ変更
    */
-  setTheme(theme) {
+  setTheme(theme = 'vs-dark') {
     if (this.editor) {
       monaco.editor.setTheme(theme);
       this.config.theme = theme;
@@ -386,18 +388,20 @@ export class MonacoEditorComponent {
    */
   layout() {
     if (this.editor) {
-      // Get container dimensions with safety checks
-      const container = this.editorContainer;
-      if (!container) return;
+      // Get the editor wrapper element
+      const editorWrapper = this.container.querySelector('.monaco-editor-wrapper');
+      if (!editorWrapper) return;
       
-      const containerRect = container.getBoundingClientRect();
-      const maxWidth = Math.min(containerRect.width || 800, 1200);
-      const maxHeight = Math.min(containerRect.height || 300, 600);
+      const containerRect = editorWrapper.getBoundingClientRect();
+      const editorWidth = containerRect.width || 800; // 横幅制限を撤廃
+      
+      // Editor height should be wrapper height with dynamic resizing
+      const editorHeight = Math.max(containerRect.height || 200, 100); // 最小100px、動的高さ
       
       // Force layout with specific dimensions
       this.editor.layout({
-        width: maxWidth,
-        height: maxHeight
+        width: editorWidth,
+        height: editorHeight
       });
       
       // Log the layout for debugging
@@ -405,8 +409,9 @@ export class MonacoEditorComponent {
         window.logger.info('Monaco Editor manual layout', {
           containerWidth: containerRect.width,
           containerHeight: containerRect.height,
-          forcedWidth: maxWidth,
-          forcedHeight: maxHeight
+          forcedWidth: editorWidth,
+          forcedHeight: editorHeight,
+          dynamicHeight: true
         });
       }
     }

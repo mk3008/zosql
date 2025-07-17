@@ -111,28 +111,28 @@ async function initializeApp() {
       });
     }, 1000);
     
-    // Periodic measurement every 5 seconds for debugging
-    setInterval(() => {
-      const toolbar = document.querySelector('.monaco-toolbar');
-      if (toolbar) {
-        const rect = toolbar.getBoundingClientRect();
-        const parentRect = toolbar.parentElement?.getBoundingClientRect();
-        logger.info('Toolbar position check', {
-          toolbar: {
-            top: rect.top,
-            bottom: rect.bottom,
-            height: rect.height,
-            scrollTop: toolbar.scrollTop
-          },
-          parent: parentRect ? {
-            top: parentRect.top,
-            bottom: parentRect.bottom,
-            height: parentRect.height
-          } : null,
-          windowHeight: window.innerHeight
-        });
-      }
-    }, 5000);
+    // Toolbar position check disabled - no longer needed
+    // setInterval(() => {
+    //   const toolbar = document.querySelector('.monaco-toolbar');
+    //   if (toolbar) {
+    //     const rect = toolbar.getBoundingClientRect();
+    //     const parentRect = toolbar.parentElement?.getBoundingClientRect();
+    //     logger.info('Toolbar position check', {
+    //       toolbar: {
+    //         top: rect.top,
+    //         bottom: rect.bottom,
+    //         height: rect.height,
+    //         scrollTop: toolbar.scrollTop
+    //       },
+    //       parent: parentRect ? {
+    //         top: parentRect.top,
+    //         bottom: parentRect.bottom,
+    //         height: parentRect.height
+    //       } : null,
+    //       windowHeight: window.innerHeight
+    //     });
+    //   }
+    // }, 5000);
   }
   } catch (error) {
     logger.error('Failed to initialize application:', error);
@@ -179,20 +179,20 @@ async function initializeModernComponents() {
       });
     }
     
-    // Initialize Tab Manager Components (temporarily disabled for debugging)
-    // const leftTabManagerElement = document.getElementById('left-tab-manager');
-    // if (leftTabManagerElement) {
-    //   if (leftTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
-    //     window.appState.components.leftTabManager = leftTabManagerElement.component;
-    //   } else {
-    //     window.appState.components.leftTabManager = new TabManagerComponent(leftTabManagerElement, {
-    //       onTabChange: handleTabChange,
-    //       onTabClose: handleTabClose,
-    //       onNewTab: handleNewTab
-    //     });
-    //   }
-    //   logger.info('Left Tab Manager component initialized');
-    // }
+    // Initialize Tab Manager Components
+    const leftTabManagerElement = document.getElementById('left-tab-manager');
+    if (leftTabManagerElement) {
+      if (leftTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
+        window.appState.components.leftTabManager = leftTabManagerElement.component;
+      } else {
+        window.appState.components.leftTabManager = new TabManagerComponent(leftTabManagerElement, {
+          onTabChange: handleTabChange,
+          onTabClose: handleTabClose,
+          onNewTab: handleNewTab
+        });
+      }
+      logger.info('Left Tab Manager component initialized');
+    }
     
     // const rightTabManagerElement = document.getElementById('right-tab-manager');
     // if (rightTabManagerElement) {

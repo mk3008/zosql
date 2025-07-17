@@ -1,0 +1,73 @@
+/* workspace-panel.css - Left sidebar workspace management */
+
+.workspace-panel {
+  @apply bg-gray-50 border-r h-full overflow-y-auto;
+}
+
+.workspace-section {
+  @apply border-b p-3;
+}
+
+.workspace-header {
+  @apply flex items-center justify-between cursor-pointer select-none
+         font-medium text-gray-900 text-sm mb-2;
+}
+
+.workspace-content {
+  @apply text-sm text-gray-600;
+}
+
+.collapse-icon {
+  @apply transition-transform duration-200;
+}
+
+.workspace-section.collapsed .collapse-icon {
+  @apply rotate-0;
+}
+
+.workspace-section:not(.collapsed) .collapse-icon {
+  @apply rotate-90;
+}
+
+.workspace-section.collapsed .workspace-content {
+  @apply hidden;
+}
+
+.workspace-title {
+  @apply font-medium text-gray-900;
+  font-size: 14px;
+}
+
+.div-workspace-name {
+  font-size: 14px;
+}
+
+.table-item {
+  @apply flex items-center py-1 px-2 text-sm cursor-pointer 
+         transition-colors hover:bg-gray-100 rounded;
+}
+
+.table-item.active {
+  @apply bg-blue-500 text-white;
+}
+
+.table-icon {
+  @apply mr-2 text-base;
+}
+
+.table-name {
+  @apply font-medium text-gray-900;
+  font-size: 14px;
+}
+
+.table-columns {
+  @apply text-gray-500 text-xs ml-auto;
+}
+
+.table-item.active .table-name {
+  @apply text-white;
+}
+
+.table-item.active .table-columns {
+  @apply text-gray-200;
+}

@@ -52,15 +52,19 @@ function setupResizeHandles() {
 
   // Panel results resize
   const leftResultsHandle = document.getElementById('left-results-resize-handle');
+  console.log('DEBUG: leftResultsHandle found:', !!leftResultsHandle);
   if (leftResultsHandle) {
     leftResultsHandle.addEventListener('mousedown', (e) => {
+      console.log('DEBUG: leftResultsHandle mousedown triggered');
       startVerticalResize(e, 'left');
     });
   }
 
   const rightResultsHandle = document.getElementById('right-results-resize-handle');
+  console.log('DEBUG: rightResultsHandle found:', !!rightResultsHandle);
   if (rightResultsHandle) {
     rightResultsHandle.addEventListener('mousedown', (e) => {
+      console.log('DEBUG: rightResultsHandle mousedown triggered');
       startVerticalResize(e, 'right');
     });
   }
@@ -91,6 +95,11 @@ export function toggleLeftSidebar() {
   const sidebar = document.getElementById('left-sidebar');
   if (sidebar) {
     sidebar.classList.toggle('hidden');
+    
+    // Monaco Editorのレイアウトを更新
+    setTimeout(() => {
+      updateMonacoEditorLayout();
+    }, 100); // CSS transitionの完了を待つ
   }
 }
 
@@ -98,7 +107,66 @@ export function toggleRightSidebar() {
   const sidebar = document.getElementById('context-sidebar');
   if (sidebar) {
     sidebar.classList.toggle('hidden');
+    
+    // Monaco Editorのレイアウトを更新
+    setTimeout(() => {
+      updateMonacoEditorLayout();
+    }, 100); // CSS transitionの完了を待つ
   }
+}
+
+/**
+ * Monaco Editorのレイアウトを更新
+ */
+function updateMonacoEditorLayout() {
+  // 左Monaco Editor
+  const leftMonacoEditor = document.getElementById('left-monaco-editor');
+  if (leftMonacoEditor && leftMonacoEditor.component) {
+    leftMonacoEditor.component.layout();
+  }
+  
+  // 右Monaco Editor
+  const rightMonacoEditor = document.getElementById('right-monaco-editor');
+  if (rightMonacoEditor && rightMonacoEditor.component) {
+    rightMonacoEditor.component.layout();
+  }
+  
+  // app.jsのglobalのMonaco Editorも更新
+  if (window.appState && window.appState.components) {
+    const { leftMonacoEditor: leftEditor, rightMonacoEditor: rightEditor } = window.appState.components;
+    
+    if (leftEditor && typeof leftEditor.layout === 'function') {
+      leftEditor.layout();
+    }
+    
+    if (rightEditor && typeof rightEditor.layout === 'function') {
+      rightEditor.layout();
+    }
+  }
+}
+
+/**
+ * 特定のパネルのMonaco Editorを強制的にリサイズ
+ */
+function forceMonacoEditorResize(panel) {
+  console.log('DEBUG: forceMonacoEditorResize called for panel:', panel);
+  
+  // 対象のMonaco Editor要素を取得
+  const monacoEditor = document.getElementById(`${panel}-monaco-editor`);
+  if (monacoEditor && monacoEditor.component) {
+    console.log('DEBUG: Found monaco editor component, calling layout()');
+    
+    // レイアウトを強制更新
+    setTimeout(() => {
+      monacoEditor.component.layout();
+      console.log('DEBUG: Monaco editor layout() called');
+    }, 0);
+  } else {
+    console.log('DEBUG: Monaco editor component not found:', `${panel}-monaco-editor`);
+  }
+  
+  // 一般的なレイアウト更新も呼び出し
+  updateMonacoEditorLayout();
 }
 
 export function toggleSection(sectionId) {
@@ -186,12 +254,20 @@ function startResize(e, type) {
 function startVerticalResize(e, panel) {
   e.preventDefault();
   
+  console.log('DEBUG: startVerticalResize called for panel:', panel);
+  
   const startY = e.clientY;
   const container = document.getElementById(`${panel}-results-container`);
   
-  if (!container) return;
+  if (!container) {
+    console.log('DEBUG: container not found:', `${panel}-results-container`);
+    return;
+  }
+  
+  console.log('DEBUG: container found:', container);
   
   const startHeight = parseInt(document.defaultView.getComputedStyle(container).height, 10);
+  console.log('DEBUG: startHeight:', startHeight);
   
   function doResize(e) {
     const currentY = e.clientY;
@@ -199,12 +275,27 @@ function startVerticalResize(e, panel) {
     
     if (newHeight >= 100 && newHeight <= 800) {
       container.style.height = newHeight + 'px';
+      
+      console.log('DEBUG: Setting container height to:', newHeight + 'px');
+      
+      // Monaco Editorのレイアウトを強制的に更新
+      forceMonacoEditorResize(panel);
     }
   }
   
   function stopResize() {
     document.removeEventListener('mousemove', doResize);
     document.removeEventListener('mouseup', stopResize);
+    
+    console.log('DEBUG: stopResize called, forcing final layout update');
+    
+    // リサイズ完了後にMonaco Editorを強制的に更新
+    forceMonacoEditorResize(panel);
+    
+    // 追加の遅延更新も実行
+    setTimeout(() => {
+      forceMonacoEditorResize(panel);
+    }, 100);
   }
   
   document.addEventListener('mousemove', doResize);

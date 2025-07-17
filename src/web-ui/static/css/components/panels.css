@@ -1,0 +1,73 @@
+/* panels.css - Sidebar and content panels */
+
+.sidebar {
+  @apply bg-gray-50 border-r overflow-y-auto;
+  width: 300px;
+  min-width: 200px;
+  max-width: 500px;
+}
+
+.context-panel {
+  @apply bg-gray-50 border-l;
+  min-width: 300px;
+  max-width: 500px;
+}
+
+.context-header {
+  @apply flex items-center justify-between p-3 border-b bg-gray-100;
+}
+
+.context-title {
+  @apply font-medium text-gray-900;
+}
+
+.context-controls {
+  @apply flex items-center gap-2;
+}
+
+.context-content {
+  @apply p-3 overflow-y-auto;
+}
+
+.context-placeholder {
+  @apply text-gray-500 text-sm;
+}
+
+.panel-results-container {
+  @apply border-t bg-white relative;
+  height: 300px;
+  min-height: 100px;
+  max-height: 80%;
+  flex-shrink: 0;
+}
+
+.panel-results-header {
+  @apply flex items-center justify-between p-2 bg-gray-50 border-b;
+}
+
+.panel-results-content {
+  @apply p-3 overflow-auto;
+}
+
+.panel-execution-info {
+  @apply text-sm text-gray-600;
+}
+
+.results-placeholder {
+  @apply text-gray-500 text-sm text-center py-8;
+}
+
+.resize-handle {
+  @apply absolute top-0 right-0 w-1 h-full cursor-col-resize
+         bg-gray-300 hover:bg-gray-400 transition-colors;
+}
+
+.panel-results-resize-handle {
+  @apply absolute top-0 left-0 w-full h-1 cursor-row-resize
+         bg-gray-300 hover:bg-gray-400 transition-colors;
+}
+
+.split-resize-handle {
+  @apply w-1 bg-gray-300 hover:bg-gray-400 cursor-col-resize
+         transition-colors;
+}

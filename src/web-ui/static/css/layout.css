@@ -1,4 +1,21 @@
-/* layout.css - Page layout and structure */
+/**
+ * layout.css - ページレイアウト管理
+ * 
+ * 責務:
+ * - ページ全体の構造・レイアウト定義
+ * - グリッドシステム・フレックスボックスレイアウト
+ * - header・sidebar・main・footerの配置
+ * - レスポンシブデザイン
+ * 
+ * 使用箇所:
+ * - 全ページの基本構造として読み込み
+ * - コンポーネントの配置基盤
+ * 
+ * 注意:
+ * - ページ構造のみを記述
+ * - 個別コンポーネントのスタイルは記述禁止
+ * - 配色はdark-theme.cssで上書き
+ */
 
 /* Header Layout */
 .header {
@@ -21,6 +38,22 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.header-action-btn {
+  background: var(--bg-accent);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.header-action-btn:hover {
+  background: var(--bg-accent-hover);
 }
 
 /* Main Container */
@@ -77,32 +110,47 @@
   min-width: 0;
 }
 
+/* Monaco Editor Section */
+.monaco-editor-section {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* Editor Layout */
 .editor-split-container {
   flex: 1;
-  display: flex;
-  flex-direction: row;
-  min-height: 0;
+  width: 100%;
+  min-width: 0;
 }
 
 .editor-panel {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  overflow: hidden;
 }
 
 .editor-container {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* Monaco Editor Container */
 .monaco-editor-container {
   flex: 1;
-  min-height: 300px;
+  min-height: 200px;
 }
 
 /* Tab Bar */
@@ -174,6 +222,7 @@
   display: flex;
   flex-direction: column;
   position: relative;
+  flex-shrink: 0;
 }
 
 .panel-results-header {
