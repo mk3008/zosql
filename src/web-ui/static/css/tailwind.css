@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* zosql カスタムコンポーネント */
+@layer components {
+  /* CTE Tree関連 */
+  .cte-tree-container {
+    @apply space-y-1;
+  }
+  
+  .cte-tree-item {
+    @apply flex items-center py-1 px-2 text-sm hover:bg-bg-hover cursor-pointer transition-colors duration-150;
+  }
+  
+  .cte-tree-item.active {
+    @apply bg-cte-primary text-white;
+  }
+  
+  .cte-tree-icon {
+    @apply mr-2 text-base;
+  }
+  
+  .cte-tree-name {
+    @apply font-medium text-text-primary;
+  }
+
+  /* Monaco Editor関連 */
+  .monaco-editor-container {
+    @apply w-full h-full bg-white border border-border-primary rounded;
+  }
+
+  /* Tab関連 */
+  .tab-bar {
+    @apply flex items-center bg-bg-secondary border-b border-border-primary px-2 py-1;
+  }
+  
+  .tab {
+    @apply flex items-center px-3 py-1 bg-bg-tertiary border border-border-primary rounded-t text-sm cursor-pointer hover:bg-bg-hover transition-colors mr-1;
+  }
+  
+  .tab.active {
+    @apply bg-white border-b-white -mb-px;
+  }
+  
+  .tab-close {
+    @apply ml-2 hover:text-text-error cursor-pointer;
+  }
+
+  /* Button関連 */
+  .btn {
+    @apply px-3 py-1.5 text-sm font-medium rounded border transition-colors duration-150;
+  }
+  
+  .btn-primary {
+    @apply bg-cte-primary text-white border-cte-primary hover:bg-blue-600;
+  }
+  
+  .btn-secondary {
+    @apply bg-bg-secondary text-text-primary border-border-primary hover:bg-bg-hover;
+  }
+  
+  .btn-success {
+    @apply bg-cte-success text-white border-cte-success hover:bg-green-600;
+  }
+
+  /* Panel関連 */
+  .panel {
+    @apply bg-white border border-border-primary rounded shadow-sm;
+  }
+  
+  .panel-header {
+    @apply px-4 py-2 bg-bg-secondary border-b border-border-primary font-medium text-text-primary;
+  }
+  
+  .panel-content {
+    @apply p-4;
+  }
+
+  /* Sidebar関連 */
+  .sidebar {
+    @apply bg-bg-secondary border-r border-border-primary h-full overflow-y-auto;
+  }
+  
+  .sidebar-section {
+    @apply p-3 border-b border-border-primary;
+  }
+  
+  .sidebar-header {
+    @apply font-medium text-text-primary text-sm mb-2 cursor-pointer select-none;
+  }
+
+  /* Toast関連 */
+  .toast {
+    @apply bg-white border border-border-primary rounded shadow-lg p-3 mb-2 flex items-center transition-all duration-300;
+  }
+  
+  .toast-success {
+    @apply border-l-4 border-l-cte-success;
+  }
+  
+  .toast-error {
+    @apply border-l-4 border-l-cte-error;
+  }
+  
+  .toast-warning {
+    @apply border-l-4 border-l-cte-warning;
+  }
+  
+  .toast-info {
+    @apply border-l-4 border-l-cte-primary;
+  }
+}

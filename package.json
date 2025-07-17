@@ -11,7 +11,9 @@
     "test:once": "vitest run",
     "test:intellisense": "node scripts/test-intellisense.js",
     "test:regression": "npm run test:once -- test/intellisense-regression.test.ts",
-    "build": "tsc",
+    "build": "tsc && npm run build:css",
+    "build:css": "npx tailwindcss -i ./src/web-ui/static/css/tailwind.css -o ./src/web-ui/static/css/styles.css --watch",
+    "build:css:prod": "npx tailwindcss -i ./src/web-ui/static/css/tailwind.css -o ./src/web-ui/static/css/styles.css --minify",
     "dev": "tsx src/index.ts"
   },
   "keywords": [],
@@ -19,7 +21,9 @@
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
     "@types/node": "^24.0.10",
+    "tailwindcss": "^4.1.11",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"

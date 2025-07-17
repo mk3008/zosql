@@ -6,7 +6,7 @@
   <title>zosql Browser</title>
   <link rel="stylesheet" href="/static/css/main.css">
   <link rel="stylesheet" href="/static/css/layout.css">
-  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/modern.css">
 </head>
 <body>
   <div class="header">
@@ -18,7 +18,11 @@
   </div>
   
   <div class="main-container">
-    <div class="sidebar" id="left-sidebar">
+    <!-- Modern Workspace Panel Component -->
+    <workspace-panel id="workspace-panel"></workspace-panel>
+    
+    <!-- Legacy Navigation Section -->
+    <div class="sidebar legacy-controls" id="left-sidebar">
       <div class="resize-handle" id="left-resize-handle"></div>
       <h3>Navigation</h3>
       <button class="action-button" id="open-file-btn">📂 Open File</button>
@@ -32,36 +36,6 @@
       <h3>Validation</h3>
       <button class="action-button" id="cte-validation-btn">🔍 CTE Validation</button>
       
-      <h3 class="collapsible" data-target="workspace-section" onclick="window.toggleSection('workspace-section')">
-        <span class="collapse-icon" id="workspace-icon">▼</span> Workspace
-      </h3>
-      <div id="workspace-section" class="collapsible-section" style="display: block;">
-        <div id="workspace-info" class="schema-section">
-          <div>No workspace active</div>
-        </div>
-      </div>
-      
-      <h3 class="collapsible" data-target="tables-section" onclick="window.toggleSection('tables-section')">
-        <span class="collapse-icon" id="tables-icon">▼</span> Tables
-      </h3>
-      <div id="tables-section" class="collapsible-section" style="display: none;">
-        <div id="tables-info" class="schema-section">
-          <div>Loading tables...</div>
-        </div>
-      </div>
-      
-      <!-- Shared CTE section temporarily hidden -->
-      <!-- 
-      <h3 class="collapsible" data-target="shared-cte-section">
-        <span class="collapse-icon" id="shared-cte-icon">▶</span> Shared CTEs
-      </h3>
-      <div id="shared-cte-section" class="collapsible-section" style="display: none;">
-        <div id="shared-cte-info" class="schema-section">
-          <div>Loading shared CTEs...</div>
-        </div>
-      </div>
-      -->
-      
       <h3>System Status</h3>
       <div class="system-status">
         <div>Database: <span id="pglite-status">Initializing...</span></div>
@@ -71,42 +45,18 @@
     
     <div class="content-area">
       <div class="editor-split-container" id="editor-split-container">
-        <!-- Left Editor Panel -->
+        <!-- Modern Tab Manager with Monaco Editor Component -->
         <div class="editor-panel" id="left-editor-panel">
           <div class="editor-container">
-            <div class="tab-bar" id="left-tab-bar">
-              <div class="tab-controls">
-                <button class="new-tab-btn" data-panel="left" title="新しいタブを作成">+</button>
-                <button class="split-btn" id="toggle-split-btn" title="分割表示の切り替え">⚏</button>
-              </div>
-            </div>
-            <div class="editor-header" id="left-editor-header">
-              📝 Start by opening a file or creating a new tab
+            <!-- Tab Manager Component -->
+            <tab-manager id="left-tab-manager"></tab-manager>
+            
+            <!-- Monaco Editor Component Container -->
+            <div class="monaco-editor-section">
+              <monaco-editor id="left-monaco-editor"></monaco-editor>
             </div>
             
-            <!-- Left Panel Toolbar -->
-            <div class="editor-toolbar" id="left-editor-toolbar">
-              <button class="toolbar-btn primary run-query-btn" title="Run Query (Ctrl+Enter)">
-                <span class="btn-icon">▶️</span>
-                <span class="btn-text">Run</span>
-              </button>
-              <button class="toolbar-btn format-sql-btn" title="Format SQL (Ctrl+Shift+F)">
-                <span class="btn-icon">🎨</span>
-                <span class="btn-text">Format</span>
-              </button>
-              <button class="toolbar-btn save-tab-btn" title="Save (Ctrl+S)">
-                <span class="btn-icon">💾</span>
-                <span class="btn-text">Save</span>
-              </button>
-              <div class="toolbar-spacer"></div>
-              <div class="toolbar-info" id="left-toolbar-info">
-                Ready
-              </div>
-            </div>
-            
-            <div id="left-editor" class="monaco-editor-container"></div>
-            
-            <!-- Left Panel Results -->
+            <!-- Results Section -->
             <div class="panel-results-container" id="left-results-container">
               <div class="panel-results-resize-handle" id="left-results-resize-handle"></div>
               <div class="panel-results-header">
@@ -125,42 +75,18 @@
         <!-- Split Resize Handle -->
         <div class="split-resize-handle" id="split-resize-handle" style="display: none;"></div>
         
-        <!-- Right Editor Panel (hidden by default) -->
+        <!-- Right Editor Panel - Component Version (hidden by default) -->
         <div class="editor-panel" id="right-editor-panel" style="display: none;">
           <div class="editor-container">
-            <div class="tab-bar" id="right-tab-bar">
-              <div class="tab-controls">
-                <button class="new-tab-btn" data-panel="right" title="新しいタブを作成">+</button>
-                <button class="close-split-btn" id="close-split-btn" title="分割表示を閉じる">×</button>
-              </div>
-            </div>
-            <div class="editor-header" id="right-editor-header">
-              📝 Right editor panel
+            <!-- Tab Manager Component -->
+            <tab-manager id="right-tab-manager"></tab-manager>
+            
+            <!-- Monaco Editor Component Container -->
+            <div class="monaco-editor-section">
+              <monaco-editor id="right-monaco-editor"></monaco-editor>
             </div>
             
-            <!-- Right Panel Toolbar -->
-            <div class="editor-toolbar" id="right-editor-toolbar">
-              <button class="toolbar-btn primary run-query-btn" title="Run Query (Ctrl+Enter)">
-                <span class="btn-icon">▶️</span>
-                <span class="btn-text">Run</span>
-              </button>
-              <button class="toolbar-btn format-sql-btn" title="Format SQL (Ctrl+Shift+F)">
-                <span class="btn-icon">🎨</span>
-                <span class="btn-text">Format</span>
-              </button>
-              <button class="toolbar-btn save-tab-btn" title="Save (Ctrl+S)">
-                <span class="btn-icon">💾</span>
-                <span class="btn-text">Save</span>
-              </button>
-              <div class="toolbar-spacer"></div>
-              <div class="toolbar-info" id="right-toolbar-info">
-                Ready
-              </div>
-            </div>
-            
-            <div id="right-editor" class="monaco-editor-container"></div>
-            
-            <!-- Right Panel Results -->
+            <!-- Results Section -->
             <div class="panel-results-container" id="right-results-container">
               <div class="panel-results-resize-handle" id="right-results-resize-handle"></div>
               <div class="panel-results-header">
@@ -200,6 +126,12 @@
   
   <!-- Monaco Editor loader -->
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs/loader.js"></script>
+  
+  <!-- Component System -->
+  <script type="module" src="/static/js/components/cte-tree.js"></script>
+  <script type="module" src="/static/js/components/tab-manager.js"></script>
+  <script type="module" src="/static/js/components/monaco-editor.js"></script>
+  <script type="module" src="/static/js/components/workspace-panel.js"></script>
   
   <!-- Application Scripts -->
   <script type="module" src="/static/js/app.js"></script>
