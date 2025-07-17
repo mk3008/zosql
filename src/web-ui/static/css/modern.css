@@ -403,6 +403,71 @@ body {
 }
 
 /* ===========================================
+   Tab Manager & Editor Components
+   ========================================== */
+tab-manager {
+  display: block;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  min-height: var(--tab-height, 35px);
+}
+
+monaco-editor {
+  display: block;
+  background-color: var(--bg-primary);
+  flex: 1;
+  min-height: 300px;
+}
+
+.monaco-editor-section {
+  flex: 1;
+  background-color: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-panel {
+  background-color: var(--bg-primary);
+}
+
+.editor-container {
+  background-color: var(--bg-primary);
+}
+
+/* Content Area */
+.content-area {
+  background-color: var(--bg-primary);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Modal & Dialog Dark Mode */
+.modal, .dialog, .error-modal {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+}
+
+.modal-content, .dialog-content {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.modal-header, .dialog-header {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+/* Placeholder Text */
+.results-placeholder {
+  color: var(--text-muted, #888);
+  background-color: transparent;
+}
+
+/* ===========================================
    Button System
    ========================================== */
 .btn {
