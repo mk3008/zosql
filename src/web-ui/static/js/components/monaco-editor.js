@@ -105,7 +105,7 @@ export class MonacoEditorComponent {
       wordWrap: this.config.wordWrap,
       minimap: this.config.minimap,
       scrollBeyondLastLine: this.config.scrollBeyondLastLine,
-      automaticLayout: this.config.automaticLayout,
+      automaticLayout: false,
       lineNumbers: 'on',
       renderWhitespace: 'boundary',
       folding: true,
@@ -118,6 +118,11 @@ export class MonacoEditorComponent {
     });
 
     this.updateStatus('Ready');
+    
+    // Manual layout after initialization to prevent height issues
+    setTimeout(() => {
+      this.layout();
+    }, 100);
   }
 
   /**
@@ -381,7 +386,29 @@ export class MonacoEditorComponent {
    */
   layout() {
     if (this.editor) {
-      this.editor.layout();
+      // Get container dimensions with safety checks
+      const container = this.editorContainer;
+      if (!container) return;
+      
+      const containerRect = container.getBoundingClientRect();
+      const maxWidth = Math.min(containerRect.width || 800, 1200);
+      const maxHeight = Math.min(containerRect.height || 300, 600);
+      
+      // Force layout with specific dimensions
+      this.editor.layout({
+        width: maxWidth,
+        height: maxHeight
+      });
+      
+      // Log the layout for debugging
+      if (window.logger) {
+        window.logger.info('Monaco Editor manual layout', {
+          containerWidth: containerRect.width,
+          containerHeight: containerRect.height,
+          forcedWidth: maxWidth,
+          forcedHeight: maxHeight
+        });
+      }
     }
   }
 
