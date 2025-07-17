@@ -45,9 +45,13 @@ function setupActionButtonEvents() {
   // Open file button
   const openFileBtn = document.getElementById('open-file-btn');
   if (openFileBtn) {
+    window.logger.info('Open File button found, setting up event listener');
     openFileBtn.addEventListener('click', () => {
+      window.logger.info('Open File button clicked!');
       openAndDecomposeFile();
     });
+  } else {
+    window.logger.warn('Open File button not found in DOM');
   }
 
   // Open path button (disabled)
@@ -377,14 +381,30 @@ async function updateWorkspaceDisplay(result) {
 
 async function openAndDecomposeFile() {
   try {
+    window.logger.info('openAndDecomposeFile function called');
+    
     // Create a hidden file input element
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.sql';
+    fileInput.style.display = 'none';
+    
+    window.logger.info('File input element created, setting up handlers');
+    
+    // Add to DOM temporarily (required for some browsers)
+    document.body.appendChild(fileInput);
+    window.logger.info('File input added to DOM');
     
     fileInput.onchange = async (event) => {
+      window.logger.info('File selection changed');
       const file = event.target.files[0];
-      if (!file) return;
+      if (!file) {
+        window.logger.warn('No file selected');
+        // Remove file input from DOM
+        document.body.removeChild(fileInput);
+        return;
+      }
+      window.logger.info('File selected:', file.name);
       
       window.logger.info('Opening file:', file.name);
       
@@ -442,18 +462,37 @@ async function openAndDecomposeFile() {
       reader.onerror = (error) => {
         window.logger.error('Error reading file:', error);
         window.showErrorToast('Failed to read file', 'File Read Error');
+        // Remove file input from DOM
+        document.body.removeChild(fileInput);
       };
       
       reader.readAsText(file);
+      
+      // Clean up file input after processing
+      setTimeout(() => {
+        if (document.body.contains(fileInput)) {
+          document.body.removeChild(fileInput);
+        }
+      }, 1000);
     };
     
     // Trigger file dialog
+    window.logger.info('Triggering file dialog');
     fileInput.click();
+    window.logger.info('File dialog triggered');
     
   } catch (error) {
     window.logger.error('Error in openAndDecomposeFile:', error);
     console.error('Open file error details:', error);
     window.showErrorToast(error.message || 'Unknown error', 'File Open Error');
+    
+    // Clean up file input if error occurs
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    fileInputs.forEach(input => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    });
   }
 }
 
