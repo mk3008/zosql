@@ -114,6 +114,8 @@ async function initializeModernComponents() {
         });
       }
       logger.info('Workspace Panel component initialized');
+    } else {
+      logger.warn('workspace-panel element not found in DOM');
     }
     
     // Initialize Tab Manager Components (temporarily disabled for debugging)

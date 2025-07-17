@@ -305,10 +305,23 @@ async function updateWorkspaceDisplay(result) {
     const workspacePanel = window.appState.components?.workspacePanel;
     if (!workspacePanel) {
       window.logger.warn('Workspace Panel component not found, using legacy fallback');
-      // Legacy fallback - try to find workspace-info element
-      const workspaceInfoDiv = document.getElementById('workspace-info');
+      // Legacy fallback - try to find workspace-info element or create in workspace-panel
+      let workspaceInfoDiv = document.getElementById('workspace-info');
       if (!workspaceInfoDiv) {
-        window.logger.warn('workspace-info element not found, skipping workspace update');
+        // Try to find the workspace-panel element and create workspace-info inside it
+        const workspacePanelElement = document.getElementById('workspace-panel');
+        if (workspacePanelElement) {
+          workspaceInfoDiv = document.createElement('div');
+          workspaceInfoDiv.id = 'workspace-info';
+          workspaceInfoDiv.style.padding = '1rem';
+          workspaceInfoDiv.style.color = 'var(--text-primary)';
+          workspacePanelElement.appendChild(workspaceInfoDiv);
+          window.logger.info('Created workspace-info element inside workspace-panel');
+        }
+      }
+      
+      if (!workspaceInfoDiv) {
+        window.logger.warn('workspace-info element not found and cannot be created, skipping workspace update');
         return;
       }
       // Continue with legacy update
