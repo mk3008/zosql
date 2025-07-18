@@ -174,13 +174,13 @@ export class CenterPanelShadowComponent {
           align-items: center;
           justify-content: center;
           font-size: 12px;
-          opacity: 0;
+          opacity: 0.6;
           transition: all 0.2s ease;
           cursor: pointer;
         }
         
         .tab:hover .tab-close {
-          opacity: 0.7;
+          opacity: 0.8;
         }
         
         .tab-close:hover {
