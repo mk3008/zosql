@@ -227,7 +227,7 @@ export class WorkspacePanelShadowComponent {
     return `
       <div class="workspace-section ${collapsed ? 'collapsed' : ''}" data-section="workspace">
         <div class="workspace-header">
-          <span>📁 Workspace</span>
+          <span>Workspace</span>
           <span class="collapse-icon">▶</span>
         </div>
         <div class="workspace-content">
@@ -245,19 +245,17 @@ export class WorkspacePanelShadowComponent {
     return `
       <div class="workspace-section ${collapsed ? 'collapsed' : ''}" data-section="tables">
         <div class="workspace-header">
-          <span>🗃️ Tables</span>
+          <span>Tables</span>
           <span class="collapse-icon">▶</span>
         </div>
         <div class="workspace-content">
           <div id="tables-list">
             <!-- テーブル一覧はdynamicに更新される -->
             <div class="table-item" data-table="users">
-              <span class="table-icon">📊</span>
               <span class="table-name">users</span>
               <span class="table-columns">5 cols</span>
             </div>
             <div class="table-item" data-table="orders">
-              <span class="table-icon">📊</span>
               <span class="table-name">orders</span>
               <span class="table-columns">8 cols</span>
             </div>
@@ -358,7 +356,6 @@ export class WorkspacePanelShadowComponent {
     
     const html = tables.map(table => `
       <div class="table-item" data-table="${table.name}">
-        <span class="table-icon">📊</span>
         <span class="table-name">${table.name}</span>
         <span class="table-columns">${table.columnCount || 0} cols</span>
       </div>

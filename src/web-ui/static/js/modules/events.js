@@ -373,7 +373,7 @@ async function updateWorkspaceDisplay(result) {
       ${privateCteCount > 0 ? `
         <div class="private-cte-tree">
           <div class="cte-tree-item clickable" onclick="/* open main query */">
-            <span class="cte-tree-icon">📄</span>
+            <span class="cte-tree-icon">[FILE]</span>
             <span class="cte-tree-name">${workspaceInfo.name}</span>
           </div>
           ${renderCteTree(cteTree, workspaceInfo.privateCtes, 1)}
@@ -381,7 +381,7 @@ async function updateWorkspaceDisplay(result) {
       ` : `
         <div class="private-cte-tree">
           <div class="cte-tree-item clickable" onclick="/* open main query */">
-            <span class="cte-tree-icon">📄</span>
+            <span class="cte-tree-icon">[FILE]</span>
             <span class="cte-tree-name">${workspaceInfo.name}</span>
           </div>
         </div>

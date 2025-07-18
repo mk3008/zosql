@@ -251,7 +251,7 @@ export class WorkspacePanelComponent {
 
     return this.tables.map(table => `
       <div class="table-item clickable" data-table="${table.name}" title="${table.name}">
-        <span class="table-icon">🗂️</span>
+        <span class="table-icon">[TBL]</span>
         <span class="table-name">${table.name}</span>
         <span class="table-columns">(${table.columns ? table.columns.length : 0})</span>
       </div>

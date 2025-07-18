@@ -18,7 +18,7 @@ export function updateContextPanel() {
   const currentTabs = currentPanel === 'left' ? window.appState.leftTabs : window.appState.rightTabs;
   
   if (!currentTabId || !currentTabs.has(currentTabId)) {
-    contextTitle.textContent = '📄 Context Panel';
+    contextTitle.textContent = 'Context Panel';
     contextContent.innerHTML = '<div class="context-placeholder">Open a tab to see context information</div>';
     return;
   }
@@ -28,7 +28,7 @@ export function updateContextPanel() {
   const tabName = currentTab.name;
   
   // Update title based on tab type
-  let titleIcon = '📄';
+  let titleIcon = '[FILE]';
   switch (tabType) {
     case 'shared-cte':
       titleIcon = '🔶';
@@ -37,13 +37,13 @@ export function updateContextPanel() {
       titleIcon = '🔧';
       break;
     case 'table':
-      titleIcon = '📋';
+      titleIcon = '[TBL]';
       break;
     case 'main-file':
-      titleIcon = '📄';
+      titleIcon = '[FILE]';
       break;
     default:
-      titleIcon = '📝';
+      titleIcon = '[QUERY]';
   }
   
   contextTitle.textContent = `${titleIcon} ${tabName} Context`;
@@ -60,7 +60,7 @@ function generateContextContent(tab, contextContainer) {
   // Basic tab information
   contextHtml += `
     <div class="context-section">
-      <h4>📋 Tab Information</h4>
+      <h4>Tab Information</h4>
       <div class="context-item">
         <strong>Name:</strong> ${tab.name}
       </div>
@@ -83,7 +83,7 @@ function generateContextContent(tab, contextContainer) {
     if (analysis.tables.length > 0 || analysis.ctes.length > 0 || analysis.columns.length > 0) {
       contextHtml += `
         <div class="context-section">
-          <h4>🔍 SQL Analysis</h4>
+          <h4>SQL Analysis</h4>
       `;
       
       // Tables referenced
@@ -122,7 +122,7 @@ function generateContextContent(tab, contextContainer) {
     const result = tab.queryResult;
     contextHtml += `
       <div class="context-section">
-        <h4>📊 Query Results</h4>
+        <h4>Query Results</h4>
         <div class="context-item">
           <strong>Status:</strong> ${result.success ? 'Success' : 'Failed'}
         </div>

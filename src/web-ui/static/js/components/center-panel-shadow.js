@@ -68,18 +68,30 @@ export class CenterPanelShadowComponent {
         .tab-bar {
           display: flex;
           align-items: center;
-          background: var(--bg-secondary, #252526);
-          border-bottom: 1px solid var(--border-primary, #454545);
+          background: #1a1a1a;
           height: 40px;
           min-height: 40px;
           position: relative;
           overflow: hidden;
         }
         
+        /* タブバーの下線を別要素として追加 */
+        .tab-bar::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: var(--border-primary, #454545);
+          z-index: 1;
+        }
+        
         .tab-scroll-container {
           flex: 1;
           overflow: hidden;
           position: relative;
+          z-index: 2;
         }
         
         .tab-list {
@@ -88,14 +100,17 @@ export class CenterPanelShadowComponent {
           height: 100%;
           transition: transform 0.2s ease;
           white-space: nowrap;
+          position: relative;
+          z-index: 2;
         }
         
         .tab {
           display: flex;
           align-items: center;
-          background: var(--bg-tertiary, #2d2d30);
+          background: #181818;
           border-right: 1px solid var(--border-primary, #454545);
-          color: var(--text-secondary, #888888);
+          border-top: 1px solid var(--border-primary, #454545);
+          color: #aaaaaa;
           cursor: pointer;
           height: 40px;
           padding: 0 16px;
@@ -107,15 +122,36 @@ export class CenterPanelShadowComponent {
           flex-shrink: 0;
         }
         
+        /* 非アクティブタブの下線 */
+        .tab::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: var(--border-primary, #454545);
+        }
+        
         .tab:hover {
           background: var(--bg-hover, #383838);
           color: var(--text-primary, #cccccc);
         }
         
         .tab.active {
-          background: var(--bg-primary, #1e1e1e);
+          background: var(--bg-secondary, #1e293b);
           color: var(--text-white, #ffffff);
-          border-bottom: 2px solid var(--accent, #007acc);
+          border-top: 2px solid var(--accent, #007acc);
+          border-bottom: none;
+          position: relative;
+          z-index: 3;
+          height: 41px; /* 1px 高くして下線を隠す */
+          margin-bottom: -1px;
+        }
+        
+        /* アクティブタブの下線を隠す */
+        .tab.active::after {
+          display: none;
         }
         
         .tab-name {
@@ -159,7 +195,7 @@ export class CenterPanelShadowComponent {
         
         /* タブスクロールボタン */
         .tab-scroll-btn {
-          background: var(--bg-secondary, #252526);
+          background: #1a1a1a;
           border: none;
           color: var(--text-secondary, #888888);
           cursor: pointer;
@@ -167,6 +203,8 @@ export class CenterPanelShadowComponent {
           padding: 0 8px;
           transition: all 0.2s ease;
           display: none;
+          position: relative;
+          z-index: 2;
         }
         
         .tab-scroll-btn:hover {
@@ -253,6 +291,7 @@ export class CenterPanelShadowComponent {
         
         .editor-toolbar {
           background: var(--bg-secondary, #252526);
+          border-top: none;
           border-bottom: 1px solid var(--border-primary, #454545);
           color: var(--text-primary, #cccccc);
           padding: 8px 12px;
@@ -262,7 +301,6 @@ export class CenterPanelShadowComponent {
           flex-shrink: 0;
           height: 40px;
           box-sizing: border-box;
-          border: none;
           outline: none;
         }
         
@@ -564,7 +602,7 @@ export class CenterPanelShadowComponent {
                 📤 Export
               </button>
               <button class="toolbar-btn" data-action="clear" title="Clear Results">
-                🗑️ Clear
+                Clear
               </button> -->
             </div>
           </div>
@@ -584,7 +622,7 @@ export class CenterPanelShadowComponent {
   renderEmptyState() {
     return `
       <div class="empty-tabs">
-        <div class="empty-tabs-icon">📝</div>
+        <div class="empty-tabs-icon">[EDITOR]</div>
         <div class="empty-tabs-title">No tabs open</div>
         <div class="empty-tabs-subtitle">Click the + button to create a new tab</div>
       </div>

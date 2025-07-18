@@ -212,10 +212,10 @@ export function getCteValidationCode(): string {
     
     function getStatusIcon(status) {
       switch (status) {
-        case 'success': return '✅';
-        case 'error': return '❌';
-        case 'warning': return '⚠️';
-        default: return '❓';
+        case 'success': return '[✓]';
+        case 'error': return '[✗]';
+        case 'warning': return '[!]';
+        default: return '[?]';
       }
     }
     

@@ -14,23 +14,35 @@
 }
 
 .context-header {
-  @apply flex items-center justify-between p-3 border-b bg-gray-100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid #454545;
+  background-color: #2d2d30;
+  height: 28px;
 }
 
 .context-title {
-  @apply font-medium text-gray-900;
+  font-weight: 500;
+  color: #cccccc;
+  font-size: 12px;
 }
 
 .context-controls {
-  @apply flex items-center gap-2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .context-content {
-  @apply p-3 overflow-y-auto;
+  padding: 8px;
+  overflow-y: auto;
 }
 
 .context-placeholder {
-  @apply text-gray-500 text-sm;
+  color: #888888;
+  font-size: 14px;
 }
 
 .panel-results-container {

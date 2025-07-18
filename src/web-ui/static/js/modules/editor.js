@@ -287,11 +287,11 @@ function updateTabUI(tabId, panel) {
 
 function getTabIcon(type) {
   switch (type) {
-    case 'table': return '📋';
-    case 'shared-cte': return '🔶';
-    case 'private-cte': return '🔧';
-    case 'main-file': return '📄';
-    default: return '📝';
+    case 'table': return '[TBL]';
+    case 'shared-cte': return '[SHARED]';
+    case 'private-cte': return '[PRIVATE]';
+    case 'main-file': return '[FILE]';
+    default: return '[QUERY]';
   }
 }
 

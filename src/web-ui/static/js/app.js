@@ -2,6 +2,7 @@
 
 import { Logger } from './modules/logger.js';
 import { SidebarManager } from './modules/sidebar-manager.js';
+import { HeaderControls } from './modules/header-controls.js';
 import './modules/toast.js';
 
 // Global state management - Shadow DOM Architecture
@@ -24,16 +25,19 @@ window.appState = {
 
 // Initialize logging
 const logger = new Logger();
-logger.replaceConsole();
 
 // Initialize the application
 async function initializeApp() {
   try {
-    console.log('🚀 Starting zosql Browser (Shadow DOM Mode)');
+    console.log('Starting zosql Browser (Shadow DOM Mode)');
     
     // Initialize sidebar management
     const sidebarManager = new SidebarManager();
     window.sidebarManager = sidebarManager;
+    
+    // Initialize header controls
+    const headerControls = new HeaderControls();
+    window.headerControls = headerControls;
     
     // Wait for Shadow DOM components to be ready
     await waitForShadowComponents();
@@ -47,10 +51,10 @@ async function initializeApp() {
     // Initialize schema data
     await initializeSchema();
     
-    console.log('✅ Application initialized successfully');
+    console.log('Application initialized successfully');
     
   } catch (error) {
-    console.error('❌ Application initialization failed:', error);
+    console.error('Application initialization failed:', error);
     showErrorToast('Failed to initialize application: ' + error.message);
   }
 }
@@ -138,4 +142,4 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
 });
 
-console.log('📦 App.js loaded - Shadow DOM Mode');
+console.log('App.js loaded - Shadow DOM Mode');

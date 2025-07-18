@@ -12,7 +12,7 @@ export function getHtmlStructure(_host: string, _port: number): string {
     </head>
     <body>
       <div class="header">
-        <div class="logo">🚀 zosql Browser</div>
+        <div class="logo">zosql Browser</div>
         <div class="header-controls">
           <button id="toggle-left-sidebar" class="sidebar-toggle-btn" onclick="toggleLeftSidebar()" title="Toggle Left Sidebar">◀</button>
           <button id="toggle-right-sidebar" class="sidebar-toggle-btn" onclick="toggleRightSidebar()" title="Toggle Right Sidebar">▶</button>
@@ -23,12 +23,12 @@ export function getHtmlStructure(_host: string, _port: number): string {
         <div class="sidebar" id="left-sidebar">
           <div class="resize-handle" id="left-resize-handle"></div>
           <h3>Navigation</h3>
-          <button class="action-button" onclick="decomposeCurrentQuery()">🔧 Decompose Query</button>
-          <button class="action-button secondary" onclick="clearWorkspace()">🗑️ Clear Workspace</button>
-          <button class="action-button secondary" onclick="resetDatabase()">🗑️ Reset Database</button>
+          <button class="action-button" onclick="decomposeCurrentQuery()">Decompose Query</button>
+          <button class="action-button secondary" onclick="clearWorkspace()">Clear Workspace</button>
+          <button class="action-button secondary" onclick="resetDatabase()">Reset Database</button>
           
           <h3>Validation</h3>
-          <button class="action-button" onclick="toggleCteValidationPanel()">🔍 CTE Validation</button>
+          <button class="action-button" onclick="toggleCteValidationPanel()">CTE Validation</button>
           
           <h3 class="collapsible" onclick="toggleSection('tables-section')">
             <span class="collapse-icon" id="tables-icon">▼</span> Tables
@@ -76,7 +76,7 @@ export function getHtmlStructure(_host: string, _port: number): string {
                   </div>
                 </div>
                 <div class="editor-header" id="left-editor-header">
-                  📝 Start by opening a file or creating a new tab
+                  Start by opening a file or creating a new tab
                 </div>
                 
                 <!-- Left Panel Toolbar -->
@@ -105,7 +105,7 @@ export function getHtmlStructure(_host: string, _port: number): string {
                 <div class="panel-results-container" id="left-results-container">
                   <div class="panel-results-resize-handle" id="left-results-resize-handle"></div>
                   <div class="panel-results-header">
-                    <div>📊 Query Results</div>
+                    <div>Query Results</div>
                     <div class="panel-execution-info" id="left-execution-info"></div>
                   </div>
                   <div class="panel-results-content" id="left-results-content">
@@ -130,7 +130,7 @@ export function getHtmlStructure(_host: string, _port: number): string {
                   </div>
                 </div>
                 <div class="editor-header" id="right-editor-header">
-                  📝 Right editor panel
+                  Right editor panel
                 </div>
                 
                 <!-- Right Panel Toolbar -->
@@ -159,7 +159,7 @@ export function getHtmlStructure(_host: string, _port: number): string {
                 <div class="panel-results-container" id="right-results-container">
                   <div class="panel-results-resize-handle" id="right-results-resize-handle"></div>
                   <div class="panel-results-header">
-                    <div>📊 Query Results</div>
+                    <div>Query Results</div>
                     <div class="panel-execution-info" id="right-execution-info"></div>
                   </div>
                   <div class="panel-results-content" id="right-results-content">
@@ -176,9 +176,9 @@ export function getHtmlStructure(_host: string, _port: number): string {
         <div class="context-sidebar" id="context-sidebar">
           <div class="context-resize-handle" id="right-resize-handle"></div>
           <div class="context-header">
-            <div class="context-title" id="context-title">📄 Context Panel</div>
+            <div class="context-title" id="context-title">Context Panel</div>
             <div class="context-controls">
-              <button class="context-btn" onclick="refreshContextPanel()" title="Refresh Context">🔄</button>
+              <button class="context-btn" onclick="refreshContextPanel()" title="Refresh Context">Refresh</button>
             </div>
           </div>
           <div class="context-content" id="context-content">
@@ -371,10 +371,11 @@ function getCssStyles(): string {
     .tab {
       padding: 8px 12px;
       font-size: 11px;
-      color: #cccccc;
+      color: #aaaaaa;
       cursor: pointer;
       border-right: 1px solid #454545;
-      background: #2d2d30;
+      border-top: 1px solid #454545;
+      background: #181818;
       white-space: nowrap;
       display: flex;
       align-items: center;

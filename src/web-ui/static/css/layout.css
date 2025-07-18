@@ -157,7 +157,7 @@
 
 /* Tab Bar */
 .tab-bar {
-  background: var(--bg-secondary);
+  background: #1a1a1a;
   border-bottom: 1px solid var(--border-primary);
   display: flex;
   overflow-x: auto;
@@ -260,17 +260,18 @@
 .context-header {
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-primary);
-  padding: 10px 15px;
+  padding: 4px 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  height: 28px;
 }
 
 .context-title {
   color: var(--text-primary);
-  font-size: 14px;
-  font-weight: bold;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .context-controls {
@@ -280,7 +281,7 @@
 
 .context-content {
   flex: 1;
-  padding: 15px;
+  padding: 8px;
   overflow: auto;
   background: var(--bg-primary);
 }
@@ -288,7 +289,7 @@
 .context-placeholder {
   color: var(--text-secondary);
   text-align: center;
-  padding: 24px 12px;
+  padding: 16px 8px;
   font-style: italic;
 }
 

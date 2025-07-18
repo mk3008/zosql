@@ -64,8 +64,11 @@ export class HeaderControls {
     try {
       const content = await this.readFileContent(file);
       
+      // SQLを整形する
+      const formattedContent = await this.formatSQL(content);
+      
       // 新しいタブでファイルを開く
-      await this.openInNewTab(file.name, content);
+      await this.openInNewTab(file.name, formattedContent);
       
       // 成功メッセージ表示
       this.showToast(`ファイル "${file.name}" を開きました`, 'success');
@@ -98,30 +101,51 @@ export class HeaderControls {
   }
 
   /**
+   * SQLを整形する
+   */
+  async formatSQL(sqlContent) {
+    try {
+      // サーバーのフォーマッターAPIを呼び出す
+      const response = await fetch('/api/format', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sql: sqlContent })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Format API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result.formattedSql || sqlContent;
+      
+    } catch (error) {
+      console.warn('[HeaderControls] Failed to format SQL, using original:', error);
+      return sqlContent;
+    }
+  }
+
+  /**
    * 新しいタブでファイルを開く
    */
   async openInNewTab(fileName, content) {
-    // 左パネルのタブマネージャーを取得
-    const leftTabManager = document.getElementById('left-tab-manager');
+    // 中央パネルのタブマネージャーを取得
+    const centerPanel = document.getElementById('center-panel-shadow');
     
-    if (leftTabManager && leftTabManager.addTab) {
-      // Tab Managerが利用可能な場合
-      const tabId = leftTabManager.addTab({
+    if (centerPanel && centerPanel.createNewTab) {
+      // Center Panel Shadow が利用可能な場合
+      const tabId = centerPanel.createNewTab({
         name: fileName,
         content: content,
         type: 'sql'
       });
       
-      leftTabManager.setActiveTab(tabId);
+      console.log(`[HeaderControls] Created new tab: ${tabId}`);
       
     } else {
-      // フォールバック: Monaco Editorに直接設定
-      const monacoEditor = document.getElementById('left-monaco-editor');
-      if (monacoEditor && monacoEditor.setValue) {
-        monacoEditor.setValue(content);
-      } else {
-        console.warn('[HeaderControls] No editor available to load file');
-      }
+      console.warn('[HeaderControls] Center panel not available to load file');
     }
   }
 
@@ -176,8 +200,4 @@ export class HeaderControls {
   }
 }
 
-// 自動初期化
-const headerControls = new HeaderControls();
-
-// グローバル公開
-window.headerControls = headerControls;
+// 自動初期化は削除 - app.js で明示的に初期化

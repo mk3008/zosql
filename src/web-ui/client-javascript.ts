@@ -525,10 +525,10 @@ function getQueryExecutionCode(): string {
         tabElement.dataset.tab = tabId;
         tabElement.onclick = () => switchTab(tabId, panel);
         
-        const icon = tab.type === 'main' ? '📄' : 
-                     (tab.type === 'shared-cte' ? '🔶' : 
-                      (tab.type === 'private-cte' ? '🔧' : 
-                       (tab.type === 'main-file' ? '📄' : '📝')));
+        const icon = tab.type === 'main' ? '[FILE]' : 
+                     (tab.type === 'shared-cte' ? '[SHARED]' : 
+                      (tab.type === 'private-cte' ? '[PRIVATE]' : 
+                       (tab.type === 'main-file' ? '[FILE]' : '[QUERY]')));
         const modifiedIndicator = tab.isModified ? '●' : '';
         const tabName = tab.name || 'Untitled';
         
@@ -642,8 +642,8 @@ function getQueryExecutionCode(): string {
           const header = document.getElementById(headerId);
           if (header) {
             header.textContent = panel === 'left' ? 
-              '📝 Start by opening a file or creating a new tab' :
-              '📝 Right editor panel';
+              'Start by opening a file or creating a new tab' :
+              'Right editor panel';
           }
         }
       }
@@ -789,7 +789,7 @@ function getQueryExecutionCode(): string {
       const currentTabs = currentPanel === 'left' ? leftTabs : rightTabs;
       
       if (!currentTabId || !currentTabs.has(currentTabId)) {
-        contextTitle.textContent = '📄 Context Panel';
+        contextTitle.textContent = 'Context Panel';
         contextContent.innerHTML = '<div class="context-placeholder">Open a tab to see context information</div>';
         return;
       }
@@ -799,19 +799,19 @@ function getQueryExecutionCode(): string {
       const tabName = currentTab.name;
       
       // Update title based on tab type
-      let titleIcon = '📄';
+      let titleIcon = '[FILE]';
       switch (tabType) {
         case 'shared-cte':
-          titleIcon = '🔶';
+          titleIcon = '[SHARED]';
           break;
         case 'private-cte':
-          titleIcon = '🔧';
+          titleIcon = '[PRIVATE]';
           break;
         case 'main-file':
-          titleIcon = '📄';
+          titleIcon = '[FILE]';
           break;
         default:
-          titleIcon = '📝';
+          titleIcon = '[QUERY]';
       }
       
       contextTitle.textContent = \`\${titleIcon} \${tabName} Context\`;
@@ -855,7 +855,7 @@ function getQueryExecutionCode(): string {
           </div>
         </div>
         <div class="context-section">
-          <h4>📊 Query Analysis</h4>
+          <h4>Query Analysis</h4>
           <div class="context-item">
             <strong>Lines:</strong> \${tab.content.split('\\n').length}
           </div>
@@ -881,7 +881,7 @@ function getQueryExecutionCode(): string {
           </div>
         </div>
         <div class="context-section">
-          <h4>📊 Query Analysis</h4>
+          <h4>Query Analysis</h4>
           <div class="context-item">
             <strong>Lines:</strong> \${tab.content.split('\\n').length}
           </div>
@@ -916,7 +916,7 @@ function getQueryExecutionCode(): string {
       
       let html = \`
         <div class="context-section">
-          <h4>📝 SQL File Information</h4>
+          <h4>SQL File Information</h4>
           <div class="context-item">
             <strong>File:</strong> \${tab.name}
           </div>
@@ -929,7 +929,7 @@ function getQueryExecutionCode(): string {
         </div>
         
         <div class="context-section">
-          <h4>🔍 Query Structure</h4>
+          <h4>Query Structure</h4>
           <div class="context-item \${hasSelect ? 'table' : ''}">
             SELECT: \${hasSelect ? '✓' : '✗'}
           </div>
@@ -960,7 +960,7 @@ function getQueryExecutionCode(): string {
       if (tables.length > 0) {
         html += \`
           <div class="context-section">
-            <h4>🗂️ Referenced Tables</h4>
+            <h4>Referenced Tables</h4>
             \${tables.map(table => \`<div class="context-item table">\${table}</div>\`).join('')}
           </div>
         \`;
@@ -1295,10 +1295,10 @@ function getQueryExecutionCode(): string {
     function updateEditorHeader(tab) {
       const header = document.getElementById('editor-header');
       if (header) {
-        const icon = tab.type === 'main' ? '📄' : 
-                     (tab.type === 'shared-cte' ? '🔶' : 
-                      (tab.type === 'private-cte' ? '🔧' : 
-                       (tab.type === 'main-file' ? '📄' : '📝')));
+        const icon = tab.type === 'main' ? '[FILE]' : 
+                     (tab.type === 'shared-cte' ? '[SHARED]' : 
+                      (tab.type === 'private-cte' ? '[PRIVATE]' : 
+                       (tab.type === 'main-file' ? '[FILE]' : '[QUERY]')));
         header.textContent = \`\${icon} \${tab.name}\`;
       }
     }
@@ -1670,7 +1670,7 @@ function getQueryExecutionCode(): string {
     
     function renderCTENode(name, level, isMainQuery = false, hasChildren = false) {
       const indent = '  '.repeat(level);
-      const icon = isMainQuery ? '📄' : (hasChildren ? '📂' : '🔹');
+      const icon = isMainQuery ? '[FILE]' : (hasChildren ? '[FOLDER]' : '[ITEM]');
       const color = isMainQuery ? '#4CAF50' : '#FFC107';
       const clickHandler = isMainQuery 
         ? 'onclick="openMainFileTab(&quot;' + name + '&quot;)" style="cursor: pointer;"' 
@@ -1695,7 +1695,7 @@ function getQueryExecutionCode(): string {
         indent += '  ';
       }
       var hasChildren = cte.children.length > 0;
-      var icon = hasChildren ? '📂' : '🔹';
+      var icon = hasChildren ? '[FOLDER]' : '[ITEM]';
       
       // Main CTE node with proper indentation
       html += '<div style="margin: 2px 0; color: #FFC107; cursor: pointer; margin-left: ' + (level * 16) + 'px;" onclick="openPrivateCteTab(&quot;' + cte.name + '&quot;)">' +
@@ -1796,7 +1796,7 @@ function getQueryExecutionCode(): string {
           
           diagramContent.innerHTML = \`
             <div style="background: #2d2d30; padding: 15px; border-radius: 4px; border: 1px solid #454545;">
-              <div style="color: #ffa500; font-weight: bold; margin-bottom: 10px;">📊 Query Flow (Text Mode)</div>
+              <div style="color: #ffa500; font-weight: bold; margin-bottom: 10px;">Query Flow (Text Mode)</div>
               <div style="max-height: 400px; overflow-y: auto;">
                 \${formattedDiagram}
               </div>

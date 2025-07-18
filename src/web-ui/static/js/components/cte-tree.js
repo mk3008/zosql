@@ -14,8 +14,8 @@ export class CTETreeComponent {
     // 設定
     this.config = {
       showMainQuery: true,
-      mainQueryIcon: '📄',
-      cteIcon: '🔧',
+      mainQueryIcon: '[MAIN]',
+      cteIcon: '[CTE]',
       ...options
     };
   }

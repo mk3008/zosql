@@ -256,7 +256,7 @@ export class HeaderShadowComponent {
   renderLogo() {
     return `
       <div class="logo">
-        <span class="logo-icon">🚀</span>
+        <span class="logo-icon">[ZOSQL]</span>
         <span>${this.config.title}</span>
       </div>
     `;
@@ -268,7 +268,6 @@ export class HeaderShadowComponent {
   renderOpenButton() {
     return `
       <button class="header-btn" id="open-file-btn" title="Open SQL File">
-        <span>📂</span>
         <span>Open</span>
       </button>
     `;

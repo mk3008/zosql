@@ -69,16 +69,16 @@ export class RightPanelShadowComponent {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 12px 16px;
-          border-bottom: 1px solid var(--border-primary, #e5e7eb);
-          background: var(--bg-tertiary, #f9fafb);
-          min-height: 48px;
+          padding: 4px 8px;
+          border-bottom: 1px solid var(--border-primary, #454545);
+          background: #1E293B;
+          height: 28px;
         }
         
         .panel-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--text-primary, #374151);
+          font-size: 12px;
+          font-weight: 500;
+          color: #cccccc;
           display: flex;
           align-items: center;
           gap: 8px;
@@ -218,7 +218,7 @@ export class RightPanelShadowComponent {
       
       <div class="panel-header">
         <div class="panel-title">
-          📄 ${this.config.title}
+          ${this.config.title}
         </div>
         <div class="panel-controls">
           <button class="panel-btn" id="refresh-btn" title="Refresh">🔄</button>
@@ -256,24 +256,18 @@ export class RightPanelShadowComponent {
   renderEmptyState() {
     return `
       <div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <div class="empty-title">右パネル準備完了</div>
+        <div class="empty-title">Right Panel</div>
         <div class="empty-message">
-          将来の機能拡張に備えて<br>
-          きれいな構造で準備されています
+          Ready for future features
         </div>
       </div>
       
       <div class="feature-placeholder">
-        <div class="coming-soon">🚀 今後実装予定の機能エリア</div>
+        <div class="coming-soon">分析結果表示エリア</div>
       </div>
       
       <div class="feature-placeholder">
-        <div class="coming-soon">📊 分析結果表示エリア</div>
-      </div>
-      
-      <div class="feature-placeholder">
-        <div class="coming-soon">🔍 検索・フィルターエリア</div>
+        <div class="coming-soon">検索・フィルターエリア</div>
       </div>
     `;
   }
@@ -431,7 +425,7 @@ export class RightPanelShadowComponent {
     this.config.title = title;
     const titleElement = this.shadowRoot.querySelector('.panel-title');
     if (titleElement) {
-      titleElement.innerHTML = `📄 ${title}`;
+      titleElement.innerHTML = `${title}`;
     }
   }
 

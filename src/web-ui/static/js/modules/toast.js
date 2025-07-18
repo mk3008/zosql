@@ -15,10 +15,10 @@ export function showToast(message, type = 'info', title = '', duration = 4000) {
   
   // Get icon based on type
   const icons = {
-    success: '✅',
-    error: '❌',
-    warning: '⚠️',
-    info: 'ℹ️'
+    success: '[✓]',
+    error: '[✗]',
+    warning: '[!]',
+    info: '[i]'
   };
   
   const icon = icons[type] || icons.info;
