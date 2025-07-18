@@ -22,134 +22,21 @@
   <link rel="stylesheet" href="/static/css/themes/dark-theme.css">
 </head>
 <body>
-  <div class="header" id="header-traditional">
-    <div class="logo">🚀 zosql Browser</div>
-    <div class="header-controls">
-      <button id="open-file-btn-header" class="header-action-btn" title="Open File">📂 Open</button>
-      <button id="enable-shadow-dom-btn" class="header-action-btn" style="background: #10b981; display: none;" title="Enable Shadow DOM">🔓 → Shadow DOM</button>
-      <button id="toggle-left-sidebar" class="sidebar-toggle-btn" title="Toggle Left Sidebar">◀</button>
-      <button id="toggle-right-sidebar" class="sidebar-toggle-btn" title="Toggle Right Sidebar">▶</button>
-    </div>
-  </div>
-  
-  <!-- Shadow DOM版 Header (初期は非表示) -->
-  <header-shadow id="header-shadow" style="display: none;" title="zosql Browser" show-logo show-open show-sidebar-toggles show-shadow-toggle></header-shadow>
+  <!-- Shadow DOM版 Header -->
+  <header-shadow id="header-shadow" title="zosql Browser" show-logo show-open show-sidebar-toggles></header-shadow>
   
   <div class="main-container">
-    <!-- Unified Left Sidebar -->
+    <!-- Shadow DOM版 Left Sidebar -->
     <div class="sidebar" id="left-sidebar">
       <div class="resize-handle" id="left-resize-handle"></div>
-      
-      <!-- Modern Workspace Panel Component -->
-      <workspace-panel id="workspace-panel"></workspace-panel>
-      
-      <!-- Shadow DOM版 Workspace Panel (初期は非表示) -->
-      <workspace-panel-shadow id="workspace-panel-shadow" style="display: none;"></workspace-panel-shadow>
-      
-      <!-- Legacy Navigation Section -->
-      <div class="legacy-controls">
-        <h3>Navigation</h3>
-        <button class="action-button" id="open-file-btn">📂 Open File</button>
-        <!-- <button class="action-button secondary" id="open-path-btn">🔗 Open Path</button> -->
-        <div style="font-size: 11px; color: #888; margin: 8px 0; padding: 4px;">
-          💡 URL開く: <code>?file=sql/analytics.sql</code>
-        </div>
-        <button class="action-button secondary" id="clear-workspace-btn">🗑️ Clear Workspace</button>
-        <button class="action-button secondary" id="reset-database-btn">🗑️ Reset Database</button>
-        
-        <h3>Validation</h3>
-        <button class="action-button" id="cte-validation-btn">🔍 CTE Validation</button>
-        
-        <h3>System Status</h3>
-        <div class="system-status">
-          <div>Database: <span id="pglite-status">Initializing...</span></div>
-          <div>Logs: <a href="#" id="view-debug-logs" class="log-link">View Debug Logs</a></div>
-        </div>
-      </div>
+      <workspace-panel-shadow id="workspace-panel-shadow"></workspace-panel-shadow>
     </div>
     
-    <!-- Traditional版 中央パネル -->
-    <div class="content-area">
-      <div class="editor-split-container" id="editor-split-container">
-        <!-- Modern Tab Manager with Monaco Editor Component -->
-        <div class="editor-panel" id="left-editor-panel">
-          <div class="editor-container">
-            <!-- Tab Manager Component -->
-            <tab-manager id="left-tab-manager"></tab-manager>
-            
-            <!-- Monaco Editor Component Container -->
-            <div class="monaco-editor-section">
-              <monaco-editor id="left-monaco-editor"></monaco-editor>
-            </div>
-            
-            <!-- Results Section -->
-            <div class="panel-results-container" id="left-results-container">
-              <div class="panel-results-resize-handle" id="left-results-resize-handle"></div>
-              <div class="panel-results-header">
-                <div>📊 Query Results</div>
-                <div class="panel-execution-info" id="left-execution-info"></div>
-              </div>
-              <div class="panel-results-content" id="left-results-content">
-                <div class="results-placeholder">
-                  Run a query to see results here
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Split Resize Handle -->
-        <div class="split-resize-handle" id="split-resize-handle" style="display: none;"></div>
-        
-        <!-- Right Editor Panel - Component Version (hidden by default) -->
-        <div class="editor-panel" id="right-editor-panel" style="display: none;">
-          <div class="editor-container">
-            <!-- Tab Manager Component -->
-            <tab-manager id="right-tab-manager"></tab-manager>
-            
-            <!-- Monaco Editor Component Container -->
-            <div class="monaco-editor-section">
-              <monaco-editor id="right-monaco-editor"></monaco-editor>
-            </div>
-            
-            <!-- Results Section -->
-            <div class="panel-results-container" id="right-results-container">
-              <div class="panel-results-resize-handle" id="right-results-resize-handle"></div>
-              <div class="panel-results-header">
-                <div>📊 Query Results</div>
-                <div class="panel-execution-info" id="right-execution-info"></div>
-              </div>
-              <div class="panel-results-content" id="right-results-content">
-                <div class="results-placeholder">
-                  Run a query to see results here
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Shadow DOM版 中央パネル -->
+    <center-panel-shadow id="center-panel-shadow"></center-panel-shadow>
     
-    <div class="context-sidebar" id="context-sidebar">
-      <div class="context-resize-handle" id="right-resize-handle"></div>
-      <div class="context-header">
-        <div class="context-title" id="context-title">📄 Context Panel</div>
-        <div class="context-controls">
-          <button class="context-btn" id="refresh-context-btn" title="Refresh Context">🔄</button>
-        </div>
-      </div>
-      <div class="context-content" id="context-content">
-        <div class="context-placeholder">
-          Open a tab to see context information
-        </div>
-      </div>
-    </div>
-    
-    <!-- Shadow DOM版 中央パネル (初期は非表示) -->
-    <center-panel-shadow id="center-panel-shadow" style="display: none;"></center-panel-shadow>
-    
-    <!-- Shadow DOM版 Right Panel (初期は非表示) -->
-    <right-panel-shadow id="right-panel-shadow" style="display: none;" title="Context Panel" collapsible resizable></right-panel-shadow>
+    <!-- Shadow DOM版 Right Panel -->
+    <right-panel-shadow id="right-panel-shadow" title="Context Panel" collapsible resizable></right-panel-shadow>
     
   </div>
   
@@ -158,14 +45,17 @@
   
   <!-- Monaco Editor loader -->
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs/loader.js"></script>
+  <script>
+    // Monaco Editor初期化
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs' } });
+    require(['vs/editor/editor.main'], function() {
+      console.log('Monaco Editor loaded successfully');
+      window.monacoLoaded = true;
+      window.dispatchEvent(new Event('monaco-loaded'));
+    });
+  </script>
   
-  <!-- Component System -->
-  <script type="module" src="/static/js/components/cte-tree.js"></script>
-  <script type="module" src="/static/js/components/tab-manager.js"></script>
-  <script type="module" src="/static/js/components/monaco-editor.js"></script>
-  <script type="module" src="/static/js/components/workspace-panel.js"></script>
-  
-  <!-- Shadow DOM Components (New) -->
+  <!-- Shadow DOM Components -->
   <script type="module" src="/static/js/components/workspace-panel-shadow.js"></script>
   <script type="module" src="/static/js/components/right-panel-shadow.js"></script>
   <script type="module" src="/static/js/components/header-shadow.js"></script>
@@ -173,9 +63,6 @@
   <script type="module" src="/static/js/components/monaco-editor-shadow.js"></script>
   
   <!-- Application Scripts -->
-  <script type="module" src="/static/js/modules/layout-diagnostics.js"></script>
-  <script type="module" src="/static/js/modules/shadow-dom-toggle.js"></script>
-  <script type="module" src="/static/js/modules/header-controls.js"></script>
   <script type="module" src="/static/js/modules/sidebar-manager.js"></script>
   <script type="module" src="/static/js/app.js"></script>
 </body>

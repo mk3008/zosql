@@ -273,22 +273,7 @@ export class CenterPanelShadowComponent {
           outline: none;
         }
 
-        /* Monaco Editor IME関連スタイル修正 */
-        .editor-container .monaco-editor .inputarea {
-          background: transparent !important;
-          color: transparent !important;
-        }
-
-        .editor-container .monaco-editor .ime-input {
-          background: var(--bg-primary, #1e1e1e) !important;
-          color: var(--text-primary, #cccccc) !important;
-          border: 1px solid var(--border-primary, #454545) !important;
-        }
-
-        .editor-container .monaco-editor .suggest-widget {
-          background: var(--bg-secondary, #252526) !important;
-          border: 1px solid var(--border-primary, #454545) !important;
-        }
+        /* Monaco Editor - 標準設定のまま（一時的にIME修正を無効化） */
         
         /* スプリッター */
         .splitter {
@@ -909,10 +894,10 @@ export class CenterPanelShadowComponent {
         type: 'sql'
       });
       
-      // Monaco Editorの初期化を確実に実行
+      // タブ作成コールバックのみ実行（Monaco Editorはコールバックで初期化）
       setTimeout(() => {
         this.triggerCallback('tab-created', { tabId, tab: this.tabs.get(tabId) });
-      }, 200);
+      }, 100);
     }
   }
 
@@ -1157,6 +1142,18 @@ export class CenterPanelShadowElement extends HTMLElement {
         bubbles: true 
       }));
     });
+    
+    // コンポーネント初期化後にMonaco Editorをセットアップ（フォールバック）
+    setTimeout(() => {
+      const activeTab = this.component.getActiveTab();
+      if (activeTab) {
+        const editorContainer = this.shadowRoot.getElementById(`editor-${activeTab.id}`);
+        if (editorContainer && !editorContainer.dataset.monacoInitialized) {
+          console.log('[CenterPanelShadow] Fallback Monaco setup for tab:', activeTab.id);
+          this.setupMonacoEditor(activeTab.id);
+        }
+      }
+    }, 800);
   }
 
   disconnectedCallback() {
@@ -1175,24 +1172,13 @@ export class CenterPanelShadowElement extends HTMLElement {
 
     console.log('[CenterPanelShadow] Setting up Monaco Editor for tab:', tabId);
 
-    // Monaco Editorの初期化を少し遅延させる
-    setTimeout(() => {
-      if (typeof monaco !== 'undefined') {
-        // zosql-darkテーマが存在しない場合はデフォルトテーマを使用
-        let theme = 'vs-dark';
-        try {
-          // カスタムテーマが定義されているかチェック
-          if (monaco.editor.getTheme && monaco.editor.getTheme('zosql-dark')) {
-            theme = 'zosql-dark';
-          }
-        } catch (e) {
-          console.log('[CenterPanelShadow] Using default theme vs-dark');
-        }
-
-        const editor = monaco.editor.create(editorContainer, {
+    // Monaco Editorのロードを待つ
+    this.waitForMonaco().then(() => {
+      try {
+        const editor = window.monaco.editor.create(editorContainer, {
           value: '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;',
           language: 'sql',
-          theme: theme,
+          theme: 'vs-dark',
           automaticLayout: true,
           fontSize: 14,
           lineNumbers: 'on',
@@ -1215,18 +1201,66 @@ export class CenterPanelShadowElement extends HTMLElement {
         editorContainer.monacoEditor = editor;
         editorContainer.dataset.monacoInitialized = 'true';
 
-        console.log('[CenterPanelShadow] Monaco Editor initialized for tab:', tabId);
+        console.log('[CenterPanelShadow] Monaco Editor initialized successfully for tab:', tabId);
 
         // レイアウト調整
         setTimeout(() => {
           editor.layout();
         }, 100);
-      } else {
-        console.warn('[CenterPanelShadow] Monaco Editor not available, retrying...');
-        // Monacoが利用可能でない場合は再試行
-        setTimeout(() => this.setupMonacoEditor(tabId), 500);
+      } catch (error) {
+        console.error('[CenterPanelShadow] Monaco Editor creation failed:', error);
+        editorContainer.innerHTML = `<div style="padding: 20px; color: #f44336;">Monaco Editor initialization failed: ${error.message}</div>`;
       }
-    }, 100);
+    }).catch(error => {
+      console.error('[CenterPanelShadow] Monaco Editor load timeout:', error);
+      editorContainer.innerHTML = `
+        <div style="padding: 20px; color: #f44336; text-align: center;">
+          <h3>Monaco Editor Load Failed</h3>
+          <p>${error.message}</p>
+          <p style="font-size: 12px; color: #888;">
+            Please check your internet connection and reload the page.
+          </p>
+          <button onclick="location.reload()" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Reload Page
+          </button>
+        </div>
+      `;
+    });
+  }
+
+  // Monaco Editorのロードを待つヘルパーメソッド
+  waitForMonaco(timeout = 15000) {
+    return new Promise((resolve, reject) => {
+      // 既にロード済みの場合
+      if (typeof window.monaco !== 'undefined' && window.monaco.editor) {
+        console.log('[CenterPanelShadow] Monaco Editor already available');
+        resolve();
+        return;
+      }
+      
+      // monacoLoadedフラグをチェック
+      if (window.monacoLoaded) {
+        console.log('[CenterPanelShadow] Monaco Editor loaded flag detected');
+        resolve();
+        return;
+      }
+      
+      // イベントリスナーで待機
+      const onMonacoLoaded = () => {
+        console.log('[CenterPanelShadow] Monaco Editor loaded via event');
+        window.removeEventListener('monaco-loaded', onMonacoLoaded);
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      
+      window.addEventListener('monaco-loaded', onMonacoLoaded);
+      
+      // タイムアウト設定
+      const timeoutId = setTimeout(() => {
+        window.removeEventListener('monaco-loaded', onMonacoLoaded);
+        reject(new Error('Monaco Editor load timeout after ' + timeout + 'ms'));
+      }, timeout);
+    });
   }
 
   // 公開API

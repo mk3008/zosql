@@ -372,7 +372,8 @@ html {
   min-height: 0;
 }
 
-/* Monaco Editor - Dark Mode (配色のみ) */
+/* Monaco Editor - Dark Mode (配色のみ) - 一時的に無効化 */
+/*
 .monaco-container,
 #monaco-editor-left,
 #monaco-editor-right {
@@ -385,8 +386,10 @@ html {
   background-color: #1e1e1e !important;
   color: #d4d4d4 !important;
 }
+*/
 
-/* Monaco Editor内部要素のダークモード */
+/* Monaco Editor内部要素のダークモード - 一時的に無効化 */
+/*
 .monaco-editor,
 .monaco-editor-wrapper,
 .monaco-editor .monaco-mouse-cursor-text,
@@ -401,7 +404,10 @@ html {
   background-color: #1e1e1e !important;
   color: #d4d4d4 !important;
 }
+*/
 
+/* Monaco Editor全CSS一時無効化開始 */
+/*
 .monaco-editor .cursor {
   background-color: #d4d4d4 !important;
 }
@@ -626,6 +632,8 @@ html {
 .monaco-status {
   color: var(--text-secondary) !important;
 }
+*/
+/* Monaco Editor全CSS一時無効化終了 */
 
 /* Context Panel - Dark Mode */
 .context-panel {

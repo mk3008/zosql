@@ -102,8 +102,8 @@ export class SidebarManager {
    * 左サイドバーの状態を適用
    */
   applyLeftSidebarState() {
-    // 現在のShadow DOM切り替え状態に応じて適切なサイドバーを制御
-    const shadowDOMEnabled = window.shadowDOMToggle?.isEnabled || false;
+    // Shadow DOM専用モードなので常にtrue
+    const shadowDOMEnabled = true;
     
     console.log('[SidebarManager] applyLeftSidebarState:', {
       shadowDOMEnabled,
@@ -209,8 +209,8 @@ export class SidebarManager {
    * 右サイドバーの状態を適用
    */
   applyRightSidebarState() {
-    // 現在のShadow DOM切り替え状態に応じて適切なサイドバーを制御
-    const shadowDOMEnabled = window.shadowDOMToggle?.isEnabled || false;
+    // Shadow DOM専用モードなので常にtrue
+    const shadowDOMEnabled = true;
     
     if (shadowDOMEnabled) {
       // Shadow DOM版の場合
@@ -429,7 +429,7 @@ export class SidebarManager {
    * 中央パネルの状態を適用
    */
   applyCenterPanelState() {
-    const shadowDOMEnabled = window.shadowDOMToggle?.isEnabled || false;
+    const shadowDOMEnabled = true; // Shadow DOM専用モード
     
     const traditionalCenter = document.getElementById('editor-split-container');
     const traditionalContentArea = document.querySelector('.content-area');
@@ -516,29 +516,7 @@ export class SidebarManager {
 // 自動初期化
 const sidebarManager = new SidebarManager();
 
-// Shadow DOM切り替え時の連動
-if (window.shadowDOMToggle) {
-  const originalSetEnabled = window.shadowDOMToggle.setEnabled;
-  window.shadowDOMToggle.setEnabled = function(enabled) {
-    originalSetEnabled.call(this, enabled);
-    sidebarManager.onShadowDOMToggle();
-  };
-} else {
-  // ShadowDOMToggleがまだ利用できない場合は待機
-  const checkShadowDOMToggle = () => {
-    if (window.shadowDOMToggle) {
-      const originalSetEnabled = window.shadowDOMToggle.setEnabled;
-      window.shadowDOMToggle.setEnabled = function(enabled) {
-        originalSetEnabled.call(this, enabled);
-        sidebarManager.onShadowDOMToggle();
-      };
-      console.log('[SidebarManager] Shadow DOM toggle integration setup complete');
-    } else {
-      setTimeout(checkShadowDOMToggle, 100);
-    }
-  };
-  checkShadowDOMToggle();
-}
+// Shadow DOM専用モード - 切り替え機能は不要
 
 // レスポンシブ対応
 window.addEventListener('resize', () => {
@@ -588,14 +566,14 @@ window.forceShowLeftSidebar = () => {
   console.log('[DEBUG] Force show complete');
 };
 window.debugLeftPanelState = () => {
-  const shadowDOMEnabled = window.shadowDOMToggle?.isEnabled || false;
+  const shadowDOMEnabled = true; // Shadow DOM専用モード
   const traditionalPanel = document.getElementById('left-sidebar');
   const shadowPanel = document.getElementById('workspace-panel-shadow');
   const mainContainer = document.querySelector('.main-layout, .app-layout, .layout-container');
   
   console.group('[DEBUG] Left Panel State Analysis');
   console.log('Current state:', sidebarManager.state.leftSidebar);
-  console.log('Shadow DOM enabled:', shadowDOMEnabled);
+  console.log('Shadow DOM enabled:', true);
   console.log('Traditional panel element:', traditionalPanel);
   console.log('Shadow panel element:', shadowPanel);
   console.log('Main container element:', mainContainer);

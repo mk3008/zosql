@@ -1,411 +1,141 @@
-// app.js - Modern Component-Based Application Entry Point
+// app.js - Shadow DOM Only Application Entry Point
 
-import { initializeEditors } from './modules/editor.js';
-import { initializeTabs } from './modules/tabs.js';
-import { initializeUI } from './modules/ui.js';
-import { initializeSchema } from './modules/schema.js';
-import { initializeDatabase } from './modules/database.js';
-import { initializeEventHandlers } from './modules/events.js';
-import { initializeKeyboardShortcuts } from './modules/shortcuts.js';
-import { initializeContext } from './modules/context.js';
-import './modules/toast.js';
 import { Logger } from './modules/logger.js';
+import { SidebarManager } from './modules/sidebar-manager.js';
+import './modules/toast.js';
 
-// Modern Component System Imports
-import { CTETreeComponent } from './components/cte-tree.js';
-import { TabManagerComponent } from './components/tab-manager.js';
-import { MonacoEditorComponent } from './components/monaco-editor.js';
-import { WorkspacePanelComponent } from './components/workspace-panel.js';
-
-// Global state management - Modern Component Architecture
+// Global state management - Shadow DOM Architecture
 window.appState = {
-  leftEditor: null,
-  rightEditor: null,
   schemaData: null,
   sharedCteData: null,
   lastValidQuery: null,
   currentSchemaData: null,
   lastSuccessfulParseResult: null,
   isIntelliSenseEnabled: true,
-  isSplitView: false,
   
-  // Tab management
-  leftTabs: new Map(),
-  rightTabs: new Map(),
-  activeLeftTabId: null,
-  activeRightTabId: null,
-  activePanel: 'left',
-  tabCounter: 0,
-  
-  // Modern Component References
+  // Shadow DOM Component References
   components: {
-    workspacePanel: null,
-    leftTabManager: null,
-    rightTabManager: null,
-    leftMonacoEditor: null,
-    rightMonacoEditor: null
+    headerShadow: null,
+    workspacePanelShadow: null,
+    centerPanelShadow: null,
+    rightPanelShadow: null
   }
 };
 
 // Initialize logging
 const logger = new Logger();
-window.logger = logger;
+logger.replaceConsole();
 
-// Application initialization - Modern Component Architecture
+// Initialize the application
 async function initializeApp() {
   try {
-    logger.info('Initializing zosql browser with modern component architecture...');
+    console.log('🚀 Starting zosql Browser (Shadow DOM Mode)');
     
-    // Initialize UI components
-    initializeUI();
+    // Initialize sidebar management
+    const sidebarManager = new SidebarManager();
+    window.sidebarManager = sidebarManager;
     
-    // Initialize modern components first
-    await initializeModernComponents();
+    // Wait for Shadow DOM components to be ready
+    await waitForShadowComponents();
     
-    // Initialize database
+    // Initialize components
+    initializeShadowComponents();
+    
+    // Initialize database connection
     await initializeDatabase();
     
-    // Initialize schema
+    // Initialize schema data
     await initializeSchema();
     
-    // Legacy modules are disabled in component-based architecture
-    // Use modern components instead of legacy modules
-    // await initializeEditors();  // Replaced by MonacoEditorComponent
-    // initializeTabs();           // Replaced by TabManagerComponent
+    console.log('✅ Application initialized successfully');
     
-    // IMPORTANT: Legacy tabs.js is disabled to prevent querySelector errors
-    // Modern TabManagerComponent handles tab functionality instead
-    
-    // Initialize event handlers
-    initializeEventHandlers();
-    
-    // Initialize keyboard shortcuts
-    initializeKeyboardShortcuts();
-    
-    // Initialize context panel
-    initializeContext();
-    
-    // Check for file parameter in URL
-    await checkAndOpenFileFromUrl();
-    
-    logger.info('zosql browser initialized successfully with component architecture');
-  
-  // Initialize layout diagnostics
-  if (window.LayoutDiagnostics) {
-    const layoutDiag = new window.LayoutDiagnostics(logger);
-    window.layoutDiagnostics = layoutDiag;
-    
-    // Initial measurement after 1 second
-    setTimeout(() => {
-      logger.info('Running initial layout diagnostics');
-      const measurements = layoutDiag.measureAllLayouts();
-      const summary = layoutDiag.getSummaryReport();
-      logger.info('Layout diagnostics summary', summary);
-      
-      // Monitor toolbar for changes
-      layoutDiag.monitorElement('.monaco-toolbar', 'monaco-toolbar-monitor', (measurement, mutations) => {
-        logger.warn('Monaco toolbar changed', {
-          measurement,
-          mutationType: mutations.map(m => m.type)
-        });
-      });
-    }, 1000);
-    
-    // Toolbar position check disabled - no longer needed
-    // setInterval(() => {
-    //   const toolbar = document.querySelector('.monaco-toolbar');
-    //   if (toolbar) {
-    //     const rect = toolbar.getBoundingClientRect();
-    //     const parentRect = toolbar.parentElement?.getBoundingClientRect();
-    //     logger.info('Toolbar position check', {
-    //       toolbar: {
-    //         top: rect.top,
-    //         bottom: rect.bottom,
-    //         height: rect.height,
-    //         scrollTop: toolbar.scrollTop
-    //       },
-    //       parent: parentRect ? {
-    //         top: parentRect.top,
-    //         bottom: parentRect.bottom,
-    //         height: parentRect.height
-    //       } : null,
-    //       windowHeight: window.innerHeight
-    //     });
-    //   }
-    // }, 5000);
-  }
   } catch (error) {
-    logger.error('Failed to initialize application:', error);
-    alert('Failed to initialize zosql browser. Please check the console for details.');
+    console.error('❌ Application initialization failed:', error);
+    showErrorToast('Failed to initialize application: ' + error.message);
   }
 }
 
-// Initialize Modern Component System
-async function initializeModernComponents() {
-  try {
-    logger.info('Initializing modern component system...');
-    
-    // Initialize Workspace Panel Component
-    const workspacePanelElement = document.getElementById('workspace-panel');
-    logger.info('Workspace Panel initialization', {
-      elementFound: !!workspacePanelElement,
-      elementTag: workspacePanelElement?.tagName?.toLowerCase(),
-      isWebComponent: workspacePanelElement?.tagName?.toLowerCase() === 'workspace-panel',
-      hasComponent: !!workspacePanelElement?.component
-    });
-    
-    if (workspacePanelElement) {
-      // Use Web Component if available, otherwise use class directly
-      if (workspacePanelElement.tagName.toLowerCase() === 'workspace-panel') {
-        window.appState.components.workspacePanel = workspacePanelElement.component;
-        logger.info('Using Web Component instance', {
-          hasUpdateCteTree: typeof workspacePanelElement.component?.updateCteTree === 'function'
-        });
-      } else {
-        window.appState.components.workspacePanel = new WorkspacePanelComponent(workspacePanelElement, {
-          onTableClick: handleTableClick,
-          onCteClick: handleCteClick,
-          onMainQueryClick: handleMainQueryClick
-        });
-        logger.info('Created new WorkspacePanelComponent instance');
-      }
-      logger.info('Workspace Panel component initialized', {
-        componentType: window.appState.components.workspacePanel?.constructor?.name,
-        hasUpdateCteTree: typeof window.appState.components.workspacePanel?.updateCteTree === 'function'
-      });
-    } else {
-      logger.warn('workspace-panel element not found in DOM', {
-        allElementIds: Array.from(document.querySelectorAll('[id]')).map(el => el.id)
-      });
-    }
-    
-    // Initialize Tab Manager Components
-    const leftTabManagerElement = document.getElementById('left-tab-manager');
-    if (leftTabManagerElement) {
-      if (leftTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
-        window.appState.components.leftTabManager = leftTabManagerElement.component;
-      } else {
-        window.appState.components.leftTabManager = new TabManagerComponent(leftTabManagerElement, {
-          onTabChange: handleTabChange,
-          onTabClose: handleTabClose,
-          onNewTab: handleNewTab
-        });
-      }
-      logger.info('Left Tab Manager component initialized');
-    }
-    
-    // const rightTabManagerElement = document.getElementById('right-tab-manager');
-    // if (rightTabManagerElement) {
-    //   if (rightTabManagerElement.tagName.toLowerCase() === 'tab-manager') {
-    //     window.appState.components.rightTabManager = rightTabManagerElement.component;
-    //   } else {
-    //     window.appState.components.rightTabManager = new TabManagerComponent(rightTabManagerElement, {
-    //       onTabChange: handleTabChange,
-    //       onTabClose: handleTabClose,
-    //       onNewTab: handleNewTab
-    //     });
-    //   }
-    //   logger.info('Right Tab Manager component initialized');
-    // }
-    
-    // Initialize Monaco Editor Components with proper timing
-    logger.info('Waiting for Monaco Editor to load...');
-    
-    // Wait for Monaco Editor to be available
-    const waitForMonaco = () => new Promise((resolve) => {
-      if (typeof window.require !== 'undefined') {
+// Wait for Shadow DOM components to be ready
+async function waitForShadowComponents() {
+  const components = [
+    'header-shadow',
+    'workspace-panel-shadow', 
+    'center-panel-shadow',
+    'right-panel-shadow'
+  ];
+  
+  const promises = components.map(tagName => {
+    return new Promise((resolve) => {
+      if (customElements.get(tagName)) {
         resolve();
       } else {
-        setTimeout(() => waitForMonaco().then(resolve), 100);
+        customElements.whenDefined(tagName).then(resolve);
       }
     });
-    
-    await waitForMonaco();
-    logger.info('Monaco Editor loader ready, initializing components...');
-    
-    const leftMonacoElement = document.getElementById('left-monaco-editor');
-    if (leftMonacoElement) {
-      if (leftMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
-        window.appState.components.leftMonacoEditor = leftMonacoElement.component;
-      } else {
-        window.appState.components.leftMonacoEditor = new MonacoEditorComponent(leftMonacoElement, {
-          onContentChange: handleEditorContentChange,
-          onSave: handleEditorSave,
-          onFormat: handleEditorFormat,
-          onRun: handleEditorRun
-        });
-      }
-      logger.info('Left Monaco Editor component initialized');
-    }
-    
-    const rightMonacoElement = document.getElementById('right-monaco-editor');
-    if (rightMonacoElement) {
-      if (rightMonacoElement.tagName.toLowerCase() === 'monaco-editor') {
-        window.appState.components.rightMonacoEditor = rightMonacoElement.component;
-      } else {
-        window.appState.components.rightMonacoEditor = new MonacoEditorComponent(rightMonacoElement, {
-          onContentChange: handleEditorContentChange,
-          onSave: handleEditorSave,
-          onFormat: handleEditorFormat,
-          onRun: handleEditorRun
-        });
-      }
-      logger.info('Right Monaco Editor component initialized');
-    }
-    
-    logger.info('Modern component system initialized successfully');
-  } catch (error) {
-    logger.error('Failed to initialize modern components:', error);
-    throw error;
-  }
+  });
+  
+  await Promise.all(promises);
+  console.log('Shadow DOM components ready');
 }
 
-// Component Event Handlers
-function handleTableClick(tableName) {
-  logger.info('Table clicked:', tableName);
-  // Implement table click logic
+// Initialize Shadow DOM components
+function initializeShadowComponents() {
+  // Get component references
+  const headerShadow = document.getElementById('header-shadow');
+  const workspacePanelShadow = document.getElementById('workspace-panel-shadow');
+  const centerPanelShadow = document.getElementById('center-panel-shadow');
+  const rightPanelShadow = document.getElementById('right-panel-shadow');
+  
+  // Store references
+  window.appState.components = {
+    headerShadow,
+    workspacePanelShadow,
+    centerPanelShadow,
+    rightPanelShadow
+  };
+  
+  console.log('Shadow DOM components initialized');
 }
 
-function handleCteClick(cteName) {
-  logger.info('CTE clicked:', cteName);
-  // Implement CTE click logic
-}
-
-function handleMainQueryClick() {
-  logger.info('Main query clicked');
-  // Implement main query click logic
-}
-
-function handleTabChange(tabId, tab) {
-  logger.info('Tab changed:', tabId, tab);
-  // Implement tab change logic
-}
-
-function handleTabClose(tabId, tab) {
-  logger.info('Tab closed:', tabId, tab);
-  // Implement tab close logic
-}
-
-function handleNewTab() {
-  logger.info('New tab requested');
-  // Implement new tab logic
-}
-
-function handleEditorContentChange(content, event) {
-  logger.info('Editor content changed, length:', content.length);
-  // Implement content change logic
-}
-
-function handleEditorSave(content) {
-  logger.info('Editor save requested, length:', content.length);
-  // Implement save logic
-}
-
-function handleEditorFormat(content) {
-  logger.info('Editor format requested, length:', content.length);
-  // Implement format logic
-}
-
-function handleEditorRun(content) {
-  logger.info('Editor run requested, length:', content.length);
-  // Implement run logic
-}
-
-async function checkAndOpenFileFromUrl() {
+// Initialize database connection
+async function initializeDatabase() {
   try {
-    // Get URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const filePath = urlParams.get('file');
-    
-    if (filePath) {
-      logger.info('File path provided in URL:', filePath);
-      
-      // Normalize the path - replace backslashes with forward slashes
-      let normalizedPath = filePath.replace(/\\/g, '/');
-      logger.info('Normalized path:', normalizedPath);
-      
-      // If path doesn't start with /, treat it as relative to project root
-      if (!normalizedPath.startsWith('/')) {
-        normalizedPath = `/root/github/worktree/repositories/zosql/first_commit/${normalizedPath}`;
-        logger.info('Resolved relative path:', normalizedPath);
-      }
-      
-      // Fetch the file content from the server
-      const response = await fetch(`/api/file?path=${encodeURIComponent(normalizedPath)}`);
-      
-      if (response.ok) {
-        const fileContent = await response.text();
-        const fileName = normalizedPath.split('/').pop() || 'unknown.sql';
-        
-        logger.info('File loaded from server, decompressing...');
-        
-        // Call decompose API
-        const decomposeResponse = await fetch('/api/decompose', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ 
-            sql: fileContent,
-            queryName: fileName.replace('.sql', ''),
-            originalFilePath: normalizedPath
-          })
-        });
-        
-        const result = await decomposeResponse.json();
-        
-        if (result.success) {
-          logger.info('File decomposed successfully from URL parameter');
-          
-          // Create or activate tab for the main query (Private CTEs will be shown in sidebar)
-          if (result.decomposedQuery) {
-            const { createOrActivateTab } = await import('./modules/tabs.js');
-            const tabName = fileName.replace('.sql', '');
-            createOrActivateTab(window.appState.activePanel, null, tabName, 'main-file', result.decomposedQuery);
-          }
-          
-          // Update workspace display
-          const eventsModule = await import('./modules/events.js');
-          logger.info('window.updateWorkspaceDisplay exists: ' + (typeof window.updateWorkspaceDisplay));
-          if (window.updateWorkspaceDisplay) {
-            logger.info('Calling updateWorkspaceDisplay...');
-            await window.updateWorkspaceDisplay(result);
-          } else {
-            logger.error('window.updateWorkspaceDisplay is not defined!');
-          }
-          
-          // Show success message
-          if (window.showSuccessToast) {
-            const privateCteCount = Object.keys(result.workspace?.privateCtes || {}).length;
-            window.showSuccessToast(
-              `File opened from URL: ${fileName} (${privateCteCount} Private CTEs found)`, 
-              'File Opened'
-            );
-          }
-        } else {
-          logger.error('Failed to decompose file from URL:', result.error);
-          if (window.showErrorToast) {
-            window.showErrorToast(result.error || 'Failed to decompose file', 'URL File Open Error');
-          }
-        }
-      } else {
-        logger.error('Failed to load file from server:', response.statusText);
-        if (window.showErrorToast) {
-          window.showErrorToast(`File not found: ${normalizedPath}`, 'URL File Open Error');
-        }
-      }
-    }
+    // This will be implemented when database functionality is needed
+    console.log('Database initialization placeholder');
   } catch (error) {
-    logger.error('Error opening file from URL:', error);
-    if (window.showErrorToast) {
-      window.showErrorToast('Failed to open file from URL', 'URL File Open Error');
-    }
+    console.error('Database initialization failed:', error);
   }
 }
 
-// Start the application when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-  initializeApp();
+// Initialize schema data
+async function initializeSchema() {
+  try {
+    // This will be implemented when schema functionality is needed
+    console.log('Schema initialization placeholder');
+  } catch (error) {
+    console.error('Schema initialization failed:', error);
+  }
 }
+
+// Show error toast
+function showErrorToast(message) {
+  if (window.showToast) {
+    window.showToast(message, 'error');
+  } else {
+    alert(message);
+  }
+}
+
+// Start the application
+document.addEventListener('DOMContentLoaded', initializeApp);
+
+// Global error handling
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+
+console.log('📦 App.js loaded - Shadow DOM Mode');

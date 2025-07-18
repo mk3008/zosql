@@ -14,7 +14,7 @@ export class HeaderShadowComponent {
       showLogo: true,
       showOpenButton: true,
       showSidebarToggles: true,
-      showShadowDOMToggle: true,
+      showShadowDOMToggle: false,
       ...options
     };
 
@@ -485,7 +485,7 @@ export class HeaderShadowElement extends HTMLElement {
       showLogo: this.hasAttribute('show-logo') || !this.hasAttribute('hide-logo'),
       showOpenButton: this.hasAttribute('show-open') || !this.hasAttribute('hide-open'),
       showSidebarToggles: this.hasAttribute('show-sidebar-toggles') || !this.hasAttribute('hide-sidebar-toggles'),
-      showShadowDOMToggle: this.hasAttribute('show-shadow-toggle') || !this.hasAttribute('hide-shadow-toggle')
+      showShadowDOMToggle: this.hasAttribute('show-shadow-toggle')
     });
 
     // コールバック設定
