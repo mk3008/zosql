@@ -70,6 +70,9 @@ export class HeaderControls {
       // 新しいタブでファイルを開く
       await this.openInNewTab(file.name, formattedContent);
       
+      // CTE依存関係を解析
+      await this.analyzeCTEDependencies(formattedContent, file.name);
+      
       // 成功メッセージ表示
       this.showToast(`ファイル "${file.name}" を開きました`, 'success');
       
@@ -98,6 +101,138 @@ export class HeaderControls {
       
       reader.readAsText(file, 'UTF-8');
     });
+  }
+
+  /**
+   * CTE依存関係を解析
+   */
+  async analyzeCTEDependencies(sqlContent, fileName) {
+    try {
+      console.log('[HeaderControls] Analyzing CTE dependencies...');
+      
+      const response = await fetch('/api/decompose', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          sql: sqlContent,
+          queryName: fileName.replace('.sql', ''),
+          originalFilePath: fileName
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Decompose API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('[HeaderControls] CTE analysis successful:', result);
+        
+        // 左パネルのWorkspaceエリアに結果を表示
+        this.displayCTEDependenciesInWorkspace(result.workspace);
+        
+      } else {
+        console.warn('[HeaderControls] CTE analysis failed:', result.error);
+        // CTE分析に失敗しても、ファイル読み込みは成功として扱う
+      }
+    } catch (error) {
+      console.warn('[HeaderControls] Failed to analyze CTE dependencies:', error);
+      // エラーが発生しても、ファイル読み込みは成功として扱う
+    }
+  }
+
+  /**
+   * Workspace エリアにCTE依存関係ツリーを表示
+   */
+  displayCTEDependenciesInWorkspace(workspace) {
+    try {
+      // Workspace Panel Shadow コンポーネントを取得
+      const workspacePanelShadow = document.getElementById('workspace-panel-shadow');
+      if (!workspacePanelShadow || !workspacePanelShadow.component) {
+        console.warn('[HeaderControls] Workspace panel shadow not found');
+        return;
+      }
+
+      // CTE依存関係データを準備
+      const cteDependencyData = {
+        privateCtes: workspace.privateCtes,
+        mainQueryName: workspace.name,
+        dependencyTree: this.buildCTEDependencyTree(workspace.privateCtes)
+      };
+      
+      // Workspace Panel ShadowのupdateCTEDependenciesメソッドを呼び出し
+      if (workspacePanelShadow.component.updateCTEDependencies) {
+        workspacePanelShadow.component.updateCTEDependencies(cteDependencyData);
+        console.log('[HeaderControls] CTE dependency tree updated in workspace shadow');
+      } else {
+        console.warn('[HeaderControls] Workspace panel shadow updateCTEDependencies method not found');
+      }
+    } catch (error) {
+      console.error('[HeaderControls] Error displaying CTE dependencies:', error);
+    }
+  }
+
+  /**
+   * CTE依存関係ツリーを構築
+   */
+  buildCTEDependencyTree(privateCtes) {
+    if (!privateCtes || Object.keys(privateCtes).length === 0) {
+      return {};
+    }
+
+    // ルートCTE（他のCTEから参照されていないCTE）を見つける
+    const allCteNames = Object.keys(privateCtes);
+    const referencedCtes = new Set();
+    
+    // 全CTEの依存関係を調べて、参照されているCTEを収集
+    Object.values(privateCtes).forEach(cte => {
+      if (cte.dependencies) {
+        cte.dependencies.forEach(dep => referencedCtes.add(dep));
+      }
+    });
+    
+    // 参照されていないCTEがルート
+    const rootCtes = allCteNames.filter(name => !referencedCtes.has(name));
+    
+    // 再帰的にツリーを構築
+    const buildTree = (cteName, level = 0) => {
+      const cte = privateCtes[cteName];
+      if (!cte) return null;
+      
+      const children = {};
+      if (cte.dependencies && cte.dependencies.length > 0) {
+        cte.dependencies.forEach(depName => {
+          const childTree = buildTree(depName, level + 1);
+          if (childTree) {
+            children[depName] = childTree;
+          }
+        });
+      }
+      
+      return {
+        name: cteName,
+        level: level,
+        dependencies: cte.dependencies || [],
+        children: children,
+        query: cte.query,
+        description: cte.description
+      };
+    };
+    
+    // ルートCTEからツリーを構築
+    const tree = {};
+    rootCtes.forEach(rootName => {
+      const rootTree = buildTree(rootName);
+      if (rootTree) {
+        tree[rootName] = rootTree;
+      }
+    });
+    
+    console.log('[HeaderControls] Built CTE dependency tree:', tree);
+    return tree;
   }
 
   /**

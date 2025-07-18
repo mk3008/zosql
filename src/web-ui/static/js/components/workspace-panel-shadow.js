@@ -179,6 +179,81 @@ export class WorkspacePanelShadowComponent {
           font-weight: 400;
           color: var(--text-secondary, #6b7280);
         }
+        
+        /* CTE Tree Styles - 依存関係ツリー表示 */
+        .cte-tree-wrapper {
+          margin-top: 8px;
+        }
+        
+        .cte-tree-item {
+          display: flex;
+          align-items: center;
+          padding: 4px 8px;
+          font-size: 13px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+          border-radius: 4px;
+          margin: 1px 0;
+        }
+        
+        .cte-tree-item:hover:not(.active) {
+          background-color: var(--bg-hover, #f3f4f6);
+        }
+        
+        .cte-tree-item.active {
+          background-color: var(--bg-accent, #3b82f6);
+          color: white;
+        }
+        
+        /* 依存関係レベルごとの字下げ */
+        .cte-tree-item[data-level="0"] {
+          font-weight: 600;
+          color: var(--text-primary, #111827);
+        }
+        
+        .cte-tree-item[data-level="1"] {
+          margin-left: 16px;
+        }
+        
+        .cte-tree-item[data-level="2"] {
+          margin-left: 32px;
+        }
+        
+        .cte-tree-item[data-level="3"] {
+          margin-left: 48px;
+        }
+        
+        .cte-tree-item[data-level="4"] {
+          margin-left: 64px;
+        }
+        
+        .cte-tree-icon {
+          margin-right: 6px;
+          font-size: 14px;
+          font-family: monospace;
+          font-weight: bold;
+        }
+        
+        .cte-tree-name {
+          font-weight: 500;
+          color: var(--text-primary, #111827);
+          flex: 1;
+        }
+        
+        .cte-tree-item.active .cte-tree-name {
+          color: white;
+        }
+        
+        .cte-tree-item:hover:not(.active) .cte-tree-name {
+          color: var(--text-accent, #3b82f6);
+        }
+        
+        .empty-workspace {
+          padding: 16px 8px;
+          text-align: center;
+          color: var(--text-muted, #6b7280);
+          font-style: italic;
+        }
       </style>
     `;
   }
@@ -231,7 +306,7 @@ export class WorkspacePanelShadowComponent {
           <span class="collapse-icon">▶</span>
         </div>
         <div class="workspace-content">
-          <div class="workspace-title">Active workspace</div>
+          ${this.renderCTEDependencyTree()}
         </div>
       </div>
     `;
@@ -362,6 +437,133 @@ export class WorkspacePanelShadowComponent {
     `).join('');
     
     tablesList.innerHTML = html;
+  }
+
+  /**
+   * CTE依存関係ツリーのレンダリング
+   */
+  renderCTEDependencyTree() {
+    if (!this.cteDependencyData || !this.cteDependencyData.privateCtes) {
+      return `
+        <div class="empty-workspace">
+          No CTE dependencies to display.<br>
+          Open a SQL file with CTEs to see the dependency tree.
+        </div>
+      `;
+    }
+
+    const tree = this.buildCTEDependencyTree(this.cteDependencyData.privateCtes);
+    const mainQueryName = this.cteDependencyData.mainQueryName || 'Main Query';
+
+    let html = `
+      <div class="cte-tree-wrapper">
+        <div class="cte-tree-item" data-level="0" data-cte="main">
+          <span class="cte-tree-icon">[MAIN]</span>
+          <span class="cte-tree-name">${mainQueryName}</span>
+        </div>
+    `;
+
+    html += this.renderCTETreeNodes(tree, 1);
+    html += '</div>';
+
+    return html;
+  }
+
+  /**
+   * CTE依存関係ツリーを構築
+   */
+  buildCTEDependencyTree(privateCtes) {
+    if (!privateCtes || Object.keys(privateCtes).length === 0) {
+      return {};
+    }
+
+    // ルートCTE（他のCTEから参照されていないCTE）を見つける
+    const allCteNames = Object.keys(privateCtes);
+    const referencedCtes = new Set();
+    
+    // 全CTEの依存関係を調べて、参照されているCTEを収集
+    Object.values(privateCtes).forEach(cte => {
+      if (cte.dependencies) {
+        cte.dependencies.forEach(dep => referencedCtes.add(dep));
+      }
+    });
+    
+    // 参照されていないCTEがルート
+    const rootCtes = allCteNames.filter(name => !referencedCtes.has(name));
+    
+    // 再帰的にツリーを構築
+    const buildTree = (cteName, level = 0) => {
+      const cte = privateCtes[cteName];
+      if (!cte) return null;
+      
+      const children = {};
+      if (cte.dependencies && cte.dependencies.length > 0) {
+        cte.dependencies.forEach(depName => {
+          const childTree = buildTree(depName, level + 1);
+          if (childTree) {
+            children[depName] = childTree;
+          }
+        });
+      }
+      
+      return {
+        name: cteName,
+        level: level,
+        dependencies: cte.dependencies || [],
+        children: children,
+        query: cte.query,
+        description: cte.description
+      };
+    };
+    
+    // ルートCTEからツリーを構築
+    const tree = {};
+    rootCtes.forEach(rootName => {
+      const rootTree = buildTree(rootName);
+      if (rootTree) {
+        tree[rootName] = rootTree;
+      }
+    });
+    
+    return tree;
+  }
+
+  /**
+   * CTE Tree ノードを再帰的にレンダリング
+   */
+  renderCTETreeNodes(tree, level = 1) {
+    let html = '';
+    
+    Object.entries(tree).forEach(([name, node]) => {
+      html += `
+        <div class="cte-tree-item" data-level="${level}" data-cte="${name}">
+          <span class="cte-tree-icon">[CTE]</span>
+          <span class="cte-tree-name">${name}</span>
+        </div>
+      `;
+
+      // 子の依存関係を再帰的にレンダリング
+      if (node.children && Object.keys(node.children).length > 0) {
+        html += this.renderCTETreeNodes(node.children, level + 1);
+      }
+    });
+
+    return html;
+  }
+
+  /**
+   * CTE依存関係データを更新
+   */
+  updateCTEDependencies(data) {
+    console.log('[WorkspacePanelShadow] Updating CTE dependencies:', data);
+    this.cteDependencyData = data;
+    
+    // Workspaceセクションのみを再レンダリング
+    const workspaceSection = this.shadowRoot.querySelector('[data-section="workspace"] .workspace-content');
+    if (workspaceSection) {
+      workspaceSection.innerHTML = this.renderCTEDependencyTree();
+      this.setupEventListeners(); // イベントリスナーを再設定
+    }
   }
 
   /**
