@@ -7,6 +7,8 @@
  * 詳細はsetupMonacoEditorメソッドのコメントを参照してください。
  */
 
+import { fileModelManager } from '../models/file-model-manager.js';
+
 export class CenterPanelShadowComponent {
   constructor(shadowRoot, options = {}) {
     this.shadowRoot = shadowRoot;
@@ -14,6 +16,11 @@ export class CenterPanelShadowComponent {
     this.tabs = new Map();
     this.activeTabId = null;
     this.tabCounter = 0;
+    
+    // File model management
+    this.tabToModelMap = new Map(); // tabId -> modelId
+    this.modelToTabMap = new Map(); // modelId -> tabId
+    this.monacoEditors = new Map(); // tabId -> Monaco Editor instance
     
     // 設定
     this.config = {
@@ -912,24 +919,47 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * 新しいタブを作成
+   * 新しいタブを作成（ファイルモデル対応）
    */
   createNewTab(tabData = {}) {
+    // FileModelを取得または作成
+    let fileModel;
+    if (tabData.fileName && tabData.content) {
+      // 既存のファイルモデルを検索、なければ作成
+      fileModel = fileModelManager.getModelByName(tabData.fileName) || 
+                  fileModelManager.createOrGetModel(tabData.fileName, tabData.content, {
+                    type: tabData.type || 'sql'
+                  });
+    } else {
+      // 新規クエリの場合は一時的なファイルモデルを作成
+      const queryName = tabData.name || `Query ${this.tabCounter + 1}`;
+      fileModel = fileModelManager.createOrGetModel(queryName, tabData.content || '', {
+        type: tabData.type || 'sql'
+      });
+    }
+
     const tab = {
       id: `tab-${++this.tabCounter}`,
-      name: tabData.name || `Query ${this.tabCounter}`,
+      name: tabData.name || fileModel.getTabName(),
       type: tabData.type || 'sql',
-      content: tabData.content || '',
+      modelId: fileModel.id,
       closable: tabData.closable !== false,
       created: new Date(),
       ...tabData
     };
 
+    // タブとファイルモデルのマッピングを作成
     this.tabs.set(tab.id, tab);
+    this.tabToModelMap.set(tab.id, fileModel.id);
+    this.modelToTabMap.set(fileModel.id, tab.id);
+    
+    // ファイルモデルをアクティブに設定
+    fileModelManager.setActiveModel(fileModel.id);
+    
     this.setActiveTab(tab.id);
     this.rerender();
     
-    this.triggerCallback('tab-created', { tabId: tab.id, tab });
+    this.triggerCallback('tab-created', { tabId: tab.id, tab, fileModel });
     return tab.id;
   }
 
@@ -951,11 +981,148 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * タブを閉じる
+   * ファイル名からタブを探すまたは作成
+   */
+  findTabByName(name) {
+    for (const [id, tab] of this.tabs) {
+      if (tab.name === name) {
+        return { id, tab };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * ファイルモデルからタブを作成または再利用
+   */
+  createOrReuseTabForFile(fileName, content, options = {}) {
+    // 拡張子を除去したタブ名
+    const tabName = fileName.replace(/\.(sql|SQL)$/, '');
+    
+    // 既存のタブを検索
+    const existing = this.findTabByName(tabName);
+    if (existing) {
+      console.log(`[CenterPanelShadow] Reusing existing tab: ${tabName}`);
+      this.setActiveTab(existing.id);
+      return existing.id;
+    }
+
+    // 新しいタブを作成
+    console.log(`[CenterPanelShadow] Creating new tab for file: ${fileName}`);
+    return this.createNewTab({
+      name: tabName,
+      fileName: fileName,
+      content: content,
+      type: options.type || 'sql',
+      ...options
+    });
+  }
+
+  /**
+   * タブからファイルモデルを取得
+   */
+  getFileModelForTab(tabId) {
+    const modelId = this.tabToModelMap.get(tabId);
+    return modelId ? fileModelManager.getModel(modelId) : null;
+  }
+
+  /**
+   * ファイルモデルからタブIDを取得
+   */
+  getTabForFileModel(modelId) {
+    return this.modelToTabMap.get(modelId);
+  }
+
+  /**
+   * タブのコンテンツを更新（ファイルモデル経由）
+   */
+  updateTabContent(tabId, content, source = 'user') {
+    const fileModel = this.getFileModelForTab(tabId);
+    if (!fileModel) {
+      console.warn(`[CenterPanelShadow] No file model found for tab: ${tabId}`);
+      return false;
+    }
+
+    const changed = fileModel.updateContent(content, source);
+    if (changed) {
+      // Monaco Editorがある場合は更新
+      const editor = this.monacoEditors.get(tabId);
+      if (editor && source !== 'monaco') {
+        editor.setValue(content);
+      }
+      
+      // タブ名の修飾子を更新（修正状態を表示）
+      this.updateTabModificationState(tabId);
+    }
+    
+    return changed;
+  }
+
+  /**
+   * タブの修正状態表示を更新
+   */
+  updateTabModificationState(tabId) {
+    const tab = this.tabs.get(tabId);
+    const fileModel = this.getFileModelForTab(tabId);
+    if (!tab || !fileModel) return;
+
+    const tabElement = this.shadowRoot.querySelector(`[data-tab-id="${tabId}"]`);
+    const tabNameElement = tabElement?.querySelector('.tab-name');
+    if (tabNameElement) {
+      const baseName = fileModel.getTabName();
+      tabNameElement.textContent = fileModel.hasChanges() ? `${baseName} •` : baseName;
+      tabNameElement.title = fileModel.hasChanges() ? `${baseName} (modified)` : baseName;
+    }
+  }
+
+  /**
+   * タブを閉じる（ファイルモデル対応）
    */
   closeTab(tabId) {
     const tab = this.tabs.get(tabId);
     if (!tab || !tab.closable) return false;
+
+    // ファイルモデルのクリーンアップ
+    const modelId = this.tabToModelMap.get(tabId);
+    if (modelId) {
+      const fileModel = fileModelManager.getModel(modelId);
+      
+      // 変更がある場合は警告（将来的にはダイアログを実装）
+      if (fileModel && fileModel.hasChanges()) {
+        console.warn(`[CenterPanelShadow] Closing tab with unsaved changes: ${tab.name}`);
+        // TODO: 保存確認ダイアログを実装
+      }
+      
+      // マッピングをクリア
+      this.tabToModelMap.delete(tabId);
+      this.modelToTabMap.delete(modelId);
+      
+      // 他にこのモデルを使用しているタブがなければモデルを削除
+      // ただし、ワークスペース関連ファイル（.cte、mainQuery）は保持
+      const otherTabsUsingModel = Array.from(this.tabToModelMap.values()).includes(modelId);
+      if (!otherTabsUsingModel) {
+        const model = fileModelManager.getModel(modelId);
+        const isWorkspaceFile = model && (
+          model.name.endsWith('.cte') || 
+          model.name.includes('user_behavior_analysis') ||
+          model.name.includes('query') ||
+          model.type === 'workspace'
+        );
+        
+        if (isWorkspaceFile) {
+          console.log(`[CenterPanelShadow] Preserving workspace file model: ${model.name}`);
+        } else {
+          fileModelManager.removeModel(modelId);
+        }
+      }
+    }
+
+    // Monaco Editorのクリーンアップ
+    const editor = this.monacoEditors.get(tabId);
+    if (editor) {
+      editor.dispose();
+      this.monacoEditors.delete(tabId);
+    }
 
     this.tabs.delete(tabId);
 
@@ -963,6 +1130,14 @@ export class CenterPanelShadowComponent {
     if (this.activeTabId === tabId) {
       const remainingTabs = Array.from(this.tabs.keys());
       this.activeTabId = remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1] : null;
+      
+      // 新しいアクティブタブのファイルモデルを設定
+      if (this.activeTabId) {
+        const newActiveModelId = this.tabToModelMap.get(this.activeTabId);
+        if (newActiveModelId) {
+          fileModelManager.setActiveModel(newActiveModelId);
+        }
+      }
     }
 
     this.rerender();
@@ -972,7 +1147,7 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * アクティブタブ設定
+   * アクティブタブ設定（ファイルモデル対応）
    */
   setActiveTab(tabId) {
     if (!this.tabs.has(tabId)) return false;
@@ -980,12 +1155,19 @@ export class CenterPanelShadowComponent {
     const previousTabId = this.activeTabId;
     this.activeTabId = tabId;
     
+    // アクティブファイルモデルの設定
+    const modelId = this.tabToModelMap.get(tabId);
+    if (modelId) {
+      fileModelManager.setActiveModel(modelId);
+    }
+    
     this.updateActiveTabDisplay();
     
     if (previousTabId !== tabId) {
       this.triggerCallback('tab-changed', { 
         tabId, 
         tab: this.tabs.get(tabId),
+        fileModel: this.getFileModelForTab(tabId),
         previousTabId 
       });
     }
@@ -1290,9 +1472,10 @@ export class CenterPanelShadowElement extends HTMLElement {
         // 外部コンテナをShadow DOM内のコンテナに位置合わせ
         document.body.appendChild(externalContainer);
         
-        // タブのコンテンツを取得
+        // ファイルモデルからコンテンツを取得
         const tab = this.component.tabs.get(tabId);
-        const initialContent = tab && tab.content ? tab.content : '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;';
+        const fileModel = this.component.getFileModelForTab(tabId);
+        const initialContent = fileModel ? fileModel.getContent() : '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;';
         
         const editor = window.monaco.editor.create(externalContainer, {
           value: initialContent,
@@ -1379,6 +1562,18 @@ export class CenterPanelShadowElement extends HTMLElement {
         // エディターインスタンスを保存
         editorContainer.monacoEditor = editor;
         editorContainer.dataset.monacoInitialized = 'true';
+        this.component.monacoEditors.set(tabId, editor);
+
+        // ファイルモデルとの同期設定
+        if (fileModel) {
+          // エディターの変更をファイルモデルに反映
+          editor.onDidChangeModelContent(() => {
+            const content = editor.getValue();
+            this.component.updateTabContent(tabId, content, 'monaco');
+          });
+          
+          console.log('[CenterPanelShadow] File model synchronization enabled for tab:', tabId);
+        }
 
         console.log('[CenterPanelShadow] Monaco Editor initialized successfully for tab:', tabId);
 
@@ -1445,6 +1640,18 @@ export class CenterPanelShadowElement extends HTMLElement {
   // 公開API
   createNewTab(tabData) {
     return this.component?.createNewTab(tabData);
+  }
+
+  createOrReuseTabForFile(fileName, content, options = {}) {
+    return this.component?.createOrReuseTabForFile(fileName, content, options);
+  }
+
+  updateTabContent(tabId, content, source = 'user') {
+    return this.component?.updateTabContent(tabId, content, source);
+  }
+
+  getFileModelForTab(tabId) {
+    return this.component?.getFileModelForTab(tabId);
   }
 
   closeTab(tabId) {

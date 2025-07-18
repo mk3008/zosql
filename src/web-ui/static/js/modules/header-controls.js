@@ -3,6 +3,8 @@
  * ヘッダーのアクションボタン管理
  */
 
+import { fileModelManager } from '../models/file-model-manager.js';
+
 export class HeaderControls {
   constructor() {
     this.init();
@@ -67,7 +69,7 @@ export class HeaderControls {
       // SQLを整形する
       const formattedContent = await this.formatSQL(content);
       
-      // 新しいタブでファイルを開く
+      // 新しいタブでファイルを開く（ファイルモデル使用）
       await this.openInNewTab(file.name, formattedContent);
       
       // CTE依存関係を解析
@@ -132,7 +134,7 @@ export class HeaderControls {
         console.log('[HeaderControls] CTE analysis successful:', result);
         
         // 左パネルのWorkspaceエリアに結果を表示
-        this.displayCTEDependenciesInWorkspace(result.workspace);
+        this.displayCTEDependenciesInWorkspace(result.workspace, result);
         
       } else {
         console.warn('[HeaderControls] CTE analysis failed:', result.error);
@@ -147,7 +149,7 @@ export class HeaderControls {
   /**
    * Workspace エリアにCTE依存関係ツリーを表示
    */
-  displayCTEDependenciesInWorkspace(workspace) {
+  displayCTEDependenciesInWorkspace(workspace, fullResult = null) {
     try {
       // Workspace Panel Shadow コンポーネントを取得
       const workspacePanelShadow = document.getElementById('workspace-panel-shadow');
@@ -156,10 +158,11 @@ export class HeaderControls {
         return;
       }
 
-      // CTE依存関係データを準備
+      // CTE依存関係データを準備（メインクエリ内容も含める）
       const cteDependencyData = {
         privateCtes: workspace.privateCtes,
         mainQueryName: workspace.name,
+        mainQuery: fullResult?.decomposedQuery || '', // メインクエリの内容を追加
         dependencyTree: this.buildCTEDependencyTree(workspace.privateCtes)
       };
       
@@ -268,21 +271,19 @@ export class HeaderControls {
   }
 
   /**
-   * 新しいタブでファイルを開く
+   * 新しいタブでファイルを開く（ファイルモデル対応）
    */
   async openInNewTab(fileName, content) {
     // 中央パネルのタブマネージャーを取得
     const centerPanel = document.getElementById('center-panel-shadow');
     
-    if (centerPanel && centerPanel.createNewTab) {
-      // Center Panel Shadow が利用可能な場合
-      const tabId = centerPanel.createNewTab({
-        name: fileName,
-        content: content,
+    if (centerPanel && centerPanel.createOrReuseTabForFile) {
+      // ファイルモデルを使用してタブを作成または再利用
+      const tabId = centerPanel.createOrReuseTabForFile(fileName, content, {
         type: 'sql'
       });
       
-      console.log(`[HeaderControls] Created new tab: ${tabId}`);
+      console.log(`[HeaderControls] Created/reused tab for file: ${fileName} (${tabId})`);
       
     } else {
       console.warn('[HeaderControls] Center panel not available to load file');

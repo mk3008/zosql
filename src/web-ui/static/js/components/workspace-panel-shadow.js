@@ -395,6 +395,21 @@ export class WorkspacePanelShadowComponent {
           this.handleCteClick(cteName);
         }
       }
+
+      // CTE Tree アイテムクリック（新しいファイルモデル対応）
+      const cteTreeItem = e.target.closest('.cte-tree-item');
+      if (cteTreeItem) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const cteName = cteTreeItem.dataset.cte;
+        if (cteName === 'main') {
+          this.handleMainQueryClick();
+        } else if (cteName) {
+          this.handleCteTreeItemClick(cteName);
+        }
+        return; // 重要：他のイベントハンドラーを防ぐ
+      }
     });
   }
 
@@ -420,6 +435,107 @@ export class WorkspacePanelShadowComponent {
    */
   handleCteClick(cteName) {
     this.onCteClick(cteName);
+  }
+
+  /**
+   * メインクエリクリック処理（ファイルモデル対応）
+   */
+  handleMainQueryClick() {
+    console.log('[WorkspacePanelShadow] Main query clicked');
+    
+    if (!this.cteDependencyData || !this.cteDependencyData.mainQueryName) {
+      console.warn('[WorkspacePanelShadow] No main query data available');
+      return;
+    }
+
+    // ワークスペースからメインクエリファイルを取得
+    this.openWorkspaceFile(this.cteDependencyData.mainQueryName, 'main');
+  }
+
+  /**
+   * CTEツリーアイテムクリック処理（ファイルモデル対応）
+   */
+  handleCteTreeItemClick(cteName) {
+    console.log(`[WorkspacePanelShadow] CTE tree item clicked: ${cteName}`);
+    
+    if (!this.cteDependencyData || !this.cteDependencyData.privateCtes) {
+      console.warn('[WorkspacePanelShadow] No CTE data available');
+      return;
+    }
+
+    const cteData = this.cteDependencyData.privateCtes[cteName];
+    if (!cteData) {
+      console.warn(`[WorkspacePanelShadow] CTE data not found for: ${cteName}`);
+      return;
+    }
+
+    // CTEファイルとして開く
+    this.openWorkspaceFile(`${cteName}.cte`, 'cte', cteData.query);
+  }
+
+  /**
+   * ワークスペースファイルを開く（ファイルモデル使用）
+   */
+  async openWorkspaceFile(fileName, type, content = null) {
+    try {
+      // コンテンツの取得
+      let fileContent = content;
+      
+      if (!fileContent) {
+        // CTEデータから直接取得を試行
+        if (type === 'cte' && this.cteDependencyData && this.cteDependencyData.privateCtes) {
+          const cteName = fileName.replace('.cte', '');
+          const cteData = this.cteDependencyData.privateCtes[cteName];
+          if (cteData && cteData.query) {
+            fileContent = cteData.query;
+            console.log(`[WorkspacePanelShadow] Retrieved CTE content from dependency data: ${cteName}`);
+          }
+        }
+        
+        // メインクエリの場合、ワークスペースデータから取得
+        if (type === 'main' && this.cteDependencyData && this.cteDependencyData.mainQuery) {
+          fileContent = this.cteDependencyData.mainQuery;
+          console.log('[WorkspacePanelShadow] Retrieved main query content from dependency data');
+        }
+        
+        // まだコンテンツがない場合、サーバーからの取得を試行
+        if (!fileContent) {
+          try {
+            const response = await fetch(`/api/workspace/${type}/${encodeURIComponent(fileName)}`);
+            if (response.ok) {
+              const result = await response.json();
+              fileContent = result.content || result.query || '';
+              console.log(`[WorkspacePanelShadow] Retrieved content from server: ${fileName}`);
+            } else {
+              console.warn(`[WorkspacePanelShadow] Server fetch failed for ${fileName}: ${response.status}`);
+            }
+          } catch (fetchError) {
+            console.warn(`[WorkspacePanelShadow] Server fetch error for ${fileName}:`, fetchError);
+          }
+        }
+        
+        // 最終的にコンテンツがない場合のフォールバック
+        if (!fileContent) {
+          fileContent = `-- ${fileName}\n-- Content temporarily unavailable\n-- Please reopen the original file to restore content\n\nSELECT 'placeholder' as message;`;
+          console.warn(`[WorkspacePanelShadow] Using fallback content for: ${fileName}`);
+        }
+      }
+
+      // 中央パネルのファイルモデル対応タブ作成
+      const centerPanel = document.getElementById('center-panel-shadow');
+      if (centerPanel && centerPanel.createOrReuseTabForFile) {
+        const tabId = centerPanel.createOrReuseTabForFile(fileName, fileContent, {
+          type: 'sql'
+        });
+        
+        console.log(`[WorkspacePanelShadow] Opened workspace file: ${fileName} (${tabId})`);
+      } else {
+        console.warn('[WorkspacePanelShadow] Center panel not available or method not found');
+      }
+      
+    } catch (error) {
+      console.error('[WorkspacePanelShadow] Error opening workspace file:', error);
+    }
   }
 
   /**

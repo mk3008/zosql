@@ -10,7 +10,7 @@ export class HeaderShadowComponent {
     
     // 設定
     this.config = {
-      title: 'zosql Browser',
+      title: 'zosql',
       showLogo: true,
       showOpenButton: true,
       showSidebarToggles: true,
@@ -256,7 +256,7 @@ export class HeaderShadowComponent {
   renderLogo() {
     return `
       <div class="logo">
-        <span class="logo-icon">[ZOSQL]</span>
+        <!--<span class="logo-icon">[ZOSQL]</span>-->
         <span>${this.config.title}</span>
       </div>
     `;

@@ -5,14 +5,14 @@ export function getHtmlStructure(_host: string, _port: number): string {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>zosql Browser</title>
+      <title>zosql</title>
       <style>
         ${getCssStyles()}
       </style>
     </head>
     <body>
       <div class="header">
-        <div class="logo">zosql Browser</div>
+        <div class="logo">zosql</div>
         <div class="header-controls">
           <button id="toggle-left-sidebar" class="sidebar-toggle-btn" onclick="toggleLeftSidebar()" title="Toggle Left Sidebar">◀</button>
           <button id="toggle-right-sidebar" class="sidebar-toggle-btn" onclick="toggleRightSidebar()" title="Toggle Right Sidebar">▶</button>
