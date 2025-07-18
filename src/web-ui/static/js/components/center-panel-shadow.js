@@ -197,6 +197,7 @@ export class CenterPanelShadowComponent {
         .tab-scroll-btn {
           background: #1a1a1a;
           border: none;
+          border-bottom: 1px solid var(--border-primary, #454545);
           color: var(--text-secondary, #888888);
           cursor: pointer;
           height: 100%;
