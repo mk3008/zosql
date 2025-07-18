@@ -37,7 +37,8 @@ export class RightPanelShadowComponent {
     return `
       <style>
         :host {
-          display: block;
+          display: flex;
+          flex-direction: column;
           background: var(--bg-secondary, #ffffff);
           border-left: 1px solid var(--border-primary, #e5e7eb);
           height: 100%;
@@ -46,6 +47,7 @@ export class RightPanelShadowComponent {
           max-width: 500px;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
           position: relative;
+          flex-shrink: 0;
         }
         
         .resize-handle {

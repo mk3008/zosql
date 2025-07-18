@@ -42,12 +42,17 @@ export class WorkspacePanelShadowComponent {
     return `
       <style>
         :host {
-          display: block;
+          display: flex;
+          flex-direction: column;
           background: var(--bg-secondary, #f9fafb);
           border-right: 1px solid var(--border-primary, #e5e7eb);
           height: 100%;
           overflow-y: auto;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+          flex-shrink: 0;
+          width: var(--sidebar-width, 280px);
+          min-width: 200px;
+          max-width: 500px;
         }
         
         .workspace-section {

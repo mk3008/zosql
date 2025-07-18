@@ -68,6 +68,7 @@
       </div>
     </div>
     
+    <!-- Traditional版 中央パネル -->
     <div class="content-area">
       <div class="editor-split-container" id="editor-split-container">
         <!-- Modern Tab Manager with Monaco Editor Component -->
@@ -144,6 +145,9 @@
       </div>
     </div>
     
+    <!-- Shadow DOM版 中央パネル (初期は非表示) -->
+    <center-panel-shadow id="center-panel-shadow" style="display: none;"></center-panel-shadow>
+    
     <!-- Shadow DOM版 Right Panel (初期は非表示) -->
     <right-panel-shadow id="right-panel-shadow" style="display: none;" title="Context Panel" collapsible resizable></right-panel-shadow>
     
@@ -165,6 +169,8 @@
   <script type="module" src="/static/js/components/workspace-panel-shadow.js"></script>
   <script type="module" src="/static/js/components/right-panel-shadow.js"></script>
   <script type="module" src="/static/js/components/header-shadow.js"></script>
+  <script type="module" src="/static/js/components/center-panel-shadow.js"></script>
+  <script type="module" src="/static/js/components/monaco-editor-shadow.js"></script>
   
   <!-- Application Scripts -->
   <script type="module" src="/static/js/modules/layout-diagnostics.js"></script>

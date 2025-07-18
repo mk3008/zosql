@@ -33,6 +33,11 @@ export class ShadowDOMToggle {
       'header-shadow'
     );
     
+    this.registerComponentPair(
+      'editor-split-container',
+      'center-panel-shadow'
+    );
+    
     // legacy-controlsの表示/非表示制御
     this.registerLegacyControl('.legacy-controls');
     
@@ -71,6 +76,11 @@ export class ShadowDOMToggle {
    * 現在の状態を適用
    */
   applyCurrentState() {
+    console.log('[ShadowDOMToggle] Applying current state:', {
+      isEnabled: this.isEnabled,
+      timestamp: new Date().toISOString()
+    });
+    
     for (const [traditional, shadow] of this.componentPairs) {
       this.switchComponent(traditional, shadow, this.isEnabled);
     }
@@ -79,6 +89,25 @@ export class ShadowDOMToggle {
     this.toggleLegacyControls(this.isEnabled);
     
     this.addToggleUI();
+    
+    // SidebarManagerの状態適用を確実に実行
+    setTimeout(() => {
+      if (window.sidebarManager) {
+        console.log('[ShadowDOMToggle] Triggering sidebar manager state reapplication...');
+        window.sidebarManager.applyLeftSidebarState();
+        window.sidebarManager.applyRightSidebarState();
+        window.sidebarManager.applyCenterPanelState();
+      } else {
+        console.warn('[ShadowDOMToggle] SidebarManager not available yet, retrying...');
+        setTimeout(() => {
+          if (window.sidebarManager) {
+            window.sidebarManager.applyLeftSidebarState();
+            window.sidebarManager.applyRightSidebarState();
+            window.sidebarManager.applyCenterPanelState();
+          }
+        }, 200);
+      }
+    }, 100);
   }
 
   /**
@@ -231,6 +260,11 @@ export class ShadowDOMToggle {
     
     // ヘッダーボタンの更新
     this.updateHeaderToggleButton();
+    
+    // SidebarManagerと連動
+    if (window.sidebarManager && window.sidebarManager.onShadowDOMToggle) {
+      window.sidebarManager.onShadowDOMToggle();
+    }
     
     // フォールバックボタンの更新
     this.addFallbackToggleButton();
