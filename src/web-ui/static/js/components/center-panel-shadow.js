@@ -705,10 +705,18 @@ export class CenterPanelShadowComponent {
    * タブのスクロール実行
    */
   scrollTabs(delta) {
-    this.state.scrollPosition += delta;
-    this.state.scrollPosition = Math.max(0, this.state.scrollPosition);
-    
+    const container = this.shadowRoot.getElementById('tab-scroll-container');
     const tabList = this.shadowRoot.getElementById('tab-list');
+    
+    if (!container || !tabList) return;
+    
+    const containerWidth = container.offsetWidth;
+    const listWidth = tabList.scrollWidth;
+    const maxScroll = Math.max(0, listWidth - containerWidth);
+    
+    this.state.scrollPosition += delta;
+    this.state.scrollPosition = Math.max(0, Math.min(maxScroll, this.state.scrollPosition));
+    
     if (tabList) {
       tabList.style.transform = `translateX(-${this.state.scrollPosition}px)`;
       this.updateScrollButtons();
