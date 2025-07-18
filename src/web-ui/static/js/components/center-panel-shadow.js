@@ -257,15 +257,37 @@ export class CenterPanelShadowComponent {
           gap: 8px;
           flex-shrink: 0;
           height: 40px;
+          box-sizing: border-box;
+          border: none;
+          outline: none;
         }
         
         .editor-container {
           flex: 1;
-          background: #1e1e1e;
+          background: var(--bg-primary, #1e1e1e);
           overflow: hidden;
           position: relative;
           width: 100%;
           min-width: 0;
+          border: none;
+          outline: none;
+        }
+
+        /* Monaco Editor IME関連スタイル修正 */
+        .editor-container .monaco-editor .inputarea {
+          background: transparent !important;
+          color: transparent !important;
+        }
+
+        .editor-container .monaco-editor .ime-input {
+          background: var(--bg-primary, #1e1e1e) !important;
+          color: var(--text-primary, #cccccc) !important;
+          border: 1px solid var(--border-primary, #454545) !important;
+        }
+
+        .editor-container .monaco-editor .suggest-widget {
+          background: var(--bg-secondary, #252526) !important;
+          border: 1px solid var(--border-primary, #454545) !important;
         }
         
         /* スプリッター */
@@ -882,10 +904,15 @@ export class CenterPanelShadowComponent {
    */
   createDefaultTab() {
     if (this.tabs.size === 0) {
-      this.createNewTab({
+      const tabId = this.createNewTab({
         name: 'New Query',
         type: 'sql'
       });
+      
+      // Monaco Editorの初期化を確実に実行
+      setTimeout(() => {
+        this.triggerCallback('tab-created', { tabId, tab: this.tabs.get(tabId) });
+      }, 200);
     }
   }
 
@@ -1177,7 +1204,11 @@ export class CenterPanelShadowElement extends HTMLElement {
           roundedSelection: false,
           cursorStyle: 'line',
           contextmenu: true,
-          mouseWheelZoom: true
+          mouseWheelZoom: true,
+          glyphMargin: false,
+          folding: false,
+          lineDecorationsWidth: 0,
+          lineNumbersMinChars: 3
         });
 
         // エディターインスタンスを保存
@@ -1218,6 +1249,23 @@ export class CenterPanelShadowElement extends HTMLElement {
   getAllTabs() {
     return this.component?.getAllTabs();
   }
+
+  // デバッグ用メソッド
+  debugMonacoEditor() {
+    console.log('[CenterPanelShadow] Debug Monaco Editor:');
+    console.log('  - Component:', !!this.component);
+    console.log('  - Active tab:', this.component?.getActiveTab());
+    console.log('  - All tabs:', this.component?.getAllTabs());
+    console.log('  - Monaco available:', typeof monaco !== 'undefined');
+    
+    const activeTab = this.component?.getActiveTab();
+    if (activeTab) {
+      const editorContainer = this.shadowRoot.getElementById(`editor-${activeTab.id}`);
+      console.log('  - Editor container:', !!editorContainer);
+      console.log('  - Monaco initialized:', editorContainer?.dataset.monacoInitialized);
+      console.log('  - Monaco instance:', !!editorContainer?.monacoEditor);
+    }
+  }
 }
 
 // Web Component登録
@@ -1227,3 +1275,28 @@ if (typeof customElements !== 'undefined') {
 
 // グローバル公開
 window.CenterPanelShadowComponent = CenterPanelShadowComponent;
+
+// デバッグ用グローバル関数
+window.debugCenterPanel = () => {
+  const centerPanel = document.getElementById('center-panel-shadow');
+  if (centerPanel && centerPanel.debugMonacoEditor) {
+    centerPanel.debugMonacoEditor();
+  } else {
+    console.log('[Debug] Center panel not found or not initialized');
+  }
+};
+
+window.forceMonacoSetup = () => {
+  const centerPanel = document.getElementById('center-panel-shadow');
+  if (centerPanel && centerPanel.component) {
+    const activeTab = centerPanel.component.getActiveTab();
+    if (activeTab) {
+      centerPanel.setupMonacoEditor(activeTab.id);
+      console.log('[Debug] Forced Monaco setup for tab:', activeTab.id);
+    } else {
+      console.log('[Debug] No active tab found');
+    }
+  } else {
+    console.log('[Debug] Center panel component not found');
+  }
+};
