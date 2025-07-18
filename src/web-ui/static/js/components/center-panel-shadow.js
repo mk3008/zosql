@@ -109,7 +109,6 @@ export class CenterPanelShadowComponent {
           align-items: center;
           background: #181818;
           border-right: 1px solid var(--border-primary, #454545);
-          border-top: 1px solid var(--border-primary, #454545);
           color: #aaaaaa;
           cursor: pointer;
           height: 40px;
