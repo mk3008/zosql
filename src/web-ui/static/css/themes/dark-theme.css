@@ -82,7 +82,7 @@ html {
 /* Sidebar - Dark Mode */
 .sidebar {
   background-color: var(--bg-secondary) !important;
-  border-right: 1px solid var(--border-color) !important;
+  /* border-right: 1px solid var(--border-color) !important; */
   color: var(--text-primary) !important;
   min-width: 280px;
   max-width: 400px;
@@ -90,21 +90,7 @@ html {
   position: relative;
 }
 
-/* Resize Handle */
-.resize-handle {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background-color: var(--border-color);
-  cursor: ew-resize;
-  z-index: 10;
-}
-
-.resize-handle:hover {
-  background-color: var(--accent);
-}
+/* Resize Handle - 削除してlayout.cssの定義を使用 */
 
 /* Workspace Panel - Dark Mode */
 .workspace-panel {
@@ -645,7 +631,7 @@ html {
 .context-panel {
   background-color: var(--bg-secondary) !important;
   color: var(--text-primary) !important;
-  border-left: 1px solid var(--border-color) !important;
+  /* border-left: 1px solid var(--border-color) !important; */
   min-width: 300px;
   max-width: 500px;
   overflow-y: auto;
@@ -756,7 +742,7 @@ button[id*=\"refresh\"]:hover {
   background-color: var(--bg-primary) !important;
   font-style: italic;
   text-align: center;
-  padding: 2rem;
+  padding: 1rem;
 }
 
 /* Toast Notifications - Dark Mode */

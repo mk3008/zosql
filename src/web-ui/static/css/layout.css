@@ -20,7 +20,7 @@
 /* Header Layout */
 .header {
   background: var(--bg-tertiary);
-  padding: 10px 20px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border-primary);
   display: flex;
   justify-content: space-between;
@@ -69,8 +69,8 @@
   min-width: 200px;
   max-width: 500px;
   background: var(--bg-secondary);
-  border-right: 1px solid var(--border-primary);
-  padding: 20px;
+  /* border-right: 1px solid var(--border-primary); */
+  padding: 12px;
   overflow-y: auto;
   position: relative;
   transition: width var(--transition-normal) ease;
@@ -89,7 +89,7 @@
   min-width: 200px;
   max-width: 600px;
   background: var(--bg-secondary);
-  border-left: 1px solid var(--border-primary);
+  /* border-left: 1px solid var(--border-primary); */
   display: flex;
   flex-direction: column;
   position: relative;
@@ -288,7 +288,7 @@
 .context-placeholder {
   color: var(--text-secondary);
   text-align: center;
-  padding: 40px 20px;
+  padding: 24px 12px;
   font-style: italic;
 }
 
@@ -309,15 +309,34 @@
 }
 
 /* Resize Handles */
-.resize-handle,
 .context-resize-handle {
   position: absolute;
   top: 0;
-  width: var(--resize-handle-width);
+  width: 1px !important;
   height: 100%;
-  background: transparent;
+  background: var(--border-primary) !important;
   cursor: col-resize;
   z-index: 10;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  width: 1px !important;
+  height: 100%;
+  background: var(--border-primary) !important;
+  cursor: col-resize;
+  z-index: 10;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .resize-handle {
@@ -330,7 +349,7 @@
 
 .resize-handle:hover,
 .context-resize-handle:hover {
-  background: var(--border-primary);
+  background: var(--border-accent);
 }
 
 .panel-results-resize-handle {
@@ -349,12 +368,10 @@
 }
 
 .split-resize-handle {
-  width: var(--resize-handle-width);
-  background: transparent;
+  width: var(--border-width) !important;
+  background: var(--border-primary);
   cursor: col-resize;
   flex-shrink: 0;
-  border-left: 1px solid var(--border-primary);
-  border-right: 1px solid var(--border-primary);
 }
 
 .split-resize-handle:hover {

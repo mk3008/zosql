@@ -270,7 +270,7 @@ export class CenterPanelShadowComponent {
         
         /* スプリッター */
         .splitter {
-          height: 6px;
+          height: 4px;
           background: var(--bg-secondary, #252526);
           border-top: 1px solid var(--border-primary, #454545);
           border-bottom: 1px solid var(--border-primary, #454545);
@@ -297,7 +297,7 @@ export class CenterPanelShadowComponent {
           top: 50%;
           transform: translate(-50%, -50%);
           width: 30px;
-          height: 2px;
+          height: 1px;
           background: var(--text-muted, #666666);
           border-radius: 1px;
         }

@@ -66,7 +66,8 @@ body {
   --toolbar-height: 40px;
   --sidebar-width: 300px;
   --context-sidebar-width: 400px;
-  --resize-handle-width: 5px;
+  --resize-handle-width: 4px;
+  --border-width: 1px;
   
   /* Animation */
   --transition-fast: 0.2s;
