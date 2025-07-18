@@ -72,6 +72,18 @@ export class WebServer {
     // Legacy public folder support
     this.app.use(express.static(path.join(__dirname, '../public')));
     
+    // Serve zosql.formatter.json from project root
+    const projectRoot = path.join(__dirname, '..');
+    this.app.use(express.static(projectRoot, {
+      dotfiles: 'ignore',
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('zosql.formatter.json')) {
+          res.set('Content-Type', 'application/json');
+        }
+      }
+    }));
+    
     // JSON parsing
     this.app.use(express.json());
     

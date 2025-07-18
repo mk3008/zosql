@@ -105,8 +105,8 @@ export class HeaderControls {
    */
   async formatSQL(sqlContent) {
     try {
-      // サーバーのフォーマッターAPIを呼び出す
-      const response = await fetch('/api/format', {
+      // サーバーのフォーマッターAPIを呼び出す（zosql.formatter.jsonを自動使用）
+      const response = await fetch('/api/format-sql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -119,8 +119,13 @@ export class HeaderControls {
       }
       
       const result = await response.json();
-      return result.formattedSql || sqlContent;
       
+      if (result.success) {
+        return result.formattedSql || result.formatted || sqlContent;
+      } else {
+        console.warn('[HeaderControls] Format API failed:', result.error);
+        return sqlContent;
+      }
     } catch (error) {
       console.warn('[HeaderControls] Failed to format SQL, using original:', error);
       return sqlContent;
