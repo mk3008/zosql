@@ -1300,7 +1300,19 @@ export class CenterPanelShadowElement extends HTMLElement {
           value: '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;',
           language: 'sql',
           automaticLayout: true,
-          theme: 'vs-dark'
+          theme: 'vs-dark',
+          scrollBeyondLastLine: false,
+          scrollBeyondLastColumn: 0,
+          scrollbar: {
+            verticalScrollbarSize: 10,
+            horizontalScrollbarSize: 10,
+            horizontal: 'auto',
+            vertical: 'auto'
+          },
+          wordWrap: 'off',
+          minimap: {
+            enabled: false
+          }
         });
         
         // 位置とサイズを同期する関数
