@@ -32,6 +32,22 @@
 - **一時ファイル**: 調査・実験用ファイルは`.tmp/`ディレクトリを使用（gitignore済み）
 - **`.tmp/`フォルダ処理**: 内容はテスト格上げ・機能取り込み・検証後削除のいずれかを実施
 
+## 🚨 重要な設計判断
+
+### Monaco EditorとShadow DOMの非互換性
+Monaco EditorはShadow DOM内で正常に動作しないため、意図的に通常のDOM（document.body）に配置しています。
+
+**問題点**:
+- IME（日本語入力）が正しく動作しない（高さ0の不可視入力エリア）
+- フォーカス管理の失敗（document.activeElementがShadow DOM境界を越えられない）
+- イベント伝播の問題（キーボード/マウスイベントの処理不良）
+
+**解決策**:
+- Monaco Editorを通常DOMに作成し、Shadow DOM内のコンテナと位置を同期
+- `center-panel-shadow.js`のsetupMonacoEditorメソッドで実装
+
+**注意**: この実装を変更する際は必ず日本語入力のテストを実施すること
+
 ## 🏗️ difitアーキテクチャ分析と改修計画
 
 ### **difitの優れた設計思想**

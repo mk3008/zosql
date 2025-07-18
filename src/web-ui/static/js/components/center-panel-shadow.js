@@ -1,6 +1,10 @@
 /**
  * Center Panel Shadow DOM Component
  * 中央パネル - タブマネージャー + SQL エディタ + 結果表示
+ * 
+ * 重要: Monaco EditorはShadow DOMとの互換性問題により、
+ * 意図的にShadow DOMの外（通常DOM）に配置しています。
+ * 詳細はsetupMonacoEditorメソッドのコメントを参照してください。
  */
 
 export class CenterPanelShadowComponent {
@@ -273,7 +277,7 @@ export class CenterPanelShadowComponent {
           outline: none;
         }
 
-        /* Monaco Editor - 標準設定のまま（一時的にIME修正を無効化） */
+        /* Monaco Editor - 標準設定で干渉なし */
         
         /* スプリッター */
         .splitter {
@@ -966,6 +970,14 @@ export class CenterPanelShadowComponent {
       const tabId = content.dataset.tabId;
       content.classList.toggle('active', tabId === this.activeTabId);
     });
+    
+    // 外部Monaco Editorコンテナの表示制御
+    const externalContainers = document.querySelectorAll('[id^="monaco-external-"]');
+    externalContainers.forEach(container => {
+      const containerId = container.id;
+      const tabId = containerId.replace('monaco-external-', '');
+      container.style.display = (tabId === this.activeTabId) ? 'block' : 'none';
+    });
 
     // スプリッターレイアウトの更新
     this.updateSplitterLayout();
@@ -1157,6 +1169,21 @@ export class CenterPanelShadowElement extends HTMLElement {
   }
 
   disconnectedCallback() {
+    // 外部Monaco Editorコンテナのクリーンアップ
+    const externalContainers = document.querySelectorAll('[id^="monaco-external-"]');
+    externalContainers.forEach(container => {
+      // インターバルのクリア
+      const editorContainer = this.shadowRoot.querySelector(`[data-external-id="${container.id}"]`);
+      if (editorContainer && editorContainer.syncInterval) {
+        clearInterval(editorContainer.syncInterval);
+      }
+      
+      // コンテナの削除
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+    });
+    
     if (this.component) {
       this.component.destroy();
       this.component = null;
@@ -1175,27 +1202,123 @@ export class CenterPanelShadowElement extends HTMLElement {
     // Monaco Editorのロードを待つ
     this.waitForMonaco().then(() => {
       try {
-        const editor = window.monaco.editor.create(editorContainer, {
+        /**
+         * 重要な設計判断: Monaco EditorをShadow DOMの外で作成
+         * 
+         * 理由:
+         * 1. IME（日本語入力）の問題
+         *    - Shadow DOM内でMonaco Editorを作成すると、IMEの入力エリアが正しく配置されない
+         *    - 高さ0の不可視テキストボックスが作成され、入力が正常に機能しない
+         * 
+         * 2. DOM操作の制約
+         *    - Monaco Editorは内部でdocument.activeElementやグローバルイベントを使用
+         *    - Shadow DOM境界を越えられないため、フォーカス管理が正常に動作しない
+         * 
+         * 3. イベント伝播の問題
+         *    - キーボードイベント、マウスイベントがShadow DOM内で正しく伝播しない
+         *    - 選択範囲の計算やカーソル位置の処理に問題が発生
+         * 
+         * 解決策:
+         * - Monaco Editorを通常のDOM（document.body）に作成
+         * - Shadow DOM内のコンテナ位置を監視し、外部エディターの位置を同期
+         * - スプリッター、サイドバー開閉、タブ切り替えに対応した位置同期システム
+         * 
+         * 注意: この実装を変更する場合は、必ず日本語入力のテストを実施すること
+         */
+        
+        // Monaco EditorをShadow DOMの外で作成
+        const externalContainer = document.createElement('div');
+        externalContainer.id = `monaco-external-${tabId}`;
+        externalContainer.style.width = '100%';
+        externalContainer.style.height = '100%';
+        externalContainer.style.position = 'absolute';
+        externalContainer.style.top = '0';
+        externalContainer.style.left = '0';
+        externalContainer.style.zIndex = '1';
+        
+        // Shadow DOM内のエディターコンテナに外部コンテナのプレースホルダーを作成
+        editorContainer.innerHTML = `
+          <div style="width: 100%; height: 100%; position: relative; background: #1e1e1e;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888;">
+              Monaco Editor (External DOM)
+            </div>
+          </div>
+        `;
+        editorContainer.style.position = 'relative';
+        editorContainer.dataset.externalId = externalContainer.id;
+        
+        // 外部コンテナをShadow DOM内のコンテナに位置合わせ
+        document.body.appendChild(externalContainer);
+        
+        const editor = window.monaco.editor.create(externalContainer, {
           value: '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;',
           language: 'sql',
-          theme: 'vs-dark',
           automaticLayout: true,
-          fontSize: 14,
-          lineNumbers: 'on',
-          wordWrap: 'on',
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          renderWhitespace: 'selection',
-          selectOnLineNumbers: true,
-          roundedSelection: false,
-          cursorStyle: 'line',
-          contextmenu: true,
-          mouseWheelZoom: true,
-          glyphMargin: false,
-          folding: false,
-          lineDecorationsWidth: 0,
-          lineNumbersMinChars: 3
+          theme: 'vs-dark'
         });
+        
+        // 位置とサイズを同期する関数
+        const syncPosition = () => {
+          const rect = editorContainer.getBoundingClientRect();
+          const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          
+          externalContainer.style.position = 'fixed';
+          externalContainer.style.left = rect.left + 'px';
+          externalContainer.style.top = rect.top + 'px';
+          externalContainer.style.width = rect.width + 'px';
+          externalContainer.style.height = rect.height + 'px';
+          
+          // エディターが表示されているかチェック
+          if (rect.width > 0 && rect.height > 0) {
+            externalContainer.style.display = 'block';
+          } else {
+            externalContainer.style.display = 'none';
+          }
+          
+          // Monaco Editorのレイアウトを更新
+          if (editor) {
+            editor.layout();
+          }
+        };
+        
+        // 初期位置設定
+        setTimeout(syncPosition, 100);
+        
+        // リサイズイベントで位置同期
+        window.addEventListener('resize', syncPosition);
+        
+        // サイドバー開閉イベントで位置同期
+        document.addEventListener('sidebar-toggled', syncPosition);
+        
+        // Shadow DOM要素の変更を監視
+        const observer = new MutationObserver(syncPosition);
+        observer.observe(editorContainer, { attributes: true, childList: true, subtree: true });
+        
+        // スプリッターのドラッグイベントを監視
+        const splitter = this.shadowRoot.querySelector('.splitter');
+        if (splitter) {
+          splitter.addEventListener('mousedown', () => {
+            const mouseMoveHandler = () => syncPosition();
+            const mouseUpHandler = () => {
+              document.removeEventListener('mousemove', mouseMoveHandler);
+              document.removeEventListener('mouseup', mouseUpHandler);
+            };
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+          });
+        }
+        
+        // より頻繁に位置を同期（アニメーション中も追従）
+        const syncInterval = setInterval(syncPosition, 100);
+        editorContainer.syncInterval = syncInterval;
+        
+        // クリーンアップ情報を保存
+        editorContainer.externalContainer = externalContainer;
+        editorContainer.positionSync = syncPosition;
+        editorContainer.resizeObserver = observer;
+        
+        console.log('[DEBUG] Monaco Editor created outside Shadow DOM with position sync');
 
         // エディターインスタンスを保存
         editorContainer.monacoEditor = editor;
