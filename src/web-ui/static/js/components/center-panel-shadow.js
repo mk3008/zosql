@@ -40,7 +40,6 @@ export class CenterPanelShadowComponent {
   init() {
     this.render();
     this.setupEventListeners();
-    this.createDefaultTab();
     
     console.log('[CenterPanelShadow] Initialized');
   }
@@ -968,11 +967,6 @@ export class CenterPanelShadowComponent {
 
     this.rerender();
     this.triggerCallback('tab-closed', { tabId, tab });
-    
-    // タブがなくなった場合は新しいタブを作成
-    if (this.tabs.size === 0) {
-      this.createDefaultTab();
-    }
 
     return true;
   }
