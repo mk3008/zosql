@@ -1296,8 +1296,12 @@ export class CenterPanelShadowElement extends HTMLElement {
         // 外部コンテナをShadow DOM内のコンテナに位置合わせ
         document.body.appendChild(externalContainer);
         
+        // タブのコンテンツを取得
+        const tab = this.component.tabs.get(tabId);
+        const initialContent = tab && tab.content ? tab.content : '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;';
+        
         const editor = window.monaco.editor.create(externalContainer, {
-          value: '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;',
+          value: initialContent,
           language: 'sql',
           automaticLayout: true,
           theme: 'vs-dark',
