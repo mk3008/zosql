@@ -11,6 +11,7 @@ import { fileModelManager } from '../models/file-model-manager.js';
 import { CenterPanelStyles } from './center-panel-styles.js';
 import { CenterPanelTabManager } from './center-panel-tab-manager.js';
 import { CenterPanelMonacoManager } from './center-panel-monaco-manager.js';
+import { CenterPanelSplitterManager } from './center-panel-splitter-manager.js';
 
 export class CenterPanelShadowComponent {
   constructor(shadowRoot, options = {}) {
@@ -26,12 +27,6 @@ export class CenterPanelShadowComponent {
       ...options
     };
     
-    // 状態管理
-    this.state = {
-      splitterPosition: this.config.defaultSplitRatio,
-      isDragging: false
-    };
-
     // タブマネージャーの初期化
     this.tabManager = new CenterPanelTabManager(shadowRoot, this.callbacks, {
       maxTabs: this.config.maxTabs,
@@ -40,6 +35,12 @@ export class CenterPanelShadowComponent {
 
     // Monaco Editorマネージャーの初期化
     this.monacoManager = new CenterPanelMonacoManager(shadowRoot, this.callbacks);
+
+    // スプリッターマネージャーの初期化
+    this.splitterManager = new CenterPanelSplitterManager(shadowRoot, this.callbacks, {
+      defaultSplitRatio: this.config.defaultSplitRatio,
+      enableSplitter: this.config.enableSplitter
+    });
 
     this.init();
   }
@@ -139,8 +140,9 @@ export class CenterPanelShadowComponent {
    * SQLタブコンテンツのレンダリング
    */
   renderSQLTabContent(tab) {
-    const editorHeight = this.state.splitterPosition * 100;
-    const resultsHeight = (1 - this.state.splitterPosition) * 100;
+    const splitterPosition = this.splitterManager.getSplitterPosition();
+    const editorHeight = splitterPosition * 100;
+    const resultsHeight = (1 - splitterPosition) * 100;
     
     return `
       <div class="split-layout">
@@ -233,8 +235,8 @@ export class CenterPanelShadowComponent {
     // タブ関連のコールバック設定
     this.setupTabManagerCallbacks();
 
-    // スプリッター
-    this.setupSplitter();
+    // スプリッター関連のコールバック設定
+    this.setupSplitterManagerCallbacks();
 
     // ツールバーアクション
     this.setupToolbarActions();
@@ -308,98 +310,25 @@ export class CenterPanelShadowComponent {
 
 
   /**
-   * スプリッター機能の設定
+   * スプリッターマネージャーのコールバック設定
    */
-  setupSplitter() {
-    this.shadowRoot.addEventListener('mousedown', (e) => {
-      if (e.target.classList.contains('splitter')) {
-        this.startSplitterDrag(e);
-      }
+  setupSplitterManagerCallbacks() {
+    // スプリッター機能の初期化
+    this.splitterManager.setupSplitter();
+    this.splitterManager.loadState();
+    
+    // スプリッターマネージャーからのイベントハンドリング
+    this.splitterManager.callbacks.set('splitter-layout-updated', (data) => {
+      // Monaco Editorのレイアウトを更新
+      this.monacoManager.syncActiveMonacoEditor(this.tabManager.activeTabId);
     });
-
-    document.addEventListener('mousemove', (e) => {
-      if (this.state.isDragging) {
-        this.handleSplitterDrag(e);
-      }
+    
+    this.splitterManager.callbacks.set('splitter-drag-end', (data) => {
+      // ドラッグ終了後のMonaco Editorレイアウト更新
+      setTimeout(() => {
+        this.monacoManager.syncActiveMonacoEditor(this.tabManager.activeTabId);
+      }, 50);
     });
-
-    document.addEventListener('mouseup', () => {
-      if (this.state.isDragging) {
-        this.endSplitterDrag();
-      }
-    });
-  }
-
-  /**
-   * スプリッターのドラッグ開始
-   */
-  startSplitterDrag(e) {
-    this.state.isDragging = true;
-    this.state.dragStartY = e.clientY;
-    this.state.dragStartRatio = this.state.splitterPosition;
-    
-    const splitter = e.target;
-    splitter.classList.add('dragging');
-    
-    document.body.style.cursor = 'ns-resize';
-    document.body.style.userSelect = 'none';
-  }
-
-  /**
-   * スプリッターのドラッグ処理
-   */
-  handleSplitterDrag(e) {
-    if (!this.state.isDragging) return;
-    
-    const container = this.shadowRoot.querySelector('.tab-content.active .split-layout');
-    if (!container) return;
-    
-    const containerHeight = container.offsetHeight;
-    const deltaY = e.clientY - this.state.dragStartY;
-    const deltaRatio = deltaY / containerHeight;
-    
-    let newRatio = this.state.dragStartRatio + deltaRatio;
-    newRatio = Math.max(0.2, Math.min(0.8, newRatio)); // 20%-80%の範囲
-    
-    this.state.splitterPosition = newRatio;
-    this.updateSplitterLayout();
-  }
-
-  /**
-   * スプリッターのドラッグ終了
-   */
-  endSplitterDrag() {
-    this.state.isDragging = false;
-    
-    const splitter = this.shadowRoot.querySelector('.splitter.dragging');
-    if (splitter) {
-      splitter.classList.remove('dragging');
-    }
-    
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    
-    // 状態を保存
-    this.saveState();
-  }
-
-  /**
-   * スプリッターレイアウトの更新
-   */
-  updateSplitterLayout() {
-    const activeContent = this.shadowRoot.querySelector('.tab-content.active');
-    if (!activeContent) return;
-    
-    const editorSection = activeContent.querySelector('.editor-section');
-    const resultsSection = activeContent.querySelector('.results-section');
-    
-    if (editorSection && resultsSection) {
-      const editorHeight = this.state.splitterPosition * 100;
-      const resultsHeight = (1 - this.state.splitterPosition) * 100;
-      
-      editorSection.style.height = `${editorHeight}%`;
-      resultsSection.style.height = `${resultsHeight}%`;
-    }
   }
 
   /**
@@ -578,8 +507,8 @@ export class CenterPanelShadowComponent {
       this.tabManager.getAllTabs().map(tab => tab.id)
     );
 
-    // スプリッターレイアウトの更新
-    this.updateSplitterLayout();
+    // スプリッターレイアウトの更新（Splitter Managerに委譲）
+    this.splitterManager.updateSplitterLayout();
   }
 
   /**
@@ -589,7 +518,7 @@ export class CenterPanelShadowComponent {
     // 現在の状態を保持
     const currentState = {
       scrollPosition: this.tabManager.state.scrollPosition,
-      splitterPosition: this.state.splitterPosition
+      splitterPosition: this.splitterManager.getSplitterPosition()
     };
     
     this.render();
@@ -597,7 +526,7 @@ export class CenterPanelShadowComponent {
     
     // 状態を復元
     this.tabManager.state.scrollPosition = currentState.scrollPosition;
-    this.state.splitterPosition = currentState.splitterPosition;
+    this.splitterManager.setSplitterPosition(currentState.splitterPosition);
     
     // 表示を更新
     this.updateActiveTabDisplay();
@@ -619,32 +548,17 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * 状態の保存
+   * 状態の保存（Splitter Managerに委譲）
    */
   saveState() {
-    const state = {
-      splitterPosition: this.state.splitterPosition,
-      activeTabId: this.tabManager.activeTabId,
-      tabs: this.tabManager.getAllTabs()
-    };
-    
-    localStorage.setItem('center-panel-state', JSON.stringify(state));
+    this.splitterManager.saveState();
   }
 
   /**
-   * 状態の読み込み
+   * 状態の読み込み（Splitter Managerに委譲）
    */
   loadState() {
-    try {
-      const saved = localStorage.getItem('center-panel-state');
-      if (saved) {
-        const state = JSON.parse(saved);
-        this.state.splitterPosition = state.splitterPosition || this.config.defaultSplitRatio;
-        // タブの復元は必要に応じて実装
-      }
-    } catch (error) {
-      console.warn('Failed to load center panel state:', error);
-    }
+    this.splitterManager.loadState();
   }
 
   /**
@@ -703,6 +617,21 @@ export class CenterPanelShadowComponent {
   }
 
   /**
+   * スプリッター管理（Splitter Managerに委譲）
+   */
+  setSplitterPosition(ratio) {
+    return this.splitterManager.setSplitterPosition(ratio);
+  }
+
+  getSplitterPosition() {
+    return this.splitterManager.getSplitterPosition();
+  }
+
+  resetSplitterPosition() {
+    return this.splitterManager.resetSplitterPosition();
+  }
+
+  /**
    * 破棄
    */
   destroy() {
@@ -712,6 +641,9 @@ export class CenterPanelShadowComponent {
     }
     if (this.monacoManager) {
       this.monacoManager.destroy();
+    }
+    if (this.splitterManager) {
+      this.splitterManager.destroy();
     }
     console.log('[CenterPanelShadow] Destroyed');
   }
