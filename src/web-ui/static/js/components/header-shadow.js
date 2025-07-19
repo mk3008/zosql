@@ -3,31 +3,27 @@
  * アプリケーションヘッダーのShadow DOM実装
  */
 
-export class HeaderShadowComponent {
-  constructor(shadowRoot, options = {}) {
-    this.shadowRoot = shadowRoot;
-    this.callbacks = new Map();
-    
-    // 設定
-    this.config = {
+import { ShadowComponentBase, ShadowElementBase } from './base/shadow-component-base.js';
+
+export class HeaderShadowComponent extends ShadowComponentBase {
+  /**
+   * Get default configuration
+   */
+  getDefaultConfig() {
+    return {
       title: 'zosql',
       showLogo: true,
       showOpenButton: true,
       showSidebarToggles: true,
-      showShadowDOMToggle: false,
-      ...options
+      showShadowDOMToggle: false
     };
-
-    this.init();
   }
 
   /**
-   * 初期化
+   * Get event prefix for CustomEvents
    */
-  init() {
-    this.render();
-    this.setupEventListeners();
-    console.log('[HeaderShadow] Initialized');
+  getEventPrefix() {
+    return 'header';
   }
 
   /**
@@ -51,203 +47,124 @@ export class HeaderShadowComponent {
           justify-content: space-between;
           align-items: center;
           height: 100%;
-          max-width: none;
         }
         
         .header-left {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 20px;
         }
         
-        .logo {
-          font-size: 18px;
+        .header-logo {
+          font-size: 24px;
           font-weight: bold;
           color: var(--text-white, #ffffff);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          user-select: none;
+          text-decoration: none;
+          cursor: pointer;
         }
         
-        .logo-icon {
-          font-size: 20px;
+        .header-logo:hover {
+          opacity: 0.8;
         }
         
         .header-controls {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 15px;
         }
         
         .header-btn {
-          background: var(--bg-accent, #3b82f6);
-          color: white;
-          border: none;
-          padding: 8px 12px;
+          background: var(--bg-primary, #4b5563);
+          color: var(--text-white, #ffffff);
+          border: 1px solid var(--border-secondary, #6b7280);
           border-radius: 6px;
-          cursor: pointer;
+          padding: 8px 12px;
           font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s;
+          cursor: pointer;
           display: flex;
           align-items: center;
           gap: 6px;
+          transition: all 0.2s;
+          font-family: inherit;
         }
         
         .header-btn:hover {
-          background: var(--bg-accent-hover, #2563eb);
-          transform: translateY(-1px);
-        }
-        
-        .header-btn:active {
-          transform: translateY(0);
-        }
-        
-        .sidebar-toggle-btn {
           background: var(--bg-secondary, #6b7280);
+          border-color: var(--border-accent, #3b82f6);
+        }
+        
+        .header-btn.accent {
+          background: var(--bg-accent, #3b82f6);
           color: white;
-          border: none;
-          padding: 8px 10px;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s;
+          border-color: var(--bg-accent-hover, #2563eb);
+        }
+        
+        .header-btn.accent:hover {
+          background: var(--bg-accent-hover, #2563eb);
+        }
+        
+        .header-btn.toggle {
           min-width: 36px;
-          display: flex;
-          align-items: center;
+          padding: 8px;
           justify-content: center;
         }
         
-        .sidebar-toggle-btn:hover {
-          background: var(--bg-secondary-hover, #4b5563);
-          transform: translateY(-1px);
-        }
-        
-        .sidebar-toggle-btn:active {
-          transform: translateY(0);
-        }
-        
-        .shadow-dom-toggle {
-          background: var(--shadow-toggle-bg, #10b981);
-          color: white;
-          border: none;
-          padding: 6px 10px;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 500;
-          transition: all 0.2s;
+        .sidebar-toggles {
           display: flex;
-          align-items: center;
-          gap: 4px;
-          min-width: 80px;
-          justify-content: center;
+          gap: 10px;
+          padding: 0 15px;
+          border-left: 1px solid var(--border-secondary, #6b7280);
+          margin-left: 10px;
         }
         
-        .shadow-dom-toggle:hover {
-          background: var(--shadow-toggle-hover, #059669);
-          transform: translateY(-1px);
+        .loading-spinner {
+          display: inline-block;
+          width: 14px;
+          height: 14px;
+          border: 2px solid transparent;
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
         }
         
-        .shadow-dom-toggle.traditional {
-          background: var(--traditional-bg, #f59e0b);
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
         
-        .shadow-dom-toggle.traditional:hover {
-          background: var(--traditional-hover, #d97706);
-        }
-        
-        .divider {
-          width: 1px;
-          height: 24px;
-          background: var(--border-light, #9ca3af);
-          margin: 0 4px;
-        }
-        
-        /* レスポンシブ対応 */
+        /* レスポンシブデザイン */
         @media (max-width: 768px) {
-          .header-controls {
-            gap: 4px;
+          :host {
+            padding: 10px;
           }
           
-          .header-btn {
-            padding: 6px 8px;
-            font-size: 12px;
-          }
-          
-          .sidebar-toggle-btn {
-            padding: 6px 8px;
-            min-width: 32px;
-          }
-          
-          .shadow-dom-toggle {
-            padding: 4px 6px;
-            font-size: 10px;
-            min-width: 60px;
-          }
-          
-          .divider {
+          .header-btn span {
             display: none;
           }
-        }
-        
-        /* アニメーション */
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.7; }
-          100% { opacity: 1; }
-        }
-        
-        .loading {
-          animation: pulse 1s infinite;
-        }
-        
-        /* ツールチップ風スタイル */
-        .header-btn[title]:hover::after,
-        .sidebar-toggle-btn[title]:hover::after,
-        .shadow-dom-toggle[title]:hover::after {
-          content: attr(title);
-          position: absolute;
-          bottom: -30px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: #374151;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          white-space: nowrap;
-          z-index: 1000;
-          pointer-events: none;
+          
+          .sidebar-toggles {
+            padding: 0 10px;
+          }
         }
       </style>
     `;
   }
 
   /**
-   * レンダリング
+   * コンテンツのレンダリング
    */
-  render() {
-    const html = `
-      ${this.getStyles()}
+  renderContent() {
+    return `
       <div class="header-container">
         <div class="header-left">
           ${this.config.showLogo ? this.renderLogo() : ''}
         </div>
-        
         <div class="header-controls">
           ${this.config.showOpenButton ? this.renderOpenButton() : ''}
-          ${this.config.showShadowDOMToggle ? '<div class="divider"></div>' : ''}
           ${this.config.showShadowDOMToggle ? this.renderShadowDOMToggle() : ''}
-          ${this.config.showSidebarToggles ? '<div class="divider"></div>' : ''}
           ${this.config.showSidebarToggles ? this.renderSidebarToggles() : ''}
         </div>
       </div>
     `;
-    
-    this.shadowRoot.innerHTML = html;
   }
 
   /**
@@ -255,39 +172,32 @@ export class HeaderShadowComponent {
    */
   renderLogo() {
     return `
-      <div class="logo">
-        <!--<span class="logo-icon">[ZOSQL]</span>-->
-        <span>${this.config.title}</span>
+      <div class="header-logo" id="app-logo">
+        ${this.config.title}
       </div>
     `;
   }
 
   /**
-   * Openボタンのレンダリング
+   * 開くボタンのレンダリング
    */
   renderOpenButton() {
     return `
-      <button class="header-btn" id="open-file-btn" title="Open SQL File">
+      <button class="header-btn accent" id="open-file-btn" title="Open SQL file (Ctrl+O)">
+        <span>📁</span>
         <span>Open</span>
       </button>
     `;
   }
 
   /**
-   * Shadow DOMトグルボタンのレンダリング
+   * Shadow DOM切り替えボタンのレンダリング
    */
   renderShadowDOMToggle() {
-    // 現在の状態を取得（グローバルのshadowDOMToggleから）
-    const isEnabled = window.shadowDOMToggle?.isEnabled || false;
-    const buttonClass = isEnabled ? 'shadow-dom-toggle' : 'shadow-dom-toggle traditional';
-    const icon = isEnabled ? '🔒' : '🔓';
-    const text = isEnabled ? 'Shadow DOM' : 'Traditional';
-    const title = `現在: ${text} - クリックで切り替え`;
-    
     return `
-      <button class="${buttonClass}" id="shadow-dom-toggle" title="${title}">
-        <span>${icon}</span>
-        <span>${text}</span>
+      <button class="header-btn" id="shadow-dom-toggle" title="Toggle Shadow DOM">
+        <span>🔲</span>
+        <span>Shadow DOM</span>
       </button>
     `;
   }
@@ -297,12 +207,14 @@ export class HeaderShadowComponent {
    */
   renderSidebarToggles() {
     return `
-      <button class="sidebar-toggle-btn" id="toggle-left-sidebar" title="Toggle Left Sidebar">
-        ◀
-      </button>
-      <button class="sidebar-toggle-btn" id="toggle-right-sidebar" title="Toggle Right Sidebar">
-        ▶
-      </button>
+      <div class="sidebar-toggles">
+        <button class="header-btn toggle" id="toggle-left-sidebar" title="Toggle Left Sidebar">
+          ◀
+        </button>
+        <button class="header-btn toggle" id="toggle-right-sidebar" title="Toggle Right Sidebar">
+          ▶
+        </button>
+      </div>
     `;
   }
 
@@ -310,138 +222,105 @@ export class HeaderShadowComponent {
    * イベントリスナーの設定
    */
   setupEventListeners() {
-    // Openボタン
-    const openBtn = this.shadowRoot.getElementById('open-file-btn');
-    if (openBtn) {
-      openBtn.addEventListener('click', () => this.handleOpenFile());
-    }
-
-    // Shadow DOMトグルボタン
-    const shadowToggleBtn = this.shadowRoot.getElementById('shadow-dom-toggle');
-    if (shadowToggleBtn) {
-      shadowToggleBtn.addEventListener('click', () => this.handleShadowDOMToggle());
-    }
-
-    // 左サイドバートグル
-    const leftToggleBtn = this.shadowRoot.getElementById('toggle-left-sidebar');
-    if (leftToggleBtn) {
-      leftToggleBtn.addEventListener('click', () => this.handleLeftSidebarToggle());
-    }
-
-    // 右サイドバートグル
-    const rightToggleBtn = this.shadowRoot.getElementById('toggle-right-sidebar');
-    if (rightToggleBtn) {
-      rightToggleBtn.addEventListener('click', () => this.handleRightSidebarToggle());
-    }
+    // Use base class helper methods
+    this.addClickHandler('#open-file-btn', () => this.handleOpenFile());
+    this.addClickHandler('#shadow-dom-toggle', () => this.handleShadowDOMToggle());
+    this.addClickHandler('#toggle-left-sidebar', () => this.handleLeftSidebarToggle());
+    this.addClickHandler('#toggle-right-sidebar', () => this.handleRightSidebarToggle());
+    this.addClickHandler('#app-logo', () => this.handleLogoClick());
   }
 
   /**
-   * ファイルオープン処理
+   * ファイルを開くハンドラー
    */
   handleOpenFile() {
-    console.log('[HeaderShadow] Open file triggered');
+    console.log('[HeaderShadow] Open file clicked');
+    this.setLoading(true);
     
-    // headerControlsがあれば使用、なければ独自実装
-    if (window.headerControls && window.headerControls.handleOpenFile) {
-      window.headerControls.handleOpenFile();
-    } else {
-      this.triggerCallback('open-file');
-    }
+    // ファイル入力要素を作成
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.sql';
+    
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          this.triggerCallback('open-file', { fileName: file.name, content });
+          this.setLoading(false);
+        };
+        reader.onerror = () => {
+          console.error('Failed to read file');
+          this.setLoading(false);
+        };
+        reader.readAsText(file);
+      } else {
+        this.setLoading(false);
+      }
+    };
+    
+    input.click();
   }
 
   /**
-   * Shadow DOMトグル処理
+   * Shadow DOM切り替えハンドラー
    */
   handleShadowDOMToggle() {
-    console.log('[HeaderShadow] Shadow DOM toggle triggered');
-    
-    if (window.shadowDOMToggle && window.shadowDOMToggle.toggle) {
-      window.shadowDOMToggle.toggle();
-      // ボタンの表示を更新
-      setTimeout(() => this.updateShadowDOMToggleButton(), 100);
-    } else {
-      this.triggerCallback('shadow-dom-toggle');
-    }
+    console.log('[HeaderShadow] Shadow DOM toggle clicked');
+    this.triggerCallback('shadow-dom-toggle');
+    this.updateShadowDOMToggleButton();
   }
 
   /**
-   * 左サイドバートグル処理
+   * 左サイドバー切り替えハンドラー
    */
   handleLeftSidebarToggle() {
-    console.log('[HeaderShadow] Left sidebar toggle triggered');
+    console.log('[HeaderShadow] Left sidebar toggle clicked');
+    this.triggerCallback('left-sidebar-toggle');
     
-    // SidebarManagerがあれば使用
-    if (window.sidebarManager && window.sidebarManager.toggleLeftSidebar) {
-      window.sidebarManager.toggleLeftSidebar();
-    } else {
-      this.triggerCallback('left-sidebar-toggle');
+    // ボタンのアイコンを更新
+    const btn = this.$('#toggle-left-sidebar');
+    if (btn) {
+      const isCollapsed = btn.textContent === '▶';
+      btn.textContent = isCollapsed ? '◀' : '▶';
+      btn.title = isCollapsed ? 'Hide Left Sidebar' : 'Show Left Sidebar';
     }
   }
 
   /**
-   * 右サイドバートグル処理
+   * 右サイドバー切り替えハンドラー
    */
   handleRightSidebarToggle() {
-    console.log('[HeaderShadow] Right sidebar toggle triggered');
+    console.log('[HeaderShadow] Right sidebar toggle clicked');
+    this.triggerCallback('right-sidebar-toggle');
     
-    // SidebarManagerがあれば使用
-    if (window.sidebarManager && window.sidebarManager.toggleRightSidebar) {
-      window.sidebarManager.toggleRightSidebar();
-    } else {
-      this.triggerCallback('right-sidebar-toggle');
+    // ボタンのアイコンを更新
+    const btn = this.$('#toggle-right-sidebar');
+    if (btn) {
+      const isCollapsed = btn.textContent === '◀';
+      btn.textContent = isCollapsed ? '▶' : '◀';
+      btn.title = isCollapsed ? 'Hide Right Sidebar' : 'Show Right Sidebar';
     }
   }
 
   /**
-   * Shadow DOMトグルボタンの表示更新
+   * ロゴクリックハンドラー
    */
-  updateShadowDOMToggleButton() {
-    const isEnabled = window.shadowDOMToggle?.isEnabled || false;
-    const button = this.shadowRoot.getElementById('shadow-dom-toggle');
-    
-    if (button) {
-      const icon = isEnabled ? '🔒' : '🔓';
-      const text = isEnabled ? 'Shadow DOM' : 'Traditional';
-      const buttonClass = isEnabled ? 'shadow-dom-toggle' : 'shadow-dom-toggle traditional';
-      const title = `現在: ${text} - クリックで切り替え`;
-      
-      button.className = buttonClass;
-      button.title = title;
-      button.innerHTML = `<span>${icon}</span><span>${text}</span>`;
-    }
+  handleLogoClick() {
+    console.log('[HeaderShadow] Logo clicked');
+    this.triggerCallback('logo-click');
   }
 
   /**
-   * コールバックの登録
-   */
-  onCallback(event, callback) {
-    this.callbacks.set(event, callback);
-  }
-
-  /**
-   * コールバックの実行
-   */
-  triggerCallback(event, data = null) {
-    const callback = this.callbacks.get(event);
-    if (callback) {
-      callback(data);
-    }
-    
-    // CustomEventとしても発行
-    this.shadowRoot.host.dispatchEvent(new CustomEvent(`header-${event}`, {
-      detail: data,
-      bubbles: true
-    }));
-  }
-
-  /**
-   * タイトルの更新
+   * タイトルの設定
    */
   setTitle(title) {
     this.config.title = title;
-    const logoElement = this.shadowRoot.querySelector('.logo span:last-child');
-    if (logoElement) {
-      logoElement.textContent = title;
+    const logo = this.$('#app-logo');
+    if (logo) {
+      logo.textContent = title;
     }
   }
 
@@ -449,80 +328,71 @@ export class HeaderShadowComponent {
    * ローディング状態の設定
    */
   setLoading(isLoading) {
-    const headerContainer = this.shadowRoot.querySelector('.header-container');
-    if (headerContainer) {
+    const openBtn = this.$('#open-file-btn');
+    if (openBtn) {
       if (isLoading) {
-        headerContainer.classList.add('loading');
+        openBtn.innerHTML = '<div class="loading-spinner"></div><span>Loading...</span>';
+        openBtn.disabled = true;
       } else {
-        headerContainer.classList.remove('loading');
+        openBtn.innerHTML = '<span>📁</span><span>Open</span>';
+        openBtn.disabled = false;
       }
     }
   }
 
   /**
-   * 破棄
+   * Shadow DOMトグルボタンの更新
    */
-  destroy() {
-    this.callbacks.clear();
-    console.log('[HeaderShadow] Destroyed');
+  updateShadowDOMToggleButton() {
+    const btn = this.$('#shadow-dom-toggle');
+    if (btn) {
+      // 実装は外部から制御される
+      console.log('[HeaderShadow] Shadow DOM toggle button updated');
+    }
   }
 }
 
 /**
  * Shadow DOM対応のWeb Component
  */
-export class HeaderShadowElement extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    this.component = null;
+export class HeaderShadowElement extends ShadowElementBase {
+  static get componentClass() {
+    return HeaderShadowComponent;
   }
 
-  connectedCallback() {
-    this.component = new HeaderShadowComponent(this.shadowRoot, {
-      title: this.getAttribute('title') || 'zosql Browser',
-      showLogo: this.hasAttribute('show-logo') || !this.hasAttribute('hide-logo'),
-      showOpenButton: this.hasAttribute('show-open') || !this.hasAttribute('hide-open'),
-      showSidebarToggles: this.hasAttribute('show-sidebar-toggles') || !this.hasAttribute('hide-sidebar-toggles'),
-      showShadowDOMToggle: this.hasAttribute('show-shadow-toggle')
-    });
+  /**
+   * 属性からオプションを収集
+   */
+  gatherOptions() {
+    return {
+      title: this.getAttributeOrDefault('title', 'zosql Browser'),
+      showLogo: this.getBooleanAttribute('show-logo'),
+      showOpenButton: this.getBooleanAttribute('show-open'),
+      showSidebarToggles: this.getBooleanAttribute('show-sidebar-toggles'), 
+      showShadowDOMToggle: this.getBooleanAttribute('show-shadow-dom-toggle')
+    };
+  }
 
-    // コールバック設定
-    this.component.onCallback('open-file', () => {
-      this.dispatchEvent(new CustomEvent('open-file', { bubbles: true }));
-    });
-
-    this.component.onCallback('shadow-dom-toggle', () => {
-      this.dispatchEvent(new CustomEvent('shadow-dom-toggle', { bubbles: true }));
-    });
-
-    this.component.onCallback('left-sidebar-toggle', () => {
-      this.dispatchEvent(new CustomEvent('left-sidebar-toggle', { bubbles: true }));
-    });
-
-    this.component.onCallback('right-sidebar-toggle', () => {
-      this.dispatchEvent(new CustomEvent('right-sidebar-toggle', { bubbles: true }));
+  /**
+   * コンポーネントのコールバックを設定
+   */
+  setupComponentCallbacks() {
+    // イベントを外部に伝播
+    ['open-file', 'shadow-dom-toggle', 'left-sidebar-toggle', 'right-sidebar-toggle', 'logo-click'].forEach(event => {
+      this.component.onCallback(event, (data) => {
+        this.dispatchEvent(new CustomEvent(event, { 
+          detail: data,
+          bubbles: true 
+        }));
+      });
     });
   }
 
-  disconnectedCallback() {
-    if (this.component) {
-      this.component.destroy();
-      this.component = null;
-    }
-  }
-
-  // 公開API
-  setTitle(title) {
-    return this.component?.setTitle(title);
-  }
-
-  setLoading(isLoading) {
-    return this.component?.setLoading(isLoading);
-  }
-
-  updateShadowDOMToggleButton() {
-    return this.component?.updateShadowDOMToggleButton();
+  /**
+   * コンポーネントAPIの公開
+   */
+  exposeComponentAPI() {
+    this.exposeMethods(['setTitle', 'setLoading', 'updateShadowDOMToggleButton']);
   }
 }
 

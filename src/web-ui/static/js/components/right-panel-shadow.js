@@ -3,31 +3,34 @@
  * 将来の機能拡張に備えた右パネルコンポーネント
  */
 
-export class RightPanelShadowComponent {
-  constructor(shadowRoot, options = {}) {
-    this.shadowRoot = shadowRoot;
+import { ShadowComponentBase, ShadowElementBase } from './base/shadow-component-base.js';
+
+export class RightPanelShadowComponent extends ShadowComponentBase {
+  /**
+   * 初期化前の設定
+   */
+  beforeInit() {
     this.sections = new Map();
     this.isCollapsed = false;
-    
-    // 設定
-    this.config = {
-      title: 'Context Panel',
-      collapsible: true,
-      resizable: true,
-      defaultWidth: '300px',
-      ...options
-    };
-
-    this.init();
   }
 
   /**
-   * 初期化
+   * Get default configuration
    */
-  init() {
-    this.render();
-    this.setupEventListeners();
-    console.log('[RightPanelShadow] Initialized');
+  getDefaultConfig() {
+    return {
+      title: 'Context Panel',
+      collapsible: true,
+      resizable: true,
+      defaultWidth: '300px'
+    };
+  }
+
+  /**
+   * Get event prefix for CustomEvents
+   */
+  getEventPrefix() {
+    return 'right-panel';
   }
 
   /**
@@ -209,11 +212,10 @@ export class RightPanelShadowComponent {
   }
 
   /**
-   * レンダリング
+   * コンテンツのレンダリング
    */
-  render() {
-    const html = `
-      ${this.getStyles()}
+  renderContent() {
+    return `
       <div class="resize-handle" title="Resize panel"></div>
       
       <div class="panel-header">
@@ -228,17 +230,15 @@ export class RightPanelShadowComponent {
       </div>
       
       <div class="panel-content">
-        ${this.renderContent()}
+        ${this.renderPanelContent()}
       </div>
     `;
-    
-    this.shadowRoot.innerHTML = html;
   }
 
   /**
-   * コンテンツのレンダリング
+   * パネルコンテンツのレンダリング
    */
-  renderContent() {
+  renderPanelContent() {
     if (this.sections.size === 0) {
       return this.renderEmptyState();
     }
@@ -294,32 +294,16 @@ export class RightPanelShadowComponent {
    * イベントリスナーの設定
    */
   setupEventListeners() {
-    // リフレッシュボタン
-    const refreshBtn = this.shadowRoot.getElementById('refresh-btn');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => this.handleRefresh());
-    }
-
-    // 設定ボタン
-    const settingsBtn = this.shadowRoot.getElementById('settings-btn');
-    if (settingsBtn) {
-      settingsBtn.addEventListener('click', () => this.handleSettings());
-    }
-
-    // 折りたたみボタン
-    const collapseBtn = this.shadowRoot.getElementById('collapse-btn');
-    if (collapseBtn) {
-      collapseBtn.addEventListener('click', () => this.handleCollapse());
-    }
+    // Use base class helper methods
+    this.addClickHandler('#refresh-btn', () => this.handleRefresh());
+    this.addClickHandler('#settings-btn', () => this.handleSettings());
+    this.addClickHandler('#collapse-btn', () => this.handleCollapse());
 
     // セクションの開閉
-    this.shadowRoot.addEventListener('click', (e) => {
-      const sectionHeader = e.target.closest('.section-header');
-      if (sectionHeader) {
-        const section = sectionHeader.closest('.section');
-        const sectionKey = section.dataset.section;
-        this.toggleSection(sectionKey);
-      }
+    this.addClickHandler('.section-header', (e, target) => {
+      const section = target.closest('.section');
+      const sectionKey = section.dataset.section;
+      this.toggleSection(sectionKey);
     });
 
     // リサイズハンドル
@@ -330,7 +314,7 @@ export class RightPanelShadowComponent {
    * リサイズハンドラーの設定
    */
   setupResizeHandler() {
-    const resizeHandle = this.shadowRoot.querySelector('.resize-handle');
+    const resizeHandle = this.$('.resize-handle');
     if (!resizeHandle) return;
 
     let isResizing = false;
@@ -366,7 +350,7 @@ export class RightPanelShadowComponent {
    */
   handleRefresh() {
     console.log('[RightPanelShadow] Refresh triggered');
-    // 将来の実装用
+    this.triggerCallback('refresh');
   }
 
   /**
@@ -374,7 +358,7 @@ export class RightPanelShadowComponent {
    */
   handleSettings() {
     console.log('[RightPanelShadow] Settings triggered');
-    // 将来の実装用
+    this.triggerCallback('settings');
   }
 
   /**
@@ -382,8 +366,8 @@ export class RightPanelShadowComponent {
    */
   handleCollapse() {
     this.isCollapsed = !this.isCollapsed;
-    // 将来の実装用
     console.log('[RightPanelShadow] Collapse toggled:', this.isCollapsed);
+    this.triggerCallback('collapse', { isCollapsed: this.isCollapsed });
   }
 
   /**
@@ -423,57 +407,52 @@ export class RightPanelShadowComponent {
    */
   setTitle(title) {
     this.config.title = title;
-    const titleElement = this.shadowRoot.querySelector('.panel-title');
+    const titleElement = this.$('.panel-title');
     if (titleElement) {
       titleElement.innerHTML = `${title}`;
     }
-  }
-
-  /**
-   * 破棄
-   */
-  destroy() {
-    // Shadow DOM自体が削除される際に自動クリーンアップ
-    console.log('[RightPanelShadow] Destroyed');
   }
 }
 
 /**
  * Shadow DOM対応のWeb Component
  */
-export class RightPanelShadowElement extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    this.component = null;
+export class RightPanelShadowElement extends ShadowElementBase {
+  static get componentClass() {
+    return RightPanelShadowComponent;
   }
 
-  connectedCallback() {
-    this.component = new RightPanelShadowComponent(this.shadowRoot, {
-      title: this.getAttribute('title') || 'Context Panel',
-      collapsible: this.hasAttribute('collapsible'),
-      resizable: this.hasAttribute('resizable')
+  /**
+   * 属性からオプションを収集
+   */
+  gatherOptions() {
+    return {
+      title: this.getAttributeOrDefault('title', 'Context Panel'),
+      collapsible: this.getBooleanAttribute('collapsible'),
+      resizable: this.getBooleanAttribute('resizable')
+    };
+  }
+
+  /**
+   * コンポーネントのコールバックを設定
+   */
+  setupComponentCallbacks() {
+    // イベントを外部に伝播
+    ['refresh', 'settings', 'collapse'].forEach(event => {
+      this.component.onCallback(event, (data) => {
+        this.dispatchEvent(new CustomEvent(event, { 
+          detail: data,
+          bubbles: true 
+        }));
+      });
     });
   }
 
-  disconnectedCallback() {
-    if (this.component) {
-      this.component.destroy();
-      this.component = null;
-    }
-  }
-
-  // 公開API
-  addSection(key, section) {
-    return this.component?.addSection(key, section);
-  }
-
-  removeSection(key) {
-    return this.component?.removeSection(key);
-  }
-
-  setTitle(title) {
-    return this.component?.setTitle(title);
+  /**
+   * コンポーネントAPIの公開
+   */
+  exposeComponentAPI() {
+    this.exposeMethods(['addSection', 'removeSection', 'setTitle']);
   }
 }
 

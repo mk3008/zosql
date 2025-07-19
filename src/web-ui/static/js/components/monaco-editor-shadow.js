@@ -3,15 +3,22 @@
  * カーソル位置問題解決のため、CSS上書きを最小限に抑制
  */
 
-export class MonacoEditorShadowComponent {
-  constructor(shadowRoot, options = {}) {
-    this.shadowRoot = shadowRoot;
+import { ShadowComponentBase, ShadowElementBase } from './base/shadow-component-base.js';
+
+export class MonacoEditorShadowComponent extends ShadowComponentBase {
+  /**
+   * Pre-initialization setup
+   */
+  beforeInit() {
     this.editor = null;
     this.isInitialized = false;
-    this.callbacks = new Map();
-    
-    // 最小限の設定
-    this.config = {
+  }
+
+  /**
+   * Get default configuration
+   */
+  getDefaultConfig() {
+    return {
       language: 'sql',
       theme: 'vs-dark',
       fontSize: 14,
@@ -24,206 +31,233 @@ export class MonacoEditorShadowComponent {
       roundedSelection: false,
       readOnly: false,
       cursorStyle: 'line',
-      cursorBlinking: 'blink',
-      ...options.editorConfig
+      cursorBlinking: 'blink'
     };
-
-    this.init();
   }
 
   /**
-   * 初期化
+   * Get event prefix for CustomEvents
    */
-  async init() {
-    try {
-      this.render();
-      await this.initializeMonaco();
-      this.setupEventListeners();
-      this.isInitialized = true;
-      console.log('[MonacoEditorShadow] Initialized');
-    } catch (error) {
-      console.error('Monaco Editor Shadow initialization failed:', error);
-      this.renderError(error.message);
-    }
+  getEventPrefix() {
+    return 'monaco-editor';
   }
 
   /**
-   * Shadow DOM内の最小限CSS定義
+   * Shadow DOM内のCSS定義 - 最小限のスタイル
    */
   getStyles() {
     return `
       <style>
         :host {
-          display: flex;
-          flex-direction: column;
+          display: block;
+          width: 100%;
           height: 100%;
-          width: 100%;
-          flex: 1;
-          min-width: 0;
-          overflow: hidden;
-        }
-        
-        .monaco-container {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
           position: relative;
-          width: 100%;
-          min-width: 0;
+          background: #1e1e1e;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         }
         
-        .monaco-editor-wrapper {
-          flex: 1;
-          overflow: hidden;
+        .editor-container {
+          width: 100%;
+          height: 100%;
           position: relative;
-          width: 100%;
-          min-width: 0;
+          background: #1e1e1e;
         }
         
-        .monaco-loading {
+        .editor-loading {
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 100%;
           height: 100%;
-          color: #888;
+          background: #1e1e1e;
+          color: #cccccc;
           font-size: 14px;
         }
         
-        .monaco-error {
+        .loading-spinner {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          border: 2px solid transparent;
+          border-top-color: #007acc;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-right: 10px;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        /* Monaco Editor エラーメッセージ */
+        .editor-error {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          background: #1e1e1e;
+          color: #f44747;
+          font-size: 14px;
+          text-align: center;
           padding: 20px;
-          color: #f44336;
-          background: #2d2d30;
-          border: 1px solid #f44336;
-          border-radius: 4px;
-          margin: 20px;
+          box-sizing: border-box;
         }
         
-        .monaco-error h3 {
-          margin: 0 0 10px 0;
-          color: #f44336;
-        }
-        
-        .monaco-error p {
-          margin: 0;
-          color: #cccccc;
+        .error-message {
+          max-width: 400px;
         }
       </style>
     `;
   }
 
   /**
-   * レンダリング
+   * コンテンツのレンダリング
    */
-  render() {
-    this.shadowRoot.innerHTML = `
-      ${this.getStyles()}
-      <div class="monaco-container">
-        <div class="monaco-editor-wrapper" id="monaco-editor-wrapper">
-          <div class="monaco-loading">Loading Monaco Editor...</div>
+  renderContent() {
+    return `
+      <div class="editor-container" id="editor-container">
+        <div class="editor-loading" id="editor-loading">
+          <div class="loading-spinner"></div>
+          Initializing Monaco Editor...
         </div>
       </div>
     `;
   }
 
   /**
-   * Monaco Editor初期化
+   * 初期化後の処理
    */
-  async initializeMonaco() {
-    return new Promise((resolve, reject) => {
-      if (typeof monaco === 'undefined') {
-        reject(new Error('Monaco Editor is not loaded'));
-        return;
-      }
-
-      const wrapper = this.shadowRoot.getElementById('monaco-editor-wrapper');
-      if (!wrapper) {
-        reject(new Error('Monaco wrapper not found'));
-        return;
-      }
-
-      // クリアしてからエディターを作成
-      wrapper.innerHTML = '';
-
-      try {
-        // 最小限の設定でMonaco Editorを作成
-        this.editor = monaco.editor.create(wrapper, this.config);
-        
-        // 初期コンテンツを設定
-        this.editor.setValue(`-- Start writing your SQL query here
-SELECT * FROM users
-LIMIT 10;`);
-
-        console.log('[MonacoEditorShadow] Monaco Editor created successfully');
-        resolve(this.editor);
-      } catch (error) {
-        console.error('[MonacoEditorShadow] Monaco Editor creation failed:', error);
-        reject(error);
-      }
-    });
+  afterInit() {
+    // Monaco Editor の初期化を遅延実行
+    this.initializeMonacoEditor();
   }
 
   /**
-   * イベントリスナー設定
+   * Monaco Editor の初期化
    */
-  setupEventListeners() {
+  initializeMonacoEditor() {
+    // Monaco が読み込まれているかチェック
+    if (typeof monaco === 'undefined') {
+      // Monaco がまだ読み込まれていない場合は待機
+      if (typeof window.monacoLoaded !== 'undefined' && window.monacoLoaded) {
+        this.createEditor();
+      } else {
+        window.addEventListener('monaco-loaded', () => {
+          this.createEditor();
+        });
+      }
+    } else {
+      this.createEditor();
+    }
+  }
+
+  /**
+   * エディターを作成
+   */
+  createEditor() {
+    try {
+      const container = this.$('#editor-container');
+      const loading = this.$('#editor-loading');
+      
+      if (!container) {
+        console.error('[MonacoEditorShadow] Editor container not found');
+        return;
+      }
+
+      // ローディング表示を削除
+      if (loading) {
+        loading.remove();
+      }
+
+      // Monaco Editor を作成
+      this.editor = monaco.editor.create(container, {
+        value: this.config.initialValue || '-- SQL Editor',
+        language: this.config.language,
+        theme: this.config.theme,
+        fontSize: this.config.fontSize,
+        tabSize: this.config.tabSize,
+        wordWrap: this.config.wordWrap,
+        minimap: this.config.minimap,
+        scrollBeyondLastLine: this.config.scrollBeyondLastLine,
+        automaticLayout: this.config.automaticLayout,
+        selectOnLineNumbers: this.config.selectOnLineNumbers,
+        roundedSelection: this.config.roundedSelection,
+        readOnly: this.config.readOnly,
+        cursorStyle: this.config.cursorStyle,
+        cursorBlinking: this.config.cursorBlinking
+      });
+
+      this.isInitialized = true;
+
+      // イベントリスナーを設定
+      this.setupEditorEventListeners();
+
+      console.log('[MonacoEditorShadow] Editor initialized successfully');
+      this.triggerCallback('initialized', { editor: this.editor });
+
+    } catch (error) {
+      console.error('[MonacoEditorShadow] Failed to create editor:', error);
+      this.showError('Failed to initialize Monaco Editor: ' + error.message);
+    }
+  }
+
+  /**
+   * エディターのイベントリスナーを設定
+   */
+  setupEditorEventListeners() {
     if (!this.editor) return;
 
-    // 内容変更イベント
-    this.editor.onDidChangeModelContent(() => {
-      const value = this.editor.getValue();
-      this.triggerCallback('content-changed', { value });
+    // コンテンツ変更イベント
+    this.editor.onDidChangeModelContent((e) => {
+      this.triggerCallback('content-changed', {
+        value: this.editor.getValue(),
+        changes: e.changes
+      });
     });
 
     // カーソル位置変更イベント
     this.editor.onDidChangeCursorPosition((e) => {
-      this.triggerCallback('cursor-changed', { position: e.position });
+      this.triggerCallback('cursor-changed', {
+        position: e.position,
+        selection: this.editor.getSelection()
+      });
+    });
+
+    // フォーカスイベント
+    this.editor.onDidFocusEditorWidget(() => {
+      this.triggerCallback('focus');
+    });
+
+    this.editor.onDidBlurEditorWidget(() => {
+      this.triggerCallback('blur');
     });
   }
 
   /**
    * エラー表示
    */
-  renderError(message) {
-    this.shadowRoot.innerHTML = `
-      ${this.getStyles()}
-      <div class="monaco-container">
-        <div class="monaco-error">
-          <h3>Monaco Editor Error</h3>
-          <p>${message}</p>
+  showError(message) {
+    const container = this.$('#editor-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="editor-error">
+          <div class="error-message">${message}</div>
         </div>
-      </div>
-    `;
-  }
-
-  /**
-   * コールバック登録
-   */
-  onCallback(event, callback) {
-    if (!this.callbacks.has(event)) {
-      this.callbacks.set(event, []);
-    }
-    this.callbacks.get(event).push(callback);
-  }
-
-  /**
-   * コールバック実行
-   */
-  triggerCallback(event, data) {
-    if (this.callbacks.has(event)) {
-      this.callbacks.get(event).forEach(callback => callback(data));
+      `;
     }
   }
 
   /**
-   * 値取得
+   * エディターの値を取得
    */
   getValue() {
     return this.editor ? this.editor.getValue() : '';
   }
 
   /**
-   * 値設定
+   * エディターの値を設定
    */
   setValue(value) {
     if (this.editor) {
@@ -232,7 +266,16 @@ LIMIT 10;`);
   }
 
   /**
-   * フォーカス
+   * エディターのレイアウトを更新
+   */
+  layout() {
+    if (this.editor) {
+      this.editor.layout();
+    }
+  }
+
+  /**
+   * エディターにフォーカス
    */
   focus() {
     if (this.editor) {
@@ -241,18 +284,62 @@ LIMIT 10;`);
   }
 
   /**
-   * リサイズ
+   * 選択範囲を取得
    */
-  resize() {
-    if (this.editor) {
-      this.editor.layout();
+  getSelection() {
+    return this.editor ? this.editor.getSelection() : null;
+  }
+
+  /**
+   * 選択範囲を設定
+   */
+  setSelection(selection) {
+    if (this.editor && selection) {
+      this.editor.setSelection(selection);
     }
   }
 
   /**
-   * 破棄
+   * カーソル位置を取得
    */
-  dispose() {
+  getPosition() {
+    return this.editor ? this.editor.getPosition() : null;
+  }
+
+  /**
+   * カーソル位置を設定
+   */
+  setPosition(position) {
+    if (this.editor && position) {
+      this.editor.setPosition(position);
+    }
+  }
+
+  /**
+   * 言語を設定
+   */
+  setLanguage(language) {
+    if (this.editor) {
+      const model = this.editor.getModel();
+      if (model) {
+        monaco.editor.setModelLanguage(model, language);
+      }
+    }
+  }
+
+  /**
+   * テーマを設定
+   */
+  setTheme(theme) {
+    if (this.editor) {
+      monaco.editor.setTheme(theme);
+    }
+  }
+
+  /**
+   * コンポーネントの破棄
+   */
+  beforeDestroy() {
     if (this.editor) {
       this.editor.dispose();
       this.editor = null;
@@ -261,55 +348,58 @@ LIMIT 10;`);
   }
 }
 
-// Web Component定義
-class MonacoEditorShadowElement extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    this.component = null;
+/**
+ * Shadow DOM対応のWeb Component
+ */
+export class MonacoEditorShadowElement extends ShadowElementBase {
+  static get componentClass() {
+    return MonacoEditorShadowComponent;
   }
 
-  connectedCallback() {
-    if (!this.component) {
-      const options = {
-        editorConfig: {
-          language: this.getAttribute('language') || 'sql',
-          theme: this.getAttribute('theme') || 'vs-dark',
-          fontSize: parseInt(this.getAttribute('font-size')) || 14,
-          readOnly: this.hasAttribute('readonly')
-        }
-      };
-      
-      this.component = new MonacoEditorShadowComponent(this.shadowRoot, options);
-    }
+  /**
+   * 属性からオプションを収集
+   */
+  gatherOptions() {
+    return {
+      language: this.getAttributeOrDefault('language', 'sql'),
+      theme: this.getAttributeOrDefault('theme', 'vs-dark'),
+      fontSize: this.getNumberAttribute('font-size', 14),
+      tabSize: this.getNumberAttribute('tab-size', 4),
+      wordWrap: this.getAttributeOrDefault('word-wrap', 'off'),
+      readOnly: this.getBooleanAttribute('read-only'),
+      initialValue: this.getAttributeOrDefault('initial-value', '')
+    };
   }
 
-  disconnectedCallback() {
-    if (this.component) {
-      this.component.dispose();
-      this.component = null;
-    }
+  /**
+   * コンポーネントのコールバックを設定
+   */
+  setupComponentCallbacks() {
+    // イベントを外部に伝播
+    ['initialized', 'content-changed', 'cursor-changed', 'focus', 'blur'].forEach(event => {
+      this.component.onCallback(event, (data) => {
+        this.dispatchEvent(new CustomEvent(event, { 
+          detail: data,
+          bubbles: true 
+        }));
+      });
+    });
   }
 
-  // API methods
-  getValue() {
-    return this.component?.getValue();
-  }
+  /**
+   * コンポーネントAPIの公開
+   */
+  exposeComponentAPI() {
+    this.exposeMethods([
+      'getValue', 'setValue', 'layout', 'focus',
+      'getSelection', 'setSelection', 'getPosition', 'setPosition',
+      'setLanguage', 'setTheme'
+    ]);
 
-  setValue(value) {
-    this.component?.setValue(value);
-  }
-
-  focus() {
-    this.component?.focus();
-  }
-
-  resize() {
-    this.component?.resize();
-  }
-
-  onCallback(event, callback) {
-    this.component?.onCallback(event, callback);
+    // エディターインスタンスへの直接アクセス
+    Object.defineProperty(this, 'editor', {
+      get: () => this.component?.editor
+    });
   }
 }
 

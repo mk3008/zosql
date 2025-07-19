@@ -102,7 +102,64 @@ function initializeShadowComponents() {
     rightPanelShadow
   };
   
+  // Setup Shadow DOM component event listeners
+  setupShadowComponentEventListeners();
+  
   console.log('Shadow DOM components initialized');
+}
+
+// Setup Shadow DOM component event listeners
+function setupShadowComponentEventListeners() {
+  const headerShadow = document.getElementById('header-shadow');
+  
+  if (headerShadow) {
+    // Listen for open-file event from header-shadow
+    headerShadow.addEventListener('open-file', async (event) => {
+      console.log('[App] Received open-file event from header-shadow:', event.detail);
+      
+      // Delegate to HeaderControls methods directly
+      if (window.headerControls) {
+        const { fileName, content } = event.detail;
+        
+        try {
+          // Format the SQL content
+          const formattedContent = await window.headerControls.formatSQL(content);
+          
+          // Open in new tab
+          await window.headerControls.openInNewTab(fileName, formattedContent);
+          
+          // Analyze CTE dependencies  
+          await window.headerControls.analyzeCTEDependencies(formattedContent, fileName);
+          
+          // Show success message
+          window.headerControls.showToast(`ファイル "${fileName}" を開きました`, 'success');
+          
+          console.log(`[App] Successfully processed file: ${fileName}`);
+          
+        } catch (error) {
+          console.error('[App] Failed to process file:', error);
+          window.headerControls.showToast(`ファイル処理エラー: ${error.message}`, 'error');
+        }
+      } else {
+        console.error('[App] HeaderControls not available to handle file open');
+      }
+    });
+    
+    // Listen for other header events
+    headerShadow.addEventListener('left-sidebar-toggle', () => {
+      if (window.sidebarManager) {
+        window.sidebarManager.toggleLeftSidebar();
+      }
+    });
+    
+    headerShadow.addEventListener('right-sidebar-toggle', () => {
+      if (window.sidebarManager) {
+        window.sidebarManager.toggleRightSidebar();
+      }
+    });
+  }
+  
+  console.log('[App] Shadow DOM event listeners setup complete');
 }
 
 // Initialize database connection

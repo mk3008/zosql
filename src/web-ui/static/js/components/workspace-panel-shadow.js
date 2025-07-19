@@ -3,36 +3,41 @@
  * Shadow DOMを使用してスタイル分離を実現
  */
 
-// Shadow DOMに対応したWorkspace Panel Component
-export class WorkspacePanelShadowComponent {
-  constructor(shadowRoot, options = {}) {
-    this.shadowRoot = shadowRoot;
+import { ShadowComponentBase, ShadowElementBase } from './base/shadow-component-base.js';
+
+export class WorkspacePanelShadowComponent extends ShadowComponentBase {
+  /**
+   * Pre-initialization setup
+   */
+  beforeInit() {
     this.sections = new Map();
     this.cteTreeComponent = null;
-    
-    // コールバック
-    this.onTableClick = options.onTableClick || (() => {});
-    this.onCteClick = options.onCteClick || (() => {});
-    this.onMainQueryClick = options.onMainQueryClick || (() => {});
-    
-    // 設定
-    this.config = {
-      defaultSections: ['workspace', 'tables'],
-      collapsible: true,
-      persistState: true,
-      ...options
-    };
-
-    this.init();
+    this.cteDependencyData = null;
   }
 
   /**
-   * 初期化
+   * Get default configuration
    */
-  init() {
-    this.loadState();
-    this.render();
-    this.setupEventListeners();
+  getDefaultConfig() {
+    return {
+      defaultSections: ['workspace', 'tables'],
+      collapsible: true,
+      persistState: true
+    };
+  }
+
+  /**
+   * Get event prefix for CustomEvents
+   */
+  getEventPrefix() {
+    return 'workspace-panel';
+  }
+
+  /**
+   * Get localStorage key for state persistence
+   */
+  getStateKey() {
+    return 'workspace-panel-state';
   }
 
   /**
@@ -259,17 +264,14 @@ export class WorkspacePanelShadowComponent {
   }
 
   /**
-   * レンダリング
+   * コンテンツのレンダリング
    */
-  render() {
-    const html = `
-      ${this.getStyles()}
+  renderContent() {
+    return `
       <div class="workspace-panel-content">
         ${this.renderSections()}
       </div>
     `;
-    
-    this.shadowRoot.innerHTML = html;
   }
 
   /**
@@ -367,48 +369,41 @@ export class WorkspacePanelShadowComponent {
    */
   setupEventListeners() {
     // ヘッダークリックでセクション開閉
-    this.shadowRoot.addEventListener('click', (e) => {
-      const header = e.target.closest('.workspace-header');
-      if (header) {
-        const section = header.closest('.workspace-section');
-        const sectionKey = section.dataset.section;
-        
-        // セクション開閉
-        section.classList.toggle('collapsed');
-        this.saveSectionState(sectionKey, section.classList.contains('collapsed'));
-      }
+    this.addClickHandler('.workspace-header', (e, header) => {
+      const section = header.closest('.workspace-section');
+      const sectionKey = section.dataset.section;
       
-      // テーブルクリック
-      const tableItem = e.target.closest('.table-item');
-      if (tableItem) {
-        const tableName = tableItem.dataset.table;
-        if (tableName) {
-          this.handleTableClick(tableName);
-        }
-      }
-      
-      // CTEクリック
-      const cteItem = e.target.closest('.cte-item');
-      if (cteItem) {
-        const cteName = cteItem.dataset.cte;
-        if (cteName) {
-          this.handleCteClick(cteName);
-        }
-      }
+      // セクション開閉
+      section.classList.toggle('collapsed');
+      this.saveSectionState(sectionKey, section.classList.contains('collapsed'));
+    });
 
-      // CTE Tree アイテムクリック（新しいファイルモデル対応）
-      const cteTreeItem = e.target.closest('.cte-tree-item');
-      if (cteTreeItem) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const cteName = cteTreeItem.dataset.cte;
-        if (cteName === 'main') {
-          this.handleMainQueryClick();
-        } else if (cteName) {
-          this.handleCteTreeItemClick(cteName);
-        }
-        return; // 重要：他のイベントハンドラーを防ぐ
+    // テーブルクリック
+    this.addClickHandler('.table-item', (e, tableItem) => {
+      const tableName = tableItem.dataset.table;
+      if (tableName) {
+        this.handleTableClick(tableName);
+      }
+    });
+
+    // CTEクリック
+    this.addClickHandler('.cte-item', (e, cteItem) => {
+      const cteName = cteItem.dataset.cte;
+      if (cteName) {
+        this.handleCteClick(cteName);
+      }
+    });
+
+    // CTE Tree アイテムクリック（新しいファイルモデル対応）
+    this.addClickHandler('.cte-tree-item', (e, cteTreeItem) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const cteName = cteTreeItem.dataset.cte;
+      if (cteName === 'main') {
+        this.handleMainQueryClick();
+      } else if (cteName) {
+        this.handleCteTreeItemClick(cteName);
       }
     });
   }
@@ -418,23 +413,23 @@ export class WorkspacePanelShadowComponent {
    */
   handleTableClick(tableName) {
     // アクティブ状態の更新
-    this.shadowRoot.querySelectorAll('.table-item').forEach(item => {
+    this.$$('.table-item').forEach(item => {
       item.classList.remove('active');
     });
     
-    const tableItem = this.shadowRoot.querySelector(`[data-table="${tableName}"]`);
+    const tableItem = this.$(`[data-table="${tableName}"]`);
     if (tableItem) {
       tableItem.classList.add('active');
     }
     
-    this.onTableClick(tableName);
+    this.triggerCallback('table-click', tableName);
   }
 
   /**
    * CTEクリック処理
    */
   handleCteClick(cteName) {
-    this.onCteClick(cteName);
+    this.triggerCallback('cte-click', cteName);
   }
 
   /**
@@ -557,7 +552,7 @@ export class WorkspacePanelShadowComponent {
    * テーブル一覧の更新
    */
   updateTables(tables) {
-    const tablesList = this.shadowRoot.querySelector('#tables-list');
+    const tablesList = this.$('#tables-list');
     if (!tablesList) return;
     
     const html = tables.map(table => `
@@ -690,10 +685,10 @@ export class WorkspacePanelShadowComponent {
     this.cteDependencyData = data;
     
     // Workspaceセクションのみを再レンダリング
-    const workspaceSection = this.shadowRoot.querySelector('[data-section="workspace"] .workspace-content');
+    const workspaceSection = this.$('[data-section="workspace"] .workspace-content');
     if (workspaceSection) {
       workspaceSection.innerHTML = this.renderCTEDependencyTree();
-      this.setupEventListeners(); // イベントリスナーを再設定
+      // Note: setupEventListeners() is called automatically on render
     }
   }
 
@@ -701,7 +696,7 @@ export class WorkspacePanelShadowComponent {
    * CTE一覧の更新
    */
   updateCtes(ctes) {
-    const ctesList = this.shadowRoot.querySelector('#cte-list');
+    const ctesList = this.$('#cte-list');
     if (!ctesList) return;
     
     const html = ctes.map(cte => `
@@ -730,66 +725,59 @@ export class WorkspacePanelShadowComponent {
   }
 
   /**
-   * 状態の読み込み
+   * Get state to persist
    */
-  loadState() {
-    // セクション状態は個別に読み込み
-  }
-
-  /**
-   * 破棄
-   */
-  destroy() {
-    // Shadow DOM自体が削除される際に自動クリーンアップ
+  getStateToPersist() {
+    return {
+      // セクション状態は localStorage で個別管理されているため、
+      // 特に追加の状態保持は不要
+    };
   }
 }
 
 /**
  * Shadow DOM対応のWeb Component
  */
-export class WorkspacePanelShadowElement extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    this.component = null;
+export class WorkspacePanelShadowElement extends ShadowElementBase {
+  static get componentClass() {
+    return WorkspacePanelShadowComponent;
   }
 
-  connectedCallback() {
-    this.component = new WorkspacePanelShadowComponent(this.shadowRoot, {
-      onTableClick: (tableName) => {
-        this.dispatchEvent(new CustomEvent('table-click', {
-          detail: { tableName },
-          bubbles: true
+  /**
+   * 属性からオプションを収集
+   */
+  gatherOptions() {
+    return {
+      defaultSections: ['workspace', 'tables'],
+      collapsible: this.getBooleanAttribute('collapsible'),
+      persistState: this.getBooleanAttribute('persist-state')
+    };
+  }
+
+  /**
+   * コンポーネントのコールバックを設定
+   */
+  setupComponentCallbacks() {
+    // イベントを外部に伝播
+    ['table-click', 'cte-click', 'main-query-click'].forEach(event => {
+      this.component.onCallback(event, (data) => {
+        this.dispatchEvent(new CustomEvent(event, { 
+          detail: data,
+          bubbles: true 
         }));
-      },
-      onCteClick: (cteName) => {
-        this.dispatchEvent(new CustomEvent('cte-click', {
-          detail: { cteName },
-          bubbles: true
-        }));
-      },
-      onMainQueryClick: () => {
-        this.dispatchEvent(new CustomEvent('main-query-click', {
-          bubbles: true
-        }));
-      }
+      });
     });
   }
 
-  disconnectedCallback() {
-    if (this.component) {
-      this.component.destroy();
-      this.component = null;
-    }
-  }
-
-  // 公開API
-  updateTables(tables) {
-    return this.component?.updateTables(tables);
-  }
-
-  updateCtes(ctes) {
-    return this.component?.updateCtes(ctes);
+  /**
+   * コンポーネントAPIの公開
+   */
+  exposeComponentAPI() {
+    this.exposeMethods([
+      'updateTables', 
+      'updateCtes', 
+      'updateCTEDependencies'
+    ]);
   }
 }
 
