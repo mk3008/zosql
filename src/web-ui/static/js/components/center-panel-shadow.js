@@ -10,6 +10,7 @@
 import { fileModelManager } from '../models/file-model-manager.js';
 import { CenterPanelStyles } from './center-panel-styles.js';
 import { CenterPanelTabManager } from './center-panel-tab-manager.js';
+import { CenterPanelMonacoManager } from './center-panel-monaco-manager.js';
 
 export class CenterPanelShadowComponent {
   constructor(shadowRoot, options = {}) {
@@ -36,6 +37,9 @@ export class CenterPanelShadowComponent {
       maxTabs: this.config.maxTabs,
       enableScrolling: this.config.enableScrolling
     });
+
+    // Monaco Editorマネージャーの初期化
+    this.monacoManager = new CenterPanelMonacoManager(shadowRoot, this.callbacks);
 
     this.init();
   }
@@ -260,6 +264,10 @@ export class CenterPanelShadowComponent {
 
     this.tabManager.callbacks.set('tab-closed', (data) => {
       console.log('[CenterPanelShadow] tab-closed callback received:', data);
+      
+      // Monaco Editorのクリーンアップ
+      this.monacoManager.cleanupMonacoEditor(data.tabId);
+      
       if (data.needsRerender) {
         // タブのDOM要素を削除
         const tabElement = this.shadowRoot.querySelector(`[data-tab-id="${data.tabId}"]`);
@@ -498,8 +506,8 @@ export class CenterPanelShadowComponent {
   updateTabContent(tabId, content, source = 'user') {
     const changed = this.tabManager.updateTabContent(tabId, content, source);
     if (changed) {
-      // Monaco Editorがある場合は更新
-      const editor = this.tabManager.getMonacoEditor(tabId);
+      // Monaco Editorがある場合は更新（Monaco Managerから取得）
+      const editor = this.monacoManager.getMonacoEditor(tabId);
       if (editor && source !== 'monaco') {
         editor.setValue(content);
       }
@@ -564,28 +572,11 @@ export class CenterPanelShadowComponent {
       content.classList.toggle('active', isActive);
     });
     
-    // 外部Monaco Editorコンテナの最小限制御
-    // タブが存在しない場合のみ全てのコンテナを非表示
-    if (this.tabManager.getTabCount() === 0) {
-      const externalContainers = document.querySelectorAll('[id^="monaco-external-"]');
-      externalContainers.forEach(container => {
-        container.style.display = 'none';
-      });
-    } else {
-      // タブが存在する場合は、アクティブコンテナのみ表示（位置同期に委ねる）
-      const externalContainers = document.querySelectorAll('[id^="monaco-external-"]');
-      externalContainers.forEach(container => {
-        const tabId = container.id.replace('monaco-external-', '');
-        if (tabId === this.tabManager.activeTabId) {
-          container.style.display = 'block';
-          // 位置同期は既存のsyncPositionメカニズムに委ねる
-        } else if (this.tabManager.hasTab(tabId)) {
-          // 存在するタブの非アクティブコンテナは非表示
-          container.style.display = 'none';
-        }
-        // 削除されたタブのコンテナはcloseTabで削除済み
-      });
-    }
+    // 外部Monaco Editorコンテナの表示制御（Monaco Managerに委譲）
+    this.monacoManager.updateExternalContainerVisibility(
+      this.tabManager.activeTabId,
+      this.tabManager.getAllTabs().map(tab => tab.id)
+    );
 
     // スプリッターレイアウトの更新
     this.updateSplitterLayout();
@@ -694,21 +685,21 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * アクティブタブのMonaco Editorの同期を強制実行
+   * アクティブタブのMonaco Editorの同期を強制実行（Monaco Managerに委譲）
    */
   syncActiveMonacoEditor() {
-    return this.tabManager.syncActiveMonacoEditor();
+    return this.monacoManager.syncActiveMonacoEditor(this.tabManager.activeTabId);
   }
 
   /**
-   * Monaco Editorインスタンスの管理（タブマネージャーに委譲）
+   * Monaco Editorインスタンスの管理（Monaco Managerに委譲）
    */
   setMonacoEditor(tabId, editor) {
-    this.tabManager.setMonacoEditor(tabId, editor);
+    this.monacoManager.setMonacoEditor(tabId, editor);
   }
 
   getMonacoEditor(tabId) {
-    return this.tabManager.getMonacoEditor(tabId);
+    return this.monacoManager.getMonacoEditor(tabId);
   }
 
   /**
@@ -718,6 +709,9 @@ export class CenterPanelShadowComponent {
     this.callbacks.clear();
     if (this.tabManager) {
       this.tabManager.destroy();
+    }
+    if (this.monacoManager) {
+      this.monacoManager.destroy();
     }
     console.log('[CenterPanelShadow] Destroyed');
   }
@@ -739,7 +733,7 @@ export class CenterPanelShadowElement extends HTMLElement {
     // コールバック設定
     this.component.onCallback('tab-created', (data) => {
       console.log('[CenterPanelShadow] Tab created:', data);
-      this.setupMonacoEditor(data.tabId);
+      this.component.monacoManager.setupMonacoEditor(data.tabId, this.component);
       this.dispatchEvent(new CustomEvent('tab-created', { 
         detail: data, 
         bubbles: true 
@@ -755,7 +749,7 @@ export class CenterPanelShadowElement extends HTMLElement {
 
     this.component.onCallback('tab-changed', (data) => {
       console.log('[CenterPanelShadow] Tab changed:', data);
-      this.setupMonacoEditor(data.tabId);
+      this.component.monacoManager.setupMonacoEditor(data.tabId, this.component);
       this.dispatchEvent(new CustomEvent('tab-changed', { 
         detail: data, 
         bubbles: true 
@@ -790,7 +784,7 @@ export class CenterPanelShadowElement extends HTMLElement {
         const editorContainer = this.shadowRoot.getElementById(`editor-${activeTab.id}`);
         if (editorContainer && !editorContainer.dataset.monacoInitialized) {
           console.log('[CenterPanelShadow] Fallback Monaco setup for tab:', activeTab.id);
-          this.setupMonacoEditor(activeTab.id);
+          this.component.monacoManager.setupMonacoEditor(activeTab.id, this.component);
         }
       }
     }, 800);
@@ -818,268 +812,9 @@ export class CenterPanelShadowElement extends HTMLElement {
     }
   }
 
-  // Monaco Editor セットアップ
+  // Monaco Editor セットアップ（Monaco Managerに委譲）
   setupMonacoEditor(tabId) {
-    console.log(`[CenterPanelShadow] setupMonacoEditor called for tab: ${tabId}`);
-    
-    const editorContainer = this.shadowRoot.getElementById(`editor-${tabId}`);
-    if (!editorContainer) {
-      console.warn(`[CenterPanelShadow] Editor container not found for tab: ${tabId}`);
-      return;
-    }
-    
-    if (editorContainer.dataset.monacoInitialized) {
-      console.log(`[CenterPanelShadow] Monaco Editor already initialized for tab: ${tabId}`);
-      return;
-    }
-    
-    // コンテナのサイズを確認
-    const rect = editorContainer.getBoundingClientRect();
-    console.log(`[CenterPanelShadow] Editor container size for ${tabId}: ${rect.width}x${rect.height}`);
-
-    console.log('[CenterPanelShadow] Setting up Monaco Editor for tab:', tabId);
-
-    // Monaco Editorのロードを待つ
-    this.waitForMonaco().then(() => {
-      try {
-        /**
-         * 重要な設計判断: Monaco EditorをShadow DOMの外で作成
-         * 
-         * 理由:
-         * 1. IME（日本語入力）の問題
-         *    - Shadow DOM内でMonaco Editorを作成すると、IMEの入力エリアが正しく配置されない
-         *    - 高さ0の不可視テキストボックスが作成され、入力が正常に機能しない
-         * 
-         * 2. DOM操作の制約
-         *    - Monaco Editorは内部でdocument.activeElementやグローバルイベントを使用
-         *    - Shadow DOM境界を越えられないため、フォーカス管理が正常に動作しない
-         * 
-         * 3. イベント伝播の問題
-         *    - キーボードイベント、マウスイベントがShadow DOM内で正しく伝播しない
-         *    - 選択範囲の計算やカーソル位置の処理に問題が発生
-         * 
-         * 解決策:
-         * - Monaco Editorを通常のDOM（document.body）に作成
-         * - Shadow DOM内のコンテナ位置を監視し、外部エディターの位置を同期
-         * - スプリッター、サイドバー開閉、タブ切り替えに対応した位置同期システム
-         * 
-         * 注意: この実装を変更する場合は、必ず日本語入力のテストを実施すること
-         */
-        
-        // Monaco EditorをShadow DOMの外で作成
-        const externalContainer = document.createElement('div');
-        externalContainer.id = `monaco-external-${tabId}`;
-        externalContainer.style.width = '100%';
-        externalContainer.style.height = '100%';
-        externalContainer.style.position = 'absolute';
-        externalContainer.style.top = '0';
-        externalContainer.style.left = '0';
-        externalContainer.style.zIndex = '1';
-        
-        // 初期表示状態を設定（Monaco Editorの正常な初期化のため、常にblockで作成）
-        const isActiveTab = (tabId === this.component.tabManager.activeTabId);
-        externalContainer.style.display = 'block';
-        
-        // 非アクティブタブは画面外に配置（display:noneではなく位置で制御）
-        if (!isActiveTab) {
-          externalContainer.style.left = '-9999px';
-          externalContainer.style.top = '-9999px';
-        }
-        console.log(`[CenterPanelShadow] Setting initial state for ${externalContainer.id}: ${isActiveTab ? 'active' : 'off-screen'}`);
-        
-        // Shadow DOM内のエディターコンテナに外部コンテナのプレースホルダーを作成
-        editorContainer.innerHTML = `
-          <div style="width: 100%; height: 100%; position: relative; background: #1e1e1e;">
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888;">
-              Monaco Editor (External DOM)
-            </div>
-          </div>
-        `;
-        editorContainer.style.position = 'relative';
-        editorContainer.dataset.externalId = externalContainer.id;
-        
-        // 外部コンテナをShadow DOM内のコンテナに位置合わせ
-        document.body.appendChild(externalContainer);
-        
-        // ファイルモデルからコンテンツを取得
-        const tab = this.component.tabManager.tabs.get(tabId);
-        const fileModel = this.component.getFileModelForTab(tabId);
-        const initialContent = fileModel ? fileModel.getContent() : '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;';
-        
-        const editor = window.monaco.editor.create(externalContainer, {
-          value: initialContent,
-          language: 'sql',
-          automaticLayout: true,
-          theme: 'vs-dark',
-          scrollBeyondLastLine: false,
-          scrollBeyondLastColumn: 0,
-          scrollbar: {
-            verticalScrollbarSize: 10,
-            horizontalScrollbarSize: 10,
-            horizontal: 'auto',
-            vertical: 'auto'
-          },
-          wordWrap: 'off',
-          minimap: {
-            enabled: false
-          }
-        });
-        
-        // 位置とサイズを同期する関数
-        const syncPosition = () => {
-          console.log(`[CenterPanelShadow] syncPosition called for tab ${tabId}`);
-          
-          const rect = editorContainer.getBoundingClientRect();
-          const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-          
-          console.log(`[CenterPanelShadow] Shadow DOM container rect for ${tabId}: ${rect.left}, ${rect.top}, ${rect.width}x${rect.height}`);
-          
-          // エディターコンテナの状態を詳しく確認
-          console.log(`[CenterPanelShadow] Editor container display: ${window.getComputedStyle(editorContainer).display}`);
-          console.log(`[CenterPanelShadow] Editor container parent:`, editorContainer.parentElement?.className);
-          
-          externalContainer.style.position = 'fixed';
-          externalContainer.style.left = rect.left + 'px';
-          externalContainer.style.top = rect.top + 'px';
-          externalContainer.style.width = rect.width + 'px';
-          externalContainer.style.height = rect.height + 'px';
-          
-          // エディターの表示制御は updateActiveTabDisplay に委ね、ここでは位置のみ同期
-          // サイズが正常な場合のみ位置を更新
-          if (rect.width > 0 && rect.height > 0) {
-            // 位置情報のみ更新（表示状態は変更しない）
-          }
-          
-          // Monaco Editorのレイアウトを更新
-          if (editor && rect.width > 0 && rect.height > 0) {
-            editor.layout();
-          }
-        };
-        
-        // 初期位置設定
-        setTimeout(syncPosition, 100);
-        
-        // リサイズイベントで位置同期
-        window.addEventListener('resize', syncPosition);
-        
-        // サイドバー開閉イベントで位置同期
-        document.addEventListener('sidebar-toggled', syncPosition);
-        
-        // Shadow DOM要素の変更を監視
-        const observer = new MutationObserver(syncPosition);
-        observer.observe(editorContainer, { attributes: true, childList: true, subtree: true });
-        
-        // スプリッターのドラッグイベントを監視
-        const splitter = this.shadowRoot.querySelector('.splitter');
-        if (splitter) {
-          splitter.addEventListener('mousedown', () => {
-            const mouseMoveHandler = () => syncPosition();
-            const mouseUpHandler = () => {
-              document.removeEventListener('mousemove', mouseMoveHandler);
-              document.removeEventListener('mouseup', mouseUpHandler);
-            };
-            document.addEventListener('mousemove', mouseMoveHandler);
-            document.addEventListener('mouseup', mouseUpHandler);
-          });
-        }
-        
-        // 位置同期インターバル（頻度を下げ、アクティブタブのみ同期）
-        const syncInterval = setInterval(() => {
-          // アクティブタブの場合のみ同期実行
-          if (tabId === this.component.tabManager.activeTabId) {
-            const rect = editorContainer.getBoundingClientRect();
-            // サイズが0の場合は同期をスキップ（無限ループ防止）
-            if (rect.width > 0 && rect.height > 0) {
-              syncPosition();
-            }
-          }
-        }, 200);
-        editorContainer.syncInterval = syncInterval;
-        
-        // クリーンアップ情報を保存
-        editorContainer.externalContainer = externalContainer;
-        editorContainer.positionSync = syncPosition;
-        editorContainer.resizeObserver = observer;
-        
-        console.log('[DEBUG] Monaco Editor created outside Shadow DOM with position sync');
-
-        // エディターインスタンスを保存
-        editorContainer.monacoEditor = editor;
-        editorContainer.dataset.monacoInitialized = 'true';
-        this.component.setMonacoEditor(tabId, editor);
-
-        // ファイルモデルとの同期設定
-        if (fileModel) {
-          // エディターの変更をファイルモデルに反映
-          editor.onDidChangeModelContent(() => {
-            const content = editor.getValue();
-            this.component.updateTabContent(tabId, content, 'monaco');
-          });
-          
-          console.log('[CenterPanelShadow] File model synchronization enabled for tab:', tabId);
-        }
-
-        console.log('[CenterPanelShadow] Monaco Editor initialized successfully for tab:', tabId);
-
-        // レイアウト調整
-        setTimeout(() => {
-          editor.layout();
-        }, 100);
-      } catch (error) {
-        console.error('[CenterPanelShadow] Monaco Editor creation failed:', error);
-        editorContainer.innerHTML = `<div style="padding: 20px; color: #f44336;">Monaco Editor initialization failed: ${error.message}</div>`;
-      }
-    }).catch(error => {
-      console.error('[CenterPanelShadow] Monaco Editor load timeout:', error);
-      editorContainer.innerHTML = `
-        <div style="padding: 20px; color: #f44336; text-align: center;">
-          <h3>Monaco Editor Load Failed</h3>
-          <p>${error.message}</p>
-          <p style="font-size: 12px; color: #888;">
-            Please check your internet connection and reload the page.
-          </p>
-          <button onclick="location.reload()" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Reload Page
-          </button>
-        </div>
-      `;
-    });
-  }
-
-  // Monaco Editorのロードを待つヘルパーメソッド
-  waitForMonaco(timeout = 15000) {
-    return new Promise((resolve, reject) => {
-      // 既にロード済みの場合
-      if (typeof window.monaco !== 'undefined' && window.monaco.editor) {
-        console.log('[CenterPanelShadow] Monaco Editor already available');
-        resolve();
-        return;
-      }
-      
-      // monacoLoadedフラグをチェック
-      if (window.monacoLoaded) {
-        console.log('[CenterPanelShadow] Monaco Editor loaded flag detected');
-        resolve();
-        return;
-      }
-      
-      // イベントリスナーで待機
-      const onMonacoLoaded = () => {
-        console.log('[CenterPanelShadow] Monaco Editor loaded via event');
-        window.removeEventListener('monaco-loaded', onMonacoLoaded);
-        clearTimeout(timeoutId);
-        resolve();
-      };
-      
-      window.addEventListener('monaco-loaded', onMonacoLoaded);
-      
-      // タイムアウト設定
-      const timeoutId = setTimeout(() => {
-        window.removeEventListener('monaco-loaded', onMonacoLoaded);
-        reject(new Error('Monaco Editor load timeout after ' + timeout + 'ms'));
-      }, timeout);
-    });
+    return this.component.monacoManager.setupMonacoEditor(tabId, this.component);
   }
 
   // 公開API
@@ -1115,21 +850,10 @@ export class CenterPanelShadowElement extends HTMLElement {
     return this.component?.getAllTabs();
   }
 
-  // デバッグ用メソッド
+  // デバッグ用メソッド（Monaco Managerに委譲）
   debugMonacoEditor() {
-    console.log('[CenterPanelShadow] Debug Monaco Editor:');
-    console.log('  - Component:', !!this.component);
-    console.log('  - Active tab:', this.component?.getActiveTab());
-    console.log('  - All tabs:', this.component?.getAllTabs());
-    console.log('  - Monaco available:', typeof monaco !== 'undefined');
-    
     const activeTab = this.component?.getActiveTab();
-    if (activeTab) {
-      const editorContainer = this.shadowRoot.getElementById(`editor-${activeTab.id}`);
-      console.log('  - Editor container:', !!editorContainer);
-      console.log('  - Monaco initialized:', editorContainer?.dataset.monacoInitialized);
-      console.log('  - Monaco instance:', !!editorContainer?.monacoEditor);
-    }
+    this.component?.monacoManager.debugMonacoEditor(activeTab?.id);
   }
 }
 
@@ -1156,7 +880,7 @@ window.forceMonacoSetup = () => {
   if (centerPanel && centerPanel.component) {
     const activeTab = centerPanel.component.getActiveTab();
     if (activeTab) {
-      centerPanel.setupMonacoEditor(activeTab.id);
+      centerPanel.component.monacoManager.setupMonacoEditor(activeTab.id, centerPanel.component);
       console.log('[Debug] Forced Monaco setup for tab:', activeTab.id);
     } else {
       console.log('[Debug] No active tab found');
