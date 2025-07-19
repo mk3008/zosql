@@ -288,44 +288,14 @@ export class SidebarManager {
    * 従来版ボタンの更新
    */
   updateTraditionalButtons() {
-    const leftToggleBtn = document.getElementById('toggle-left-sidebar');
-    const rightToggleBtn = document.getElementById('toggle-right-sidebar');
-    
-    if (leftToggleBtn) {
-      leftToggleBtn.innerHTML = this.state.leftSidebar ? '◀' : '▶';
-      leftToggleBtn.title = this.state.leftSidebar ? 'Hide Left Sidebar' : 'Show Left Sidebar';
-      leftToggleBtn.style.opacity = this.state.leftSidebar ? '1' : '0.6';
-    }
-    
-    if (rightToggleBtn) {
-      rightToggleBtn.innerHTML = this.state.rightSidebar ? '▶' : '◀';
-      rightToggleBtn.title = this.state.rightSidebar ? 'Hide Right Sidebar' : 'Show Right Sidebar';
-      rightToggleBtn.style.opacity = this.state.rightSidebar ? '1' : '0.6';
-    }
+    // ボタンのHTMLは初期化時に設定済みのため、更新処理は不要
   }
 
   /**
    * Shadow DOM版ボタンの更新
    */
   updateShadowDOMButtons() {
-    const headerShadow = document.getElementById('header-shadow');
-    if (headerShadow && headerShadow.component) {
-      // Shadow DOM内のボタンを更新
-      const leftBtn = headerShadow.shadowRoot?.getElementById('toggle-left-sidebar');
-      const rightBtn = headerShadow.shadowRoot?.getElementById('toggle-right-sidebar');
-      
-      if (leftBtn) {
-        leftBtn.innerHTML = this.state.leftSidebar ? '◀' : '▶';
-        leftBtn.title = this.state.leftSidebar ? 'Hide Left Sidebar' : 'Show Left Sidebar';
-        leftBtn.style.opacity = this.state.leftSidebar ? '1' : '0.6';
-      }
-      
-      if (rightBtn) {
-        rightBtn.innerHTML = this.state.rightSidebar ? '▶' : '◀';
-        rightBtn.title = this.state.rightSidebar ? 'Hide Right Sidebar' : 'Show Right Sidebar';
-        rightBtn.style.opacity = this.state.rightSidebar ? '1' : '0.6';
-      }
-    }
+    // ボタンのHTMLは初期化時に設定済みのため、更新処理は不要
   }
 
   /**
