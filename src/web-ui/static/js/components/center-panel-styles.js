@@ -337,7 +337,9 @@ export class CenterPanelStyles {
           background: var(--bg-primary, #1e1e1e);
           color: var(--text-primary, #cccccc);
           overflow: auto;
-          padding: 12px;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
         }
         
         .results-placeholder {
@@ -345,6 +347,102 @@ export class CenterPanelStyles {
           color: var(--text-muted, #666666);
           font-style: italic;
           padding: 40px 20px;
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        /* SQL Results Grid Styles */
+        .results-table-container {
+          overflow: auto;
+          height: 100%;
+          background: #1e1e1e;
+        }
+        
+        .results-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+          font-size: 13px;
+          color: #cccccc;
+          border: 1px solid #404040;
+        }
+        
+        .results-table th {
+          background: #2d2d30;
+          color: #ffffff;
+          font-weight: 600;
+          padding: 8px 12px;
+          text-align: left;
+          border: 1px solid #404040;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          white-space: nowrap;
+        }
+        
+        .results-table td {
+          padding: 6px 12px;
+          border: 1px solid #333333;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 300px;
+        }
+        
+        .results-table tbody tr:hover {
+          background: #252526;
+        }
+        
+        .results-table tbody tr:nth-child(even) {
+          background: #1a1a1a;
+        }
+        
+        .results-table tbody tr:nth-child(even):hover {
+          background: #2a2a2a;
+        }
+        
+        /* Results states */
+        .results-loading {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100px;
+          color: #cccccc;
+          font-style: italic;
+        }
+        
+        .results-empty {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100px;
+          color: #888888;
+          font-style: italic;
+        }
+        
+        .results-error {
+          padding: 20px;
+          color: #f44336;
+          background: rgba(244, 67, 54, 0.1);
+          border: 1px solid #f44336;
+          border-radius: 4px;
+          margin: 10px;
+          font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+          font-size: 13px;
+          line-height: 1.4;
+        }
+        
+        .results-info {
+          background: #2d2d30;
+          padding: 6px 12px;
+          border-top: 1px solid #404040;
+          color: #cccccc;
+          font-size: 12px;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          position: sticky;
+          bottom: 0;
         }
         
         /* ツールバーボタン */

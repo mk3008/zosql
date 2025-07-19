@@ -43,14 +43,53 @@ class PGliteManager {
 
     const startTime = Date.now();
     try {
-      this.logger.query(`PGlite: Executing query: ${sql.substring(0, 100)}...`);
+      this.logger.query(`PGlite: Executing full query: ${sql}`);
       const result = await this.db!.query(sql);
       const executionTime = Date.now() - startTime;
       
+      // Detailed logging for debugging
       this.logger.query(`PGlite: Query executed successfully in ${executionTime}ms (rows: ${result.rows?.length || 0}, fields: ${result.fields?.length || 0})`);
+      this.logger.query(`PGlite: Fields: ${JSON.stringify(result.fields)}`);
+      this.logger.query(`PGlite: Rows (raw): ${JSON.stringify(result.rows)}`);
+      this.logger.query(`PGlite: First row keys: ${result.rows?.[0] ? Object.keys(result.rows[0]).join(', ') : 'none'}`);
+      this.logger.query(`PGlite: First row values: ${result.rows?.[0] ? Object.values(result.rows[0]).join(', ') : 'none'}`);
+
+      // Process rows to handle duplicate column names
+      const processedRows = result.rows?.map(row => {
+        // If row is already an array, return as-is
+        if (Array.isArray(row)) {
+          return row;
+        }
+        
+        // Convert object to array based on field order
+        const values: any[] = [];
+        const seenFields: { [key: string]: boolean } = {};
+        const rowObj = row as { [key: string]: any };
+        
+        for (const field of result.fields || []) {
+          const fieldName = field.name;
+          if (rowObj.hasOwnProperty(fieldName)) {
+            if (seenFields[fieldName]) {
+              // For duplicate field names, we can't reliably get the value
+              // This is a limitation of object-based response
+              values.push(null);
+            } else {
+              values.push(rowObj[fieldName]);
+              seenFields[fieldName] = true;
+            }
+          } else {
+            values.push(null);
+          }
+        }
+        
+        return values;
+      }) || [];
+
+      // Log processed data
+      this.logger.query(`PGlite: Processed rows: ${JSON.stringify(processedRows)}`);
 
       return {
-        rows: result.rows || [],
+        rows: processedRows,
         fields: result.fields || [],
         executionTime
       };

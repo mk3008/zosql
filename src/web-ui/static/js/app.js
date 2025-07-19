@@ -334,10 +334,36 @@ function displayQueryResults(tabId, queryResult) {
   html += '<tbody>';
   result.rows.forEach(row => {
     html += '<tr>';
-    result.fields.forEach(field => {
-      const value = row[field.name];
-      html += `<td>${escapeHtml(String(value ?? ''))}</td>`;
-    });
+    
+    // Handle case where multiple columns have the same name (e.g., multiple ?column?)
+    if (Array.isArray(row)) {
+      // If row is an array, use index-based access
+      result.fields.forEach((field, index) => {
+        const value = row[index];
+        html += `<td>${escapeHtml(String(value ?? ''))}</td>`;
+      });
+    } else {
+      // If row is an object, try to handle duplicate keys
+      const values = [];
+      const seenNames = {};
+      
+      result.fields.forEach(field => {
+        const fieldName = field.name;
+        if (seenNames[fieldName]) {
+          // For duplicate field names, we can't reliably extract from object
+          // This is a limitation of the current PGlite response format
+          values.push('N/A');
+        } else {
+          values.push(row[fieldName]);
+          seenNames[fieldName] = true;
+        }
+      });
+      
+      values.forEach(value => {
+        html += `<td>${escapeHtml(String(value ?? ''))}</td>`;
+      });
+    }
+    
     html += '</tr>';
   });
   html += '</tbody></table>';

@@ -135,6 +135,22 @@ export class CenterPanelMonacoManager {
       // 位置同期機能のセットアップ
       this.setupPositionSync(tabId, component, editorContainer, externalContainer, editor);
 
+      // キーボードショートカットを追加
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+        console.log('[Monaco] Ctrl+Enter pressed in tab:', tabId);
+        component.handleToolbarAction('run');
+      });
+      
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
+        console.log('[Monaco] Ctrl+Shift+F pressed in tab:', tabId);
+        component.handleToolbarAction('format');
+      });
+      
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+        console.log('[Monaco] Ctrl+S pressed in tab:', tabId);
+        component.handleToolbarAction('save');
+      });
+
       // エディターインスタンスを保存
       editorContainer.monacoEditor = editor;
       editorContainer.dataset.monacoInitialized = 'true';
