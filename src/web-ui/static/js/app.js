@@ -3,6 +3,7 @@
 import { Logger } from './modules/logger.js';
 import { SidebarManager } from './modules/sidebar-manager.js';
 import { HeaderControls } from './modules/header-controls.js';
+import { initializeUI } from './modules/ui.js';
 import './modules/toast.js';
 
 // Global state management - Shadow DOM Architecture
@@ -44,6 +45,9 @@ async function initializeApp() {
     
     // Initialize components
     initializeShadowComponents();
+    
+    // Initialize UI components (including resize handles)
+    initializeUI();
     
     // Initialize database connection
     await initializeDatabase();

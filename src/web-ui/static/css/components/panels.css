@@ -69,17 +69,7 @@
   @apply text-gray-500 text-sm text-center py-8;
 }
 
-.resize-handle {
-  @apply absolute top-0 right-0 h-full cursor-col-resize
-         hover:bg-gray-400 transition-colors;
-  width: 1px !important;
-  background: var(--border-primary) !important;
-  box-shadow: none !important;
-  border: none !important;
-  outline: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
+/* Generic resize handle removed - specific handles defined in layout.css */
 
 .panel-results-resize-handle {
   @apply absolute top-0 left-0 w-full h-1 cursor-row-resize

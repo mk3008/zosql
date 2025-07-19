@@ -210,7 +210,7 @@ export function closeSplitView() {
   }
 }
 
-// Resize handlers
+// Resize handlers - Optimized for performance
 function startResize(e, type) {
   e.preventDefault();
   
@@ -226,25 +226,63 @@ function startResize(e, type) {
   if (!element) return;
   
   const startWidth = parseInt(document.defaultView.getComputedStyle(element).width, 10);
+  let isResizing = false;
+  let rafId;
+  
+  // Set cursor for better UX
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none'; // Prevent text selection
+  
+  // Disable transition during resize for immediate response
+  const originalTransition = element.style.transition;
+  element.style.transition = 'none';
   
   function doResize(e) {
-    const currentX = e.clientX;
-    let newWidth;
-    
-    if (type === 'left') {
-      newWidth = startWidth + (currentX - startX);
-    } else if (type === 'context') {
-      newWidth = startWidth - (currentX - startX);
+    // Cancel previous frame if pending (throttle instead of debounce)
+    if (rafId) {
+      cancelAnimationFrame(rafId);
     }
     
-    if (newWidth >= 200 && newWidth <= 600) {
+    // Use requestAnimationFrame for smooth animation
+    rafId = requestAnimationFrame(() => {
+      const currentX = e.clientX;
+      let newWidth;
+      
+      if (type === 'left') {
+        newWidth = startWidth + (currentX - startX);
+      } else if (type === 'context') {
+        newWidth = startWidth - (currentX - startX);
+      }
+      
+      // Apply constraints
+      newWidth = Math.max(200, Math.min(600, newWidth));
+      
+      // Use direct style setting for performance
       element.style.width = newWidth + 'px';
-    }
+      
+      rafId = null; // Clear the frame ID
+    });
   }
   
   function stopResize() {
+    // Cancel any pending animation frame
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+    }
+    
+    // Restore original transition
+    element.style.transition = originalTransition;
+    
+    // Reset cursor and selection
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    
+    // Clean up event listeners
     document.removeEventListener('mousemove', doResize);
     document.removeEventListener('mouseup', stopResize);
+    
+    // Force layout update for Monaco Editor
+    setTimeout(() => updateMonacoEditorLayout(), 0);
   }
   
   document.addEventListener('mousemove', doResize);
