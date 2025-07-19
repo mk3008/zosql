@@ -260,6 +260,25 @@ export class HeaderShadowComponent extends ShadowComponentBase {
         this.setLoading(false);
       }
     };
+
+    // Handle cancel case - if user cancels the dialog, onchange won't fire
+    // Use focus event to detect when dialog is closed without selection
+    const handleCancel = () => {
+      // Set a timeout to check if a file was selected
+      setTimeout(() => {
+        if (!input.files || input.files.length === 0) {
+          // No file was selected (dialog was canceled)
+          this.setLoading(false);
+          console.log('[HeaderShadow] File dialog was canceled');
+        }
+      }, 100); // Small delay to ensure onchange has time to fire if file was selected
+      
+      // Clean up the event listener
+      window.removeEventListener('focus', handleCancel);
+    };
+
+    // Listen for window focus to detect dialog close
+    window.addEventListener('focus', handleCancel);
     
     input.click();
   }
