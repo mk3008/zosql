@@ -531,8 +531,17 @@ ${formattedQuery}`;
         
         // Write back to original file if specified
         if (workspaceInfo.originalFilePath) {
-          await fs.writeFile(workspaceInfo.originalFilePath, composedQuery, 'utf8');
-          this.logger.log(`[WORKSPACE] Composed query written to: ${workspaceInfo.originalFilePath}`);
+          // Ensure we don't overwrite workspace files
+          const originalPath = path.resolve(process.cwd(), workspaceInfo.originalFilePath);
+          const workspacePath = path.resolve(this.workspaceBasePath);
+          
+          // Only write if the original file is outside the workspace directory
+          if (!originalPath.startsWith(workspacePath)) {
+            await fs.writeFile(originalPath, composedQuery, 'utf8');
+            this.logger.log(`[WORKSPACE] Composed query written to: ${originalPath}`);
+          } else {
+            this.logger.log(`[WORKSPACE] Skipped writing to workspace file: ${originalPath}`);
+          }
         }
         
         res.json({
@@ -643,24 +652,48 @@ ${formattedQuery}`;
       const { type, fileName } = req.params;
       
       this.logger.log(`[WORKSPACE] Getting ${type} file: ${fileName}`);
+      console.log(`[WORKSPACE API] Request details:`, {
+        type,
+        fileName,
+        workspaceBasePath: this.workspaceBasePath,
+        fullPath: type === 'main' ? path.join(this.workspaceBasePath, fileName) : null
+      });
 
       let filePath: string;
       let content: string = '';
 
       switch (type) {
         case 'main':
-          // Main query file - look in workspace info
+          // Main query file - try multiple approaches
           try {
-            const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
-            const infoContent = await fs.readFile(infoPath, 'utf8');
-            const workspaceInfo: WorkspaceInfo = JSON.parse(infoContent);
+            // 1. First try to read the direct SQL file from workspace root
+            const mainFileName = fileName.replace(/\.(sql)?$/, '') + '.sql';
+            const mainFilePath = path.join(this.workspaceBasePath, mainFileName);
             
-            content = workspaceInfo.originalQuery || workspaceInfo.decomposedQuery || '';
-            this.logger.log(`[WORKSPACE] Retrieved main query from workspace info (${content.length} chars)`);
+            try {
+              console.log(`[WORKSPACE API] Trying to read main file at: ${mainFilePath}`);
+              content = await fs.readFile(mainFilePath, 'utf8');
+              console.log(`[WORKSPACE API] SUCCESS: Read main query from workspace file: ${mainFileName} (${content.length} chars)`);
+              this.logger.log(`[WORKSPACE] Retrieved main query from workspace file: ${mainFileName} (${content.length} chars)`);
+            } catch (directFileError) {
+              console.log(`[WORKSPACE API] FAILED: Direct file read failed for ${mainFileName}:`, directFileError);
+              this.logger.log(`[WORKSPACE] Direct file read failed for ${mainFileName}: ${directFileError instanceof Error ? directFileError.message : 'Unknown error'}`);
+              
+              // 2. Fallback to workspace info
+              const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
+              console.log(`[WORKSPACE API] Falling back to workspace info at: ${infoPath}`);
+              const infoContent = await fs.readFile(infoPath, 'utf8');
+              const workspaceInfo: WorkspaceInfo = JSON.parse(infoContent);
+              
+              // Use decomposedQuery (formatted) instead of originalQuery
+              content = workspaceInfo.decomposedQuery || workspaceInfo.originalQuery || '';
+              console.log(`[WORKSPACE API] Retrieved main query from workspace info (${content.length} chars)`);
+              this.logger.log(`[WORKSPACE] Retrieved main query from workspace info (${content.length} chars)`);
+            }
           } catch (infoError) {
             this.logger.log(`[WORKSPACE] Could not read workspace info: ${infoError instanceof Error ? infoError.message : 'Unknown error'}`);
             
-            // Fallback: try to read from the original file path if available
+            // 3. Final fallback: try to read from the original file path if available
             try {
               const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
               const infoContent = await fs.readFile(infoPath, 'utf8');

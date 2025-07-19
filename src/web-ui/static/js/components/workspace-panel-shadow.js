@@ -433,30 +433,43 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
   }
 
   /**
-   * メインクエリクリック処理（ファイルモデル対応）
+   * メインクエリクリック処理
    */
   handleMainQueryClick() {
-    console.log('[WorkspacePanelShadow] Main query clicked');
-    
-    if (!this.cteDependencyData || !this.cteDependencyData.mainQueryName) {
-      console.warn('[WorkspacePanelShadow] No main query data available');
+    if (!this.cteDependencyData) {
+      console.error('[WorkspacePanelShadow] No CTE dependency data available');
       return;
     }
 
-    // メインクエリのコンテンツを明示的に渡す
-    const mainQueryContent = this.cteDependencyData.mainQuery || '';
-    console.log(`[WorkspacePanelShadow] Main query content length: ${mainQueryContent.length}`);
+    const queryName = this.cteDependencyData.name || 
+                     this.cteDependencyData.mainQueryName ||
+                     (this.cteDependencyData.originalFilePath && 
+                      this.cteDependencyData.originalFilePath.replace(/\.sql$/i, '')) ||
+                     'main_query';
+    const mainQueryFileName = queryName + '.sql';
     
-    // ワークスペースからメインクエリファイルを取得
-    this.openWorkspaceFile(this.cteDependencyData.mainQueryName, 'main', mainQueryContent);
+    const mainQueryContent = this.cteDependencyData.decomposedQuery || 
+                            this.cteDependencyData.mainQuery || '';
+    
+    if (!mainQueryContent) {
+      console.warn('[WorkspacePanelShadow] No content available for main query');
+      return;
+    }
+    
+    const centerPanel = document.getElementById('center-panel-shadow');
+    if (centerPanel && centerPanel.createOrReuseTabForFile) {
+      centerPanel.createOrReuseTabForFile(mainQueryFileName, mainQueryContent, {
+        type: 'sql'
+      });
+    } else {
+      console.error('[WorkspacePanelShadow] Center panel not available or method missing');
+    }
   }
 
   /**
-   * CTEツリーアイテムクリック処理（ファイルモデル対応）
+   * CTEツリーアイテムクリック処理
    */
   handleCteTreeItemClick(cteName) {
-    console.log(`[WorkspacePanelShadow] CTE tree item clicked: ${cteName}`);
-    
     if (!this.cteDependencyData || !this.cteDependencyData.privateCtes) {
       console.warn('[WorkspacePanelShadow] No CTE data available');
       return;
@@ -468,7 +481,6 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
       return;
     }
 
-    // CTEファイルとして開く
     this.openWorkspaceFile(`${cteName}.cte`, 'cte', cteData.query);
   }
 
@@ -486,7 +498,6 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
           const existingModel = window.fileModelManager.getModelByName(fileName);
           if (existingModel) {
             fileContent = existingModel.getContent();
-            console.log(`[WorkspacePanelShadow] Retrieved content from FileModelManager: ${fileName} (${fileContent.length} chars)`);
           }
         }
         
@@ -496,51 +507,46 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
           const cteData = this.cteDependencyData.privateCtes[cteName];
           if (cteData && cteData.query) {
             fileContent = cteData.query;
-            console.log(`[WorkspacePanelShadow] Retrieved CTE content from dependency data: ${cteName}`);
           }
         }
         
         // メインクエリの場合、ワークスペースデータから取得
         if (!fileContent && type === 'main' && this.cteDependencyData && this.cteDependencyData.mainQuery) {
           fileContent = this.cteDependencyData.mainQuery;
-          console.log('[WorkspacePanelShadow] Retrieved main query content from dependency data');
         }
         
         // まだコンテンツがない場合、サーバーからの取得を試行
         if (!fileContent) {
           try {
-            const response = await fetch(`/api/workspace/${type}/${encodeURIComponent(fileName)}`);
+            // メインクエリの場合、実際のワークスペースファイル名を使用
+            let requestFileName = fileName;
+            if (type === 'main' && this.cteDependencyData && this.cteDependencyData.name) {
+              requestFileName = `${this.cteDependencyData.name}.sql`;
+            }
+            
+            const response = await fetch(`/api/workspace/${type}/${encodeURIComponent(requestFileName)}`);
             if (response.ok) {
               const result = await response.json();
               fileContent = result.content || result.query || '';
-              console.log(`[WorkspacePanelShadow] Retrieved content from server: ${fileName}`);
-            } else {
-              console.warn(`[WorkspacePanelShadow] Server fetch failed for ${fileName}: ${response.status}`);
             }
           } catch (fetchError) {
-            console.warn(`[WorkspacePanelShadow] Server fetch error for ${fileName}:`, fetchError);
+            // サーバーエラーは無視して続行
           }
         }
         
         // 最終的にコンテンツがない場合のフォールバック
         if (!fileContent) {
-          // ファイル名から拡張子を除去してSQLファイル名を取得
           const baseName = fileName.replace(/\.(sql|cte)$/i, '');
           fileContent = `-- ${baseName}\n-- Content not available`;
-          console.warn(`[WorkspacePanelShadow] Using fallback content for: ${fileName} (type: ${type})`);
         }
       }
 
       // 中央パネルのファイルモデル対応タブ作成
       const centerPanel = document.getElementById('center-panel-shadow');
       if (centerPanel && centerPanel.createOrReuseTabForFile) {
-        const tabId = centerPanel.createOrReuseTabForFile(fileName, fileContent, {
+        centerPanel.createOrReuseTabForFile(fileName, fileContent, {
           type: 'sql'
         });
-        
-        console.log(`[WorkspacePanelShadow] Opened workspace file: ${fileName} (${tabId})`);
-      } else {
-        console.warn('[WorkspacePanelShadow] Center panel not available or method not found');
       }
       
     } catch (error) {
@@ -681,14 +687,12 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
    * CTE依存関係データを更新
    */
   updateCTEDependencies(data) {
-    console.log('[WorkspacePanelShadow] Updating CTE dependencies:', data);
     this.cteDependencyData = data;
     
     // Workspaceセクションのみを再レンダリング
     const workspaceSection = this.$('[data-section="workspace"] .workspace-content');
     if (workspaceSection) {
       workspaceSection.innerHTML = this.renderCTEDependencyTree();
-      // Note: setupEventListeners() is called automatically on render
     }
   }
 

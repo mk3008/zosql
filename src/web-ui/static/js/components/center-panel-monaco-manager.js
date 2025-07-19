@@ -167,15 +167,18 @@ export class CenterPanelMonacoManager {
    * 位置同期機能のセットアップ
    */
   setupPositionSync(tabId, component, editorContainer, externalContainer, editor) {
+    let isUpdating = false; // ループ防止フラグ
+    
     const syncPosition = () => {
+      if (isUpdating) return; // 既に更新中の場合はスキップ
+      
       console.log('[MonacoManager] syncPosition called for tab', tabId);
       
       const rect = editorContainer.getBoundingClientRect();
-      console.log('[MonacoManager] Shadow DOM container rect for tab-' + tabId + ':', rect.left, rect.top, rect.width + 'x' + rect.height);
-      console.log('[MonacoManager] Editor container display:', editorContainer.style.display);
-      console.log('[MonacoManager] Editor container parent:', editorContainer.parentElement?.className);
       
       if (rect.width > 0 && rect.height > 0) {
+        isUpdating = true; // 更新開始フラグ
+        
         externalContainer.style.left = rect.left + 'px';
         externalContainer.style.top = rect.top + 'px';
         externalContainer.style.width = rect.width + 'px';
@@ -188,47 +191,67 @@ export class CenterPanelMonacoManager {
             height: rect.height
           });
         }
+        
+        setTimeout(() => { isUpdating = false; }, 10); // 短い遅延後にフラグをリセット
       }
     };
     
     // 初期位置設定
     setTimeout(syncPosition, 100);
     
-    // リサイズイベントで位置同期
-    window.addEventListener('resize', syncPosition);
+    // リサイズイベントで位置同期（スロットリング）
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(syncPosition, 50);
+    });
     
     // サイドバー開閉イベントで位置同期
     document.addEventListener('sidebar-toggled', syncPosition);
     
-    // Shadow DOM要素の変更を監視
-    const observer = new MutationObserver(syncPosition);
-    observer.observe(editorContainer, { attributes: true, childList: true, subtree: true });
+    // Shadow DOM要素の変更を監視（属性変更のみ、頻度制限）
+    let mutationTimeout;
+    const observer = new MutationObserver(() => {
+      clearTimeout(mutationTimeout);
+      mutationTimeout = setTimeout(syncPosition, 100);
+    });
+    observer.observe(editorContainer, { 
+      attributes: true, 
+      attributeFilter: ['style', 'class'], // 特定の属性のみ監視
+      childList: false, // 子要素の変更は監視しない
+      subtree: false    // サブツリーは監視しない
+    });
     
     // スプリッターのドラッグイベントを監視
     const splitter = this.shadowRoot.querySelector('.splitter');
     if (splitter) {
       splitter.addEventListener('mousedown', () => {
-        const mouseMoveHandler = () => syncPosition();
+        let dragTimeout;
+        const mouseMoveHandler = () => {
+          clearTimeout(dragTimeout);
+          dragTimeout = setTimeout(syncPosition, 16); // 60fps制限
+        };
         const mouseUpHandler = () => {
           document.removeEventListener('mousemove', mouseMoveHandler);
           document.removeEventListener('mouseup', mouseUpHandler);
+          syncPosition(); // 最終位置同期
         };
         document.addEventListener('mousemove', mouseMoveHandler);
         document.addEventListener('mouseup', mouseUpHandler);
       });
     }
     
-    // 位置同期インターバル（頻度を下げ、アクティブタブのみ同期）
+    // 位置同期インターバル（頻度を大幅に下げ、アクティブタブのみ同期）
     const syncInterval = setInterval(() => {
       // アクティブタブの場合のみ同期実行
-      if (tabId === component.tabManager.activeTabId) {
+      if (tabId === component.tabManager.activeTabId && !isUpdating) {
         const rect = editorContainer.getBoundingClientRect();
-        // サイズが0の場合は同期をスキップ（無限ループ防止）
+        // サイズが0の場合は同期をスキップ
         if (rect.width > 0 && rect.height > 0) {
           syncPosition();
         }
       }
-    }, 200);
+    }, 1000); // 200ms → 1000ms に変更してループ頻度を下げる
     
     // クリーンアップ情報を保存
     editorContainer.externalContainer = externalContainer;
