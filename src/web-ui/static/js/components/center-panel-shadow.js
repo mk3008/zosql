@@ -9,19 +9,12 @@
 
 import { fileModelManager } from '../models/file-model-manager.js';
 import { CenterPanelStyles } from './center-panel-styles.js';
+import { CenterPanelTabManager } from './center-panel-tab-manager.js';
 
 export class CenterPanelShadowComponent {
   constructor(shadowRoot, options = {}) {
     this.shadowRoot = shadowRoot;
     this.callbacks = new Map();
-    this.tabs = new Map();
-    this.activeTabId = null;
-    this.tabCounter = 0;
-    
-    // File model management
-    this.tabToModelMap = new Map(); // tabId -> modelId
-    this.modelToTabMap = new Map(); // modelId -> tabId
-    this.monacoEditors = new Map(); // tabId -> Monaco Editor instance
     
     // 設定
     this.config = {
@@ -35,9 +28,14 @@ export class CenterPanelShadowComponent {
     // 状態管理
     this.state = {
       splitterPosition: this.config.defaultSplitRatio,
-      isDragging: false,
-      scrollPosition: 0
+      isDragging: false
     };
+
+    // タブマネージャーの初期化
+    this.tabManager = new CenterPanelTabManager(shadowRoot, this.callbacks, {
+      maxTabs: this.config.maxTabs,
+      enableScrolling: this.config.enableScrolling
+    });
 
     this.init();
   }
@@ -46,10 +44,19 @@ export class CenterPanelShadowComponent {
    * 初期化
    */
   init() {
-    this.render();
-    this.setupEventListeners();
+    console.log('[CenterPanelShadow] Initializing...');
     
-    console.log('[CenterPanelShadow] Initialized');
+    // デフォルトタブを作成（レンダリング前）
+    const tabId = this.createDefaultTab();
+    console.log('[CenterPanelShadow] Default tab created:', tabId);
+    
+    this.render();
+    console.log('[CenterPanelShadow] Rendered');
+    
+    this.setupEventListeners();
+    console.log('[CenterPanelShadow] Event listeners setup');
+    
+    console.log('[CenterPanelShadow] Initialized with', this.tabManager.getTabCount(), 'tabs');
   }
 
   /**
@@ -86,36 +93,22 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * タブのレンダリング
+   * タブのレンダリング（タブマネージャーに委譲）
    */
   renderTabs() {
-    if (this.tabs.size === 0) {
-      return '';
-    }
-
-    return Array.from(this.tabs.values()).map(tab => {
-      const isActive = tab.id === this.activeTabId;
-      const activeClass = isActive ? ' active' : '';
-      
-      return `
-        <div class="tab${activeClass}" data-tab-id="${tab.id}">
-          <span class="tab-name" title="${tab.name}">${tab.name}</span>
-          ${tab.closable ? `<span class="tab-close" data-tab-id="${tab.id}">×</span>` : ''}
-        </div>
-      `;
-    }).join('');
+    return this.tabManager.renderTabs();
   }
 
   /**
    * タブコンテンツのレンダリング
    */
   renderTabContents() {
-    if (this.tabs.size === 0) {
+    if (this.tabManager.getTabCount() === 0) {
       return this.renderEmptyState();
     }
 
-    return Array.from(this.tabs.values()).map(tab => {
-      const isActive = tab.id === this.activeTabId;
+    return this.tabManager.getAllTabs().map(tab => {
+      const isActive = tab.id === this.tabManager.activeTabId;
       const activeClass = isActive ? ' active' : '';
       
       return `
@@ -207,119 +200,104 @@ export class CenterPanelShadowComponent {
    * イベントリスナーの設定
    */
   setupEventListeners() {
-    // タブクリック
+    // タブクリック - タブマネージャーに委譲
     this.shadowRoot.addEventListener('click', (e) => {
       const tab = e.target.closest('.tab');
       if (tab && !e.target.classList.contains('tab-close')) {
-        this.setActiveTab(tab.dataset.tabId);
+        this.tabManager.setActiveTab(tab.dataset.tabId);
+        this.updateActiveTabDisplay();
       }
     });
 
-    // タブクローズ
+    // タブクローズ - タブマネージャーに委譲
     this.shadowRoot.addEventListener('click', (e) => {
       if (e.target.classList.contains('tab-close')) {
         e.stopPropagation();
-        this.closeTab(e.target.dataset.tabId);
+        const tabId = e.target.dataset.tabId;
+        console.log('[CenterPanelShadow] Tab close clicked:', tabId);
+        const result = this.tabManager.closeTab(tabId);
+        console.log('[CenterPanelShadow] Tab close result:', result);
       }
     });
 
-    // 新規タブ
+    // 新規タブ - タブマネージャーに委譲
     const newTabBtn = this.shadowRoot.getElementById('new-tab-btn');
     if (newTabBtn) {
-      newTabBtn.addEventListener('click', () => this.createNewTab());
+      newTabBtn.addEventListener('click', () => this.tabManager.createNewTab());
     }
 
-    // タブスクロール
-    this.setupTabScrolling();
+    // タブ関連のコールバック設定
+    this.setupTabManagerCallbacks();
 
     // スプリッター
     this.setupSplitter();
 
     // ツールバーアクション
     this.setupToolbarActions();
-
-    // キーボードショートカット
-    this.setupKeyboardShortcuts();
-
-    // マウスホイールでタブスクロール
-    this.setupTabWheelScroll();
+    
+    // キーボードショートカット（ツールバー用）
+    this.setupToolbarKeyboardShortcuts();
   }
 
   /**
-   * タブスクロール機能の設定
+   * タブマネージャーのコールバック設定
    */
-  setupTabScrolling() {
-    const scrollLeft = this.shadowRoot.getElementById('scroll-left');
-    const scrollRight = this.shadowRoot.getElementById('scroll-right');
-    const tabList = this.shadowRoot.getElementById('tab-list');
-    
-    if (scrollLeft && scrollRight && tabList) {
-      scrollLeft.addEventListener('click', () => this.scrollTabs(-120));
-      scrollRight.addEventListener('click', () => this.scrollTabs(120));
+  setupTabManagerCallbacks() {
+    // タブマネージャーからのイベントハンドリング
+    this.tabManager.callbacks.set('tab-rerender-needed', () => {
+      this.updateTabsOnly();
+    });
+
+    this.tabManager.callbacks.set('tab-created', (data) => {
+      this.updateTabsOnly();
+      this.triggerCallback('tab-created', data);
+    });
+
+    this.tabManager.callbacks.set('tab-changed', (data) => {
+      this.updateActiveTabDisplay();
+      this.triggerCallback('tab-changed', data);
+    });
+
+    this.tabManager.callbacks.set('tab-closed', (data) => {
+      console.log('[CenterPanelShadow] tab-closed callback received:', data);
+      if (data.needsRerender) {
+        // タブのDOM要素を削除
+        const tabElement = this.shadowRoot.querySelector(`[data-tab-id="${data.tabId}"]`);
+        console.log('[CenterPanelShadow] Tab element found for removal:', !!tabElement);
+        if (tabElement) {
+          tabElement.remove();
+        }
+        
+        // タブコンテンツのDOM要素を削除
+        const tabContent = this.shadowRoot.querySelector(`.tab-content[data-tab-id="${data.tabId}"]`);
+        console.log('[CenterPanelShadow] Tab content found for removal:', !!tabContent);
+        if (tabContent) {
+          tabContent.remove();
+        }
+        
+        // 最後のタブが削除された場合、空の状態を表示
+        if (this.tabManager.getTabCount() === 0) {
+          const tabContentArea = this.shadowRoot.getElementById('tab-content-area');
+          if (tabContentArea) {
+            tabContentArea.innerHTML = this.renderEmptyState();
+          }
+        }
+        
+        // アクティブタブの表示を更新
+        this.updateActiveTabDisplay();
+        this.tabManager.updateScrollButtons();
+        console.log('[CenterPanelShadow] Tab removal completed');
+      }
       
-      // スクロール状態の更新
-      this.updateScrollButtons();
-    }
+      this.triggerCallback('tab-closed', data);
+    });
+
+    // タブスクロール機能の初期化
+    this.tabManager.setupTabScrolling();
+    this.tabManager.setupTabWheelScroll();
+    this.tabManager.setupKeyboardShortcuts();
   }
 
-  /**
-   * マウスホイールでのタブスクロール
-   */
-  setupTabWheelScroll() {
-    const container = this.shadowRoot.getElementById('tab-scroll-container');
-    if (container) {
-      container.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        this.scrollTabs(e.deltaY > 0 ? 60 : -60);
-      });
-    }
-  }
-
-  /**
-   * タブのスクロール実行
-   */
-  scrollTabs(delta) {
-    const container = this.shadowRoot.getElementById('tab-scroll-container');
-    const tabList = this.shadowRoot.getElementById('tab-list');
-    
-    if (!container || !tabList) return;
-    
-    const containerWidth = container.offsetWidth;
-    const listWidth = tabList.scrollWidth;
-    const maxScroll = Math.max(0, listWidth - containerWidth);
-    
-    this.state.scrollPosition += delta;
-    this.state.scrollPosition = Math.max(0, Math.min(maxScroll, this.state.scrollPosition));
-    
-    if (tabList) {
-      tabList.style.transform = `translateX(-${this.state.scrollPosition}px)`;
-      this.updateScrollButtons();
-    }
-  }
-
-  /**
-   * スクロールボタンの表示更新
-   */
-  updateScrollButtons() {
-    const container = this.shadowRoot.getElementById('tab-scroll-container');
-    const tabList = this.shadowRoot.getElementById('tab-list');
-    const scrollLeft = this.shadowRoot.getElementById('scroll-left');
-    const scrollRight = this.shadowRoot.getElementById('scroll-right');
-    
-    if (!container || !tabList || !scrollLeft || !scrollRight) return;
-    
-    const containerWidth = container.offsetWidth;
-    const listWidth = tabList.scrollWidth;
-    const needsScroll = listWidth > containerWidth;
-    
-    // スクロールボタンの表示/非表示
-    scrollLeft.classList.toggle('visible', needsScroll);
-    scrollRight.classList.toggle('visible', needsScroll);
-    
-    // ボタンの有効/無効
-    scrollLeft.disabled = this.state.scrollPosition <= 0;
-    scrollRight.disabled = this.state.scrollPosition >= (listWidth - containerWidth);
-  }
 
   /**
    * スプリッター機能の設定
@@ -456,29 +434,15 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * キーボードショートカット設定
+   * ツールバー用キーボードショートカット設定
    */
-  setupKeyboardShortcuts() {
+  setupToolbarKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case 't':
-            e.preventDefault();
-            this.createNewTab();
-            break;
-          case 'w':
-            if (this.activeTabId) {
-              e.preventDefault();
-              this.closeTab(this.activeTabId);
-            }
-            break;
-          case 'Enter':
-            e.preventDefault();
-            this.handleToolbarAction('run');
-            break;
-        }
-        
-        if (e.shiftKey && e.key === 'F') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.handleToolbarAction('run');
+        } else if (e.shiftKey && e.key === 'F') {
           e.preventDefault();
           this.handleToolbarAction('format');
         }
@@ -487,329 +451,122 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * 新しいタブを作成（ファイルモデル対応）
+   * 新しいタブを作成（タブマネージャーに委譲）
    */
   createNewTab(tabData = {}) {
-    // FileModelを取得または作成
-    let fileModel;
-    if (tabData.fileName && tabData.content) {
-      // 既存のファイルモデルを検索、なければ作成
-      fileModel = fileModelManager.getModelByName(tabData.fileName) || 
-                  fileModelManager.createOrGetModel(tabData.fileName, tabData.content, {
-                    type: tabData.type || 'sql'
-                  });
-    } else {
-      // 新規クエリの場合は一時的なファイルモデルを作成
-      const queryName = tabData.name || `Query ${this.tabCounter + 1}`;
-      fileModel = fileModelManager.createOrGetModel(queryName, tabData.content || '', {
-        type: tabData.type || 'sql'
-      });
-    }
-
-    const tab = {
-      id: `tab-${++this.tabCounter}`,
-      name: tabData.name || fileModel.getTabName(),
-      type: tabData.type || 'sql',
-      modelId: fileModel.id,
-      closable: tabData.closable !== false,
-      created: new Date(),
-      ...tabData
-    };
-
-    // タブとファイルモデルのマッピングを作成
-    this.tabs.set(tab.id, tab);
-    this.tabToModelMap.set(tab.id, fileModel.id);
-    this.modelToTabMap.set(fileModel.id, tab.id);
-    
-    // ファイルモデルをアクティブに設定
-    fileModelManager.setActiveModel(fileModel.id);
-    
-    this.setActiveTab(tab.id);
-    this.rerender();
-    
-    this.triggerCallback('tab-created', { tabId: tab.id, tab, fileModel });
-    return tab.id;
+    return this.tabManager.createNewTab(tabData);
   }
 
   /**
-   * デフォルトタブ作成
+   * デフォルトタブ作成（タブマネージャーに委譲）
    */
   createDefaultTab() {
-    if (this.tabs.size === 0) {
-      const tabId = this.createNewTab({
-        name: 'New Query',
-        type: 'sql'
-      });
-      
-      // タブ作成コールバックのみ実行（Monaco Editorはコールバックで初期化）
-      setTimeout(() => {
-        this.triggerCallback('tab-created', { tabId, tab: this.tabs.get(tabId) });
-      }, 100);
-    }
+    return this.tabManager.createDefaultTab();
   }
 
   /**
-   * ファイル名からタブを探すまたは作成
+   * ファイル名からタブを探すまたは作成（タブマネージャーに委譲）
    */
   findTabByName(name) {
-    for (const [id, tab] of this.tabs) {
-      if (tab.name === name) {
-        return { id, tab };
-      }
-    }
-    return null;
+    return this.tabManager.findTabByName(name);
   }
 
   /**
-   * ファイルモデルからタブを作成または再利用
+   * ファイルモデルからタブを作成または再利用（タブマネージャーに委譲）
    */
   createOrReuseTabForFile(fileName, content, options = {}) {
-    // 拡張子を除去したタブ名
-    const tabName = fileName.replace(/\.(sql|SQL)$/, '');
-    
-    // 既存のタブを検索
-    const existing = this.findTabByName(tabName);
-    if (existing) {
-      console.log(`[CenterPanelShadow] Reusing existing tab: ${tabName}`);
-      this.setActiveTab(existing.id);
-      return existing.id;
-    }
-
-    // 新しいタブを作成
-    console.log(`[CenterPanelShadow] Creating new tab for file: ${fileName}`);
-    return this.createNewTab({
-      name: tabName,
-      fileName: fileName,
-      content: content,
-      type: options.type || 'sql',
-      ...options
-    });
+    return this.tabManager.createOrReuseTabForFile(fileName, content, options);
   }
 
   /**
-   * タブからファイルモデルを取得
+   * タブからファイルモデルを取得（タブマネージャーに委譲）
    */
   getFileModelForTab(tabId) {
-    const modelId = this.tabToModelMap.get(tabId);
-    return modelId ? fileModelManager.getModel(modelId) : null;
+    return this.tabManager.getFileModelForTab(tabId);
   }
 
   /**
-   * ファイルモデルからタブIDを取得
+   * ファイルモデルからタブIDを取得（タブマネージャーに委譲）
    */
   getTabForFileModel(modelId) {
-    return this.modelToTabMap.get(modelId);
+    return this.tabManager.getTabForFileModel(modelId);
   }
 
   /**
    * タブのコンテンツを更新（ファイルモデル経由）
    */
   updateTabContent(tabId, content, source = 'user') {
-    const fileModel = this.getFileModelForTab(tabId);
-    if (!fileModel) {
-      console.warn(`[CenterPanelShadow] No file model found for tab: ${tabId}`);
-      return false;
-    }
-
-    const changed = fileModel.updateContent(content, source);
+    const changed = this.tabManager.updateTabContent(tabId, content, source);
     if (changed) {
       // Monaco Editorがある場合は更新
-      const editor = this.monacoEditors.get(tabId);
+      const editor = this.tabManager.getMonacoEditor(tabId);
       if (editor && source !== 'monaco') {
         editor.setValue(content);
       }
-      
-      // タブ名の修飾子を更新（修正状態を表示）
-      this.updateTabModificationState(tabId);
     }
-    
     return changed;
   }
 
   /**
-   * タブの修正状態表示を更新
+   * タブの修正状態表示を更新（タブマネージャーに委譲）
    */
   updateTabModificationState(tabId) {
-    const tab = this.tabs.get(tabId);
-    const fileModel = this.getFileModelForTab(tabId);
-    if (!tab || !fileModel) return;
-
-    const tabElement = this.shadowRoot.querySelector(`[data-tab-id="${tabId}"]`);
-    const tabNameElement = tabElement?.querySelector('.tab-name');
-    if (tabNameElement) {
-      const baseName = fileModel.getTabName();
-      tabNameElement.textContent = fileModel.hasChanges() ? `${baseName} •` : baseName;
-      tabNameElement.title = fileModel.hasChanges() ? `${baseName} (modified)` : baseName;
-    }
+    return this.tabManager.updateTabModificationState(tabId);
   }
 
   /**
-   * タブを閉じる（ファイルモデル対応）
+   * タブを閉じる（タブマネージャーに委譲）
    */
   closeTab(tabId) {
-    const tab = this.tabs.get(tabId);
-    if (!tab || !tab.closable) return false;
-
-    // ファイルモデルのクリーンアップ
-    const modelId = this.tabToModelMap.get(tabId);
-    if (modelId) {
-      const fileModel = fileModelManager.getModel(modelId);
-      
-      // 変更がある場合は警告（将来的にはダイアログを実装）
-      if (fileModel && fileModel.hasChanges()) {
-        console.warn(`[CenterPanelShadow] Closing tab with unsaved changes: ${tab.name}`);
-        // TODO: 保存確認ダイアログを実装
-      }
-      
-      // マッピングをクリア
-      this.tabToModelMap.delete(tabId);
-      this.modelToTabMap.delete(modelId);
-      
-      // 他にこのモデルを使用しているタブがなければモデルを削除
-      // ただし、ワークスペース関連ファイル（.cte、mainQuery）は保持
-      const otherTabsUsingModel = Array.from(this.tabToModelMap.values()).includes(modelId);
-      if (!otherTabsUsingModel) {
-        const model = fileModelManager.getModel(modelId);
-        const isWorkspaceFile = model && (
-          model.name.endsWith('.cte') || 
-          model.name.includes('user_behavior_analysis') ||
-          model.name.includes('query') ||
-          model.type === 'workspace'
-        );
-        
-        if (isWorkspaceFile) {
-          console.log(`[CenterPanelShadow] Preserving workspace file model: ${model.name}`);
-        } else {
-          fileModelManager.removeModel(modelId);
-        }
-      }
-    }
-
-    // Monaco Editorのクリーンアップ
-    const editor = this.monacoEditors.get(tabId);
-    console.log(`[CenterPanelShadow] Closing tab ${tabId}, editor exists: ${!!editor}`);
-    if (editor) {
-      editor.dispose();
-      this.monacoEditors.delete(tabId);
-      console.log(`[CenterPanelShadow] Disposed Monaco Editor for tab ${tabId}`);
-    }
-
-    // 外部コンテナのクリーンアップ
-    const externalContainer = document.getElementById(`monaco-external-${tabId}`);
-    if (externalContainer) {
-      console.log(`[CenterPanelShadow] Removing external container for tab ${tabId}`);
-      externalContainer.remove();
-    }
-
-    // アクティブタブが削除される場合、先に新しいアクティブタブを決定
-    let newActiveTabId = this.activeTabId;
-    if (this.activeTabId === tabId) {
-      // 削除前に残りのタブを取得（削除するタブを除く）
-      const remainingTabs = Array.from(this.tabs.keys()).filter(id => id !== tabId);
-      const previousActiveTab = this.activeTabId;
-      newActiveTabId = remainingTabs.length > 0 ? remainingTabs[remainingTabs.length - 1] : null;
-      console.log(`[CenterPanelShadow] Active tab will change from ${previousActiveTab} to ${newActiveTabId}`);
-      
-      this.activeTabId = newActiveTabId;
-      
-      // 新しいアクティブタブのファイルモデルを設定
-      if (this.activeTabId) {
-        const newActiveModelId = this.tabToModelMap.get(this.activeTabId);
-        if (newActiveModelId) {
-          fileModelManager.setActiveModel(newActiveModelId);
-        }
-      }
-    }
-
-    // タブを削除
-    this.tabs.delete(tabId);
-    
-    // アクティブタブが変更された場合の処理は updateActiveTabDisplay に委ねる
-
-    console.log(`[CenterPanelShadow] Before rerender: remaining tabs ${Array.from(this.tabs.keys())}, active: ${this.activeTabId}`);
-    
-    // rerenderの代わりに必要な部分だけ更新
-    // タブのDOM要素を削除
-    const tabElement = this.shadowRoot.querySelector(`[data-tab-id="${tabId}"]`);
-    if (tabElement) {
-      tabElement.remove();
-    }
-    
-    // タブコンテンツのDOM要素を削除
-    const tabContent = this.shadowRoot.querySelector(`.tab-content[data-tab-id="${tabId}"]`);
-    if (tabContent) {
-      tabContent.remove();
-    }
-    
-    // 最後のタブが削除された場合、空の状態を表示
-    if (this.tabs.size === 0) {
-      const tabContentArea = this.shadowRoot.getElementById('tab-content-area');
-      if (tabContentArea) {
-        tabContentArea.innerHTML = this.renderEmptyState();
-      }
-    }
-    
-    // アクティブタブの表示を更新
-    this.updateActiveTabDisplay();
-    this.updateScrollButtons();
-    
-    this.triggerCallback('tab-closed', { tabId, tab });
-
-    return true;
+    return this.tabManager.closeTab(tabId);
   }
 
   /**
-   * アクティブタブ設定（ファイルモデル対応）
+   * アクティブタブ設定（タブマネージャーに委譲）
    */
   setActiveTab(tabId) {
-    if (!this.tabs.has(tabId)) return false;
-
-    const previousTabId = this.activeTabId;
-    this.activeTabId = tabId;
-    console.log(`[CenterPanelShadow] setActiveTab: ${previousTabId} → ${tabId}`);
-    
-    // アクティブファイルモデルの設定
-    const modelId = this.tabToModelMap.get(tabId);
-    if (modelId) {
-      fileModelManager.setActiveModel(modelId);
-    }
-    
-    this.updateActiveTabDisplay();
-    
-    if (previousTabId !== tabId) {
-      this.triggerCallback('tab-changed', { 
-        tabId, 
-        tab: this.tabs.get(tabId),
-        fileModel: this.getFileModelForTab(tabId),
-        previousTabId 
-      });
-    }
-
-    return true;
+    return this.tabManager.setActiveTab(tabId);
   }
 
   /**
-   * アクティブタブ表示の更新
+   * タブのみの部分更新
    */
+  updateTabsOnly() {
+    // タブリストを更新
+    const tabList = this.shadowRoot.getElementById('tab-list');
+    if (tabList) {
+      tabList.innerHTML = this.renderTabs();
+    }
+    
+    // タブコンテンツエリアを更新
+    const tabContentArea = this.shadowRoot.getElementById('tab-content-area');
+    if (tabContentArea) {
+      tabContentArea.innerHTML = this.renderTabContents();
+    }
+    
+    // 表示を更新
+    this.updateActiveTabDisplay();
+  }
+
   updateActiveTabDisplay() {
     // タブの表示更新
     const tabs = this.shadowRoot.querySelectorAll('.tab');
     tabs.forEach(tab => {
       const tabId = tab.dataset.tabId;
-      tab.classList.toggle('active', tabId === this.activeTabId);
+      tab.classList.toggle('active', tabId === this.tabManager.activeTabId);
     });
 
     // コンテンツの表示更新
     const contents = this.shadowRoot.querySelectorAll('.tab-content');
     contents.forEach(content => {
       const tabId = content.dataset.tabId;
-      const isActive = (tabId === this.activeTabId);
+      const isActive = (tabId === this.tabManager.activeTabId);
       content.classList.toggle('active', isActive);
     });
     
     // 外部Monaco Editorコンテナの最小限制御
     // タブが存在しない場合のみ全てのコンテナを非表示
-    if (this.tabs.size === 0) {
+    if (this.tabManager.getTabCount() === 0) {
       const externalContainers = document.querySelectorAll('[id^="monaco-external-"]');
       externalContainers.forEach(container => {
         container.style.display = 'none';
@@ -819,10 +576,10 @@ export class CenterPanelShadowComponent {
       const externalContainers = document.querySelectorAll('[id^="monaco-external-"]');
       externalContainers.forEach(container => {
         const tabId = container.id.replace('monaco-external-', '');
-        if (tabId === this.activeTabId) {
+        if (tabId === this.tabManager.activeTabId) {
           container.style.display = 'block';
           // 位置同期は既存のsyncPositionメカニズムに委ねる
-        } else if (this.tabs.has(tabId)) {
+        } else if (this.tabManager.hasTab(tabId)) {
           // 存在するタブの非アクティブコンテナは非表示
           container.style.display = 'none';
         }
@@ -840,7 +597,7 @@ export class CenterPanelShadowComponent {
   rerender() {
     // 現在の状態を保持
     const currentState = {
-      scrollPosition: this.state.scrollPosition,
+      scrollPosition: this.tabManager.state.scrollPosition,
       splitterPosition: this.state.splitterPosition
     };
     
@@ -848,12 +605,12 @@ export class CenterPanelShadowComponent {
     this.setupEventListeners();
     
     // 状態を復元
-    this.state.scrollPosition = currentState.scrollPosition;
+    this.tabManager.state.scrollPosition = currentState.scrollPosition;
     this.state.splitterPosition = currentState.splitterPosition;
     
     // 表示を更新
     this.updateActiveTabDisplay();
-    this.updateScrollButtons();
+    this.tabManager.updateScrollButtons();
   }
 
   /**
@@ -876,8 +633,8 @@ export class CenterPanelShadowComponent {
   saveState() {
     const state = {
       splitterPosition: this.state.splitterPosition,
-      activeTabId: this.activeTabId,
-      tabs: Array.from(this.tabs.values())
+      activeTabId: this.tabManager.activeTabId,
+      tabs: this.tabManager.getAllTabs()
     };
     
     localStorage.setItem('center-panel-state', JSON.stringify(state));
@@ -923,61 +680,35 @@ export class CenterPanelShadowComponent {
   }
 
   /**
-   * アクティブタブ取得
+   * アクティブタブ取得（タブマネージャーに委譲）
    */
   getActiveTab() {
-    return this.activeTabId ? this.tabs.get(this.activeTabId) : null;
+    return this.tabManager.getActiveTab();
   }
 
   /**
-   * 全タブ取得
+   * 全タブ取得（タブマネージャーに委譲）
    */
   getAllTabs() {
-    return Array.from(this.tabs.values());
+    return this.tabManager.getAllTabs();
   }
 
   /**
    * アクティブタブのMonaco Editorの同期を強制実行
    */
   syncActiveMonacoEditor() {
-    if (!this.activeTabId) return;
+    return this.tabManager.syncActiveMonacoEditor();
+  }
 
-    console.log(`[CenterPanelShadow] Syncing Monaco Editor for active tab: ${this.activeTabId}`);
-    
-    // 外部コンテナの確認
-    const externalContainer = document.getElementById(`monaco-external-${this.activeTabId}`);
-    if (!externalContainer) {
-      console.warn(`[CenterPanelShadow] External container not found for active tab: ${this.activeTabId}`);
-      return;
-    }
+  /**
+   * Monaco Editorインスタンスの管理（タブマネージャーに委譲）
+   */
+  setMonacoEditor(tabId, editor) {
+    this.tabManager.setMonacoEditor(tabId, editor);
+  }
 
-    // Monaco Editorインスタンスの確認
-    const editor = this.monacoEditors.get(this.activeTabId);
-    if (!editor) {
-      console.warn(`[CenterPanelShadow] Monaco Editor instance not found for active tab: ${this.activeTabId}`);
-      return;
-    }
-
-    // 外部コンテナが非表示になっている場合は表示
-    if (externalContainer.style.display === 'none') {
-      console.log(`[CenterPanelShadow] Making external container visible for tab: ${this.activeTabId}`);
-      externalContainer.style.display = 'block';
-    }
-
-    // Shadow DOM内のエディターコンテナを探す
-    const editorContainer = this.shadowRoot.getElementById(`editor-${this.activeTabId}`);
-    if (editorContainer && editorContainer.positionSync) {
-      console.log(`[CenterPanelShadow] Executing position sync for tab: ${this.activeTabId}`);
-      editorContainer.positionSync();
-    }
-
-    // Monaco Editorのレイアウトを更新
-    setTimeout(() => {
-      if (editor) {
-        editor.layout();
-        console.log(`[CenterPanelShadow] Monaco Editor layout updated for tab: ${this.activeTabId}`);
-      }
-    }, 50);
+  getMonacoEditor(tabId) {
+    return this.tabManager.getMonacoEditor(tabId);
   }
 
   /**
@@ -985,7 +716,9 @@ export class CenterPanelShadowComponent {
    */
   destroy() {
     this.callbacks.clear();
-    this.tabs.clear();
+    if (this.tabManager) {
+      this.tabManager.destroy();
+    }
     console.log('[CenterPanelShadow] Destroyed');
   }
 }
@@ -1144,7 +877,7 @@ export class CenterPanelShadowElement extends HTMLElement {
         externalContainer.style.zIndex = '1';
         
         // 初期表示状態を設定（Monaco Editorの正常な初期化のため、常にblockで作成）
-        const isActiveTab = (tabId === this.component.activeTabId);
+        const isActiveTab = (tabId === this.component.tabManager.activeTabId);
         externalContainer.style.display = 'block';
         
         // 非アクティブタブは画面外に配置（display:noneではなく位置で制御）
@@ -1169,7 +902,7 @@ export class CenterPanelShadowElement extends HTMLElement {
         document.body.appendChild(externalContainer);
         
         // ファイルモデルからコンテンツを取得
-        const tab = this.component.tabs.get(tabId);
+        const tab = this.component.tabManager.tabs.get(tabId);
         const fileModel = this.component.getFileModelForTab(tabId);
         const initialContent = fileModel ? fileModel.getContent() : '-- Start writing your SQL query here\nSELECT * FROM users\nLIMIT 10;';
         
@@ -1254,7 +987,7 @@ export class CenterPanelShadowElement extends HTMLElement {
         // 位置同期インターバル（頻度を下げ、アクティブタブのみ同期）
         const syncInterval = setInterval(() => {
           // アクティブタブの場合のみ同期実行
-          if (tabId === this.component.activeTabId) {
+          if (tabId === this.component.tabManager.activeTabId) {
             const rect = editorContainer.getBoundingClientRect();
             // サイズが0の場合は同期をスキップ（無限ループ防止）
             if (rect.width > 0 && rect.height > 0) {
@@ -1274,7 +1007,7 @@ export class CenterPanelShadowElement extends HTMLElement {
         // エディターインスタンスを保存
         editorContainer.monacoEditor = editor;
         editorContainer.dataset.monacoInitialized = 'true';
-        this.component.monacoEditors.set(tabId, editor);
+        this.component.setMonacoEditor(tabId, editor);
 
         // ファイルモデルとの同期設定
         if (fileModel) {
