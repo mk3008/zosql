@@ -32,9 +32,7 @@ async function initializeApp() {
   try {
     console.log('Starting zosql Browser (Shadow DOM Mode)');
     
-    // Initialize sidebar management
-    const sidebarManager = new SidebarManager();
-    window.sidebarManager = sidebarManager;
+    // SidebarManager は sidebar-manager.js で自動初期化される
     
     // Initialize header controls
     const headerControls = new HeaderControls();
@@ -145,18 +143,7 @@ function setupShadowComponentEventListeners() {
       }
     });
     
-    // Listen for other header events
-    headerShadow.addEventListener('left-sidebar-toggle', () => {
-      if (window.sidebarManager) {
-        window.sidebarManager.toggleLeftSidebar();
-      }
-    });
-    
-    headerShadow.addEventListener('right-sidebar-toggle', () => {
-      if (window.sidebarManager) {
-        window.sidebarManager.toggleRightSidebar();
-      }
-    });
+    // Note: サイドバートグルはsidebar-manager.jsで直接リッスンしているため、ここでは処理しない
   }
   
   console.log('[App] Shadow DOM event listeners setup complete');

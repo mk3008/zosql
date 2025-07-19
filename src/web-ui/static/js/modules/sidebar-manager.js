@@ -133,6 +133,9 @@ export class SidebarManager {
           traditionalLeftSidebar.style.display = 'block';
           traditionalLeftSidebar.style.width = '280px';
           traditionalLeftSidebar.style.flexShrink = '0';
+          traditionalLeftSidebar.style.visibility = 'visible';
+          traditionalLeftSidebar.style.opacity = '1';
+          console.log('[SidebarManager] DEBUG: Set traditional left sidebar to BLOCK');
         }
         
         // Traditional版の中身を非表示
@@ -148,6 +151,9 @@ export class SidebarManager {
           shadowWorkspacePanel.style.display = 'block';
           shadowWorkspacePanel.style.width = '100%';
           shadowWorkspacePanel.style.height = '100%';
+          shadowWorkspacePanel.style.visibility = 'visible';
+          shadowWorkspacePanel.style.opacity = '1';
+          console.log('[SidebarManager] DEBUG: Set shadow workspace panel to BLOCK');
           console.log('[SidebarManager] Shadow workspace panel: SHOWN (within left-sidebar)');
         }
         
@@ -156,9 +162,11 @@ export class SidebarManager {
         // 左サイドバーを非表示する場合
         if (traditionalLeftSidebar) {
           traditionalLeftSidebar.style.display = 'none';
+          console.log('[SidebarManager] DEBUG: Set traditional left sidebar to NONE');
         }
         if (shadowWorkspacePanel) {
           shadowWorkspacePanel.style.display = 'none';
+          console.log('[SidebarManager] DEBUG: Set shadow workspace panel to NONE');
         }
         console.log('[SidebarManager] Left sidebar: HIDDEN');
       }
@@ -342,23 +350,10 @@ export class SidebarManager {
       rightStateParsed: rightState === 'true'
     });
     
-    // 左サイドバー: null の場合はデフォルトのtrue、それ以外は保存値を使用
-    if (leftState !== null) {
-      this.state.leftSidebar = leftState === 'true';
-    } else {
-      // 初回起動時は左サイドバーを表示する
-      this.state.leftSidebar = true;
-      console.log('[SidebarManager] First time load - setting left sidebar to true');
-    }
-    
-    // 右サイドバー: null の場合はデフォルトのtrue、それ以外は保存値を使用
-    if (rightState !== null) {
-      this.state.rightSidebar = rightState === 'true';
-    } else {
-      // 初回起動時は右サイドバーを表示する
-      this.state.rightSidebar = true;
-      console.log('[SidebarManager] First time load - setting right sidebar to true');
-    }
+    // デバッグ用：強制的に両方のサイドバーを表示
+    this.state.leftSidebar = true;
+    this.state.rightSidebar = true;
+    console.log('[SidebarManager] DEBUG: Force setting both sidebars to true');
     
     console.log('[SidebarManager] loadState - final state:', this.state);
   }
@@ -513,8 +508,11 @@ export class SidebarManager {
   }
 }
 
-// 自動初期化
-const sidebarManager = new SidebarManager();
+// 自動初期化（singleton）
+if (!window.sidebarManager) {
+  const sidebarManager = new SidebarManager();
+  window.sidebarManager = sidebarManager;
+}
 
 // Shadow DOM専用モード - 切り替え機能は不要
 
