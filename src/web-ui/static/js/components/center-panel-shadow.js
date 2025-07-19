@@ -781,6 +781,10 @@ export class CenterPanelShadowElement extends HTMLElement {
   getAllTabs() {
     return this.component?.getAllTabs();
   }
+  
+  getMonacoEditor(tabId) {
+    return this.component?.getMonacoEditor(tabId);
+  }
 
   // デバッグ用メソッド（Monaco Managerに委譲）
   debugMonacoEditor() {

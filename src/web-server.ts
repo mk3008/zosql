@@ -11,6 +11,7 @@ import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
 import { SqlFormatterApi } from './api/sql-formatter-api.js';
 import { WorkspaceApi } from './api/workspace-api.js';
 import { CteValidatorApi } from './api/cte-validator-api.js';
+import { handleExecuteQuery, handleResetDatabase, handleHealthCheck, initializePGlite } from './api/pglite-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,9 +98,7 @@ export class WebServer {
 
   private setupRoutes(): void {
     // API routes
-    this.app.get('/api/health', (_req, res) => {
-      res.json({ status: 'ok', timestamp: new Date().toISOString() });
-    });
+    this.app.get('/api/health', handleHealthCheck);
 
     // File system API placeholder
     this.app.get('/api/files', (_req, res) => {
@@ -125,11 +124,11 @@ export class WebServer {
     // Debug IntelliSense API
     this.app.post('/api/debug-intellisense', this.debugApi.handleDebugIntelliSense.bind(this.debugApi));
     
-    // Query execution API
-    this.app.post('/api/execute-query', this.queryExecutorApi.handleExecuteQuery.bind(this.queryExecutorApi));
+    // Query execution API - using PGlite
+    this.app.post('/api/execute-query', handleExecuteQuery);
     
-    // Database reset API
-    this.app.post('/api/reset-database', this.queryExecutorApi.handleResetDatabase.bind(this.queryExecutorApi));
+    // Database reset API - using PGlite
+    this.app.post('/api/reset-database', handleResetDatabase);
     
     // IntelliSense Debug API
     this.app.post('/api/intellisense-debug', this.intelliSenseDebugApi.handleDebugLog.bind(this.intelliSenseDebugApi));
@@ -212,10 +211,10 @@ export class WebServer {
 
   private async initializeDatabase(): Promise<void> {
     try {
-      await this.queryExecutorApi.initializeDatabase();
-      this.logger.log('Database initialized successfully');
+      await initializePGlite();
+      this.logger.log('PGlite database initialized successfully');
     } catch (error) {
-      this.logger.log(`Failed to initialize database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.log(`Failed to initialize PGlite database: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // Continue running - database features will be unavailable
     }
   }

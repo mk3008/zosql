@@ -6,7 +6,7 @@ const schema = {
     {
       name: 'users',
       columns: [
-        { name: 'id', type: 'INTEGER PRIMARY KEY' },
+        { name: 'user_id', type: 'INTEGER PRIMARY KEY' },
         { name: 'name', type: 'VARCHAR(255)' },
         { name: 'email', type: 'VARCHAR(255)' },
         { name: 'created_at', type: 'TIMESTAMP' },
@@ -16,7 +16,7 @@ const schema = {
     {
       name: 'orders',
       columns: [
-        { name: 'id', type: 'INTEGER PRIMARY KEY' },
+        { name: 'order_id', type: 'INTEGER PRIMARY KEY' },
         { name: 'user_id', type: 'INTEGER' },
         { name: 'amount', type: 'DECIMAL(10,2)' },
         { name: 'order_date', type: 'DATE' },
@@ -27,7 +27,7 @@ const schema = {
     {
       name: 'products',
       columns: [
-        { name: 'id', type: 'INTEGER PRIMARY KEY' },
+        { name: 'product_id', type: 'INTEGER PRIMARY KEY' },
         { name: 'name', type: 'VARCHAR(255)' },
         { name: 'price', type: 'DECIMAL(10,2)' },
         { name: 'category', type: 'VARCHAR(100)' },
@@ -38,7 +38,7 @@ const schema = {
     {
       name: 'user_sessions',
       columns: [
-        { name: 'id', type: 'INTEGER PRIMARY KEY' },
+        { name: 'user_session_id', type: 'INTEGER PRIMARY KEY' },
         { name: 'user_id', type: 'INTEGER' },
         { name: 'session_id', type: 'VARCHAR(100)' },
         { name: 'start_time', type: 'TIMESTAMP' },
@@ -54,7 +54,7 @@ const schema = {
     {
       name: 'events',
       columns: [
-        { name: 'id', type: 'INTEGER PRIMARY KEY' },
+        { name: 'event_id', type: 'INTEGER PRIMARY KEY' },
         { name: 'user_id', type: 'INTEGER' },
         { name: 'session_id', type: 'VARCHAR(100)' },
         { name: 'event_type', type: 'VARCHAR(100)' },

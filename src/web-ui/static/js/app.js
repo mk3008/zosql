@@ -109,6 +109,7 @@ function initializeShadowComponents() {
 // Setup Shadow DOM component event listeners
 function setupShadowComponentEventListeners() {
   const headerShadow = document.getElementById('header-shadow');
+  const centerPanelShadow = document.getElementById('center-panel-shadow');
   
   if (headerShadow) {
     // Listen for open-file event from header-shadow
@@ -146,6 +147,27 @@ function setupShadowComponentEventListeners() {
     // Note: サイドバートグルはsidebar-manager.jsで直接リッスンしているため、ここでは処理しない
   }
   
+  // Center Panel event listeners
+  if (centerPanelShadow) {
+    // SQL実行
+    centerPanelShadow.addEventListener('run-query', async (event) => {
+      console.log('[App] Run query event received:', event.detail);
+      await handleRunQuery(event.detail);
+    });
+    
+    // SQL整形
+    centerPanelShadow.addEventListener('format-sql', async (event) => {
+      console.log('[App] Format SQL event received:', event.detail);
+      await handleFormatSQL(event.detail);
+    });
+    
+    // タブ保存
+    centerPanelShadow.addEventListener('save-tab', async (event) => {
+      console.log('[App] Save tab event received:', event.detail);
+      await handleSaveTab(event.detail);
+    });
+  }
+  
   console.log('[App] Shadow DOM event listeners setup complete');
 }
 
@@ -169,12 +191,201 @@ async function initializeSchema() {
   }
 }
 
+// Handle SQL query execution
+async function handleRunQuery(data) {
+  const { tabId, tab } = data;
+  const centerPanelShadow = window.appState.components.centerPanelShadow;
+  
+  if (!centerPanelShadow) {
+    console.error('[App] Center panel shadow not available');
+    return;
+  }
+  
+  try {
+    // Get SQL content from Monaco Editor
+    const editor = centerPanelShadow.getMonacoEditor(tabId);
+    if (!editor) {
+      showErrorToast('Editor not ready');
+      return;
+    }
+    
+    const sql = editor.getValue().trim();
+    if (!sql) {
+      showErrorToast('Please enter a SQL query');
+      return;
+    }
+    
+    // Show loading state
+    const resultsContainer = centerPanelShadow.shadowRoot.getElementById(`results-${tabId}`);
+    if (resultsContainer) {
+      resultsContainer.innerHTML = '<div class="results-loading">Executing query...</div>';
+    }
+    
+    // Execute query via PGlite API
+    const response = await fetch('/api/execute-query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ sql })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Display results in grid
+      displayQueryResults(tabId, result);
+      showSuccessToast(`Query executed successfully (${result.result.rows.length} rows)`);
+    } else {
+      // Display error
+      displayQueryError(tabId, result.error);
+      showErrorToast('Query execution failed: ' + result.error);
+    }
+    
+  } catch (error) {
+    console.error('[App] Query execution error:', error);
+    displayQueryError(tabId, error.message);
+    showErrorToast('Network error during query execution: ' + error.message);
+  }
+}
+
+// Handle SQL formatting
+async function handleFormatSQL(data) {
+  const { tabId, tab } = data;
+  const centerPanelShadow = window.appState.components.centerPanelShadow;
+  
+  if (!centerPanelShadow) {
+    console.error('[App] Center panel shadow not available');
+    return;
+  }
+  
+  try {
+    const editor = centerPanelShadow.getMonacoEditor(tabId);
+    if (!editor) {
+      showErrorToast('Editor not ready');
+      return;
+    }
+    
+    const sql = editor.getValue();
+    if (!sql || sql.trim().length === 0) {
+      showErrorToast('No SQL to format');
+      return;
+    }
+    
+    const response = await fetch('/api/format-sql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ sql })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success && result.formattedSql) {
+      editor.setValue(result.formattedSql);
+      showSuccessToast('SQL formatted successfully');
+    } else {
+      showErrorToast('SQL formatting failed: ' + (result.error || 'Unknown error'));
+    }
+    
+  } catch (error) {
+    console.error('[App] SQL formatting error:', error);
+    showErrorToast('Network error during formatting: ' + error.message);
+  }
+}
+
+// Handle tab saving
+async function handleSaveTab(data) {
+  const { tabId, tab } = data;
+  // Placeholder for tab saving functionality
+  console.log('[App] Save tab:', tabId, tab);
+  showSuccessToast('Tab saved (placeholder)');
+}
+
+// Display query results in grid format
+function displayQueryResults(tabId, queryResult) {
+  const centerPanelShadow = window.appState.components.centerPanelShadow;
+  const resultsContainer = centerPanelShadow.shadowRoot.getElementById(`results-${tabId}`);
+  
+  if (!resultsContainer) return;
+  
+  const { result } = queryResult;
+  
+  if (!result.rows || result.rows.length === 0) {
+    resultsContainer.innerHTML = '<div class="results-empty">No results returned</div>';
+    return;
+  }
+  
+  // Generate results table
+  let html = '<div class="results-table-container">';
+  html += '<table class="results-table">';
+  
+  // Header
+  if (result.fields && result.fields.length > 0) {
+    html += '<thead><tr>';
+    result.fields.forEach(field => {
+      html += `<th>${escapeHtml(field.name)}</th>`;
+    });
+    html += '</tr></thead>';
+  }
+  
+  // Body
+  html += '<tbody>';
+  result.rows.forEach(row => {
+    html += '<tr>';
+    result.fields.forEach(field => {
+      const value = row[field.name];
+      html += `<td>${escapeHtml(String(value ?? ''))}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '</div>';
+  
+  // Execution info
+  html += `<div class="results-info">Executed in ${result.executionTime}ms (${result.rows.length} rows)</div>`;
+  
+  resultsContainer.innerHTML = html;
+}
+
+// Display query error
+function displayQueryError(tabId, errorMessage) {
+  const centerPanelShadow = window.appState.components.centerPanelShadow;
+  const resultsContainer = centerPanelShadow.shadowRoot.getElementById(`results-${tabId}`);
+  
+  if (!resultsContainer) return;
+  
+  resultsContainer.innerHTML = `
+    <div class="results-error">
+      <strong>Query Error:</strong><br>
+      ${escapeHtml(errorMessage)}
+    </div>
+  `;
+}
+
+// HTML escape utility
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // Show error toast
 function showErrorToast(message) {
   if (window.showToast) {
     window.showToast(message, 'error');
   } else {
     alert(message);
+  }
+}
+
+// Show success toast
+function showSuccessToast(message) {
+  if (window.showToast) {
+    window.showToast(message, 'success');
+  } else {
+    console.log(message);
   }
 }
 
