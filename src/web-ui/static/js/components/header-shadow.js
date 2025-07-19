@@ -298,14 +298,6 @@ export class HeaderShadowComponent extends ShadowComponentBase {
   handleLeftSidebarToggle() {
     console.log('[HeaderShadow] Left sidebar toggle clicked');
     this.triggerCallback('left-sidebar-toggle');
-    
-    // ボタンのアイコンを更新
-    const btn = this.$('#toggle-left-sidebar');
-    if (btn) {
-      const isCollapsed = btn.textContent === '▶';
-      btn.textContent = isCollapsed ? '◀' : '▶';
-      btn.title = isCollapsed ? 'Hide Left Sidebar' : 'Show Left Sidebar';
-    }
   }
 
   /**
@@ -314,14 +306,6 @@ export class HeaderShadowComponent extends ShadowComponentBase {
   handleRightSidebarToggle() {
     console.log('[HeaderShadow] Right sidebar toggle clicked');
     this.triggerCallback('right-sidebar-toggle');
-    
-    // ボタンのアイコンを更新
-    const btn = this.$('#toggle-right-sidebar');
-    if (btn) {
-      const isCollapsed = btn.textContent === '◀';
-      btn.textContent = isCollapsed ? '▶' : '◀';
-      btn.title = isCollapsed ? 'Hide Right Sidebar' : 'Show Right Sidebar';
-    }
   }
 
   /**
