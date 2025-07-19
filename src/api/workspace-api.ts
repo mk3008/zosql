@@ -635,4 +635,92 @@ ${formattedQuery}`;
     }
   }
 
+  /**
+   * Get workspace file by type and name
+   */
+  public async handleGetWorkspaceFile(req: Request, res: Response): Promise<void> {
+    try {
+      const { type, fileName } = req.params;
+      
+      this.logger.log(`[WORKSPACE] Getting ${type} file: ${fileName}`);
+
+      let filePath: string;
+      let content: string = '';
+
+      switch (type) {
+        case 'main':
+          // Main query file - look in workspace info
+          try {
+            const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
+            const infoContent = await fs.readFile(infoPath, 'utf8');
+            const workspaceInfo: WorkspaceInfo = JSON.parse(infoContent);
+            
+            content = workspaceInfo.originalQuery || workspaceInfo.decomposedQuery || '';
+            this.logger.log(`[WORKSPACE] Retrieved main query from workspace info (${content.length} chars)`);
+          } catch (infoError) {
+            this.logger.log(`[WORKSPACE] Could not read workspace info: ${infoError instanceof Error ? infoError.message : 'Unknown error'}`);
+            
+            // Fallback: try to read from the original file path if available
+            try {
+              const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
+              const infoContent = await fs.readFile(infoPath, 'utf8');
+              const workspaceInfo: WorkspaceInfo = JSON.parse(infoContent);
+              
+              if (workspaceInfo.originalFilePath) {
+                const originalPath = path.resolve(process.cwd(), workspaceInfo.originalFilePath.replace(/^\//, ''));
+                content = await fs.readFile(originalPath, 'utf8');
+                this.logger.log(`[WORKSPACE] Retrieved main query from original file (${content.length} chars)`);
+              }
+            } catch (fallbackError) {
+              this.logger.log(`[WORKSPACE] Fallback failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+            }
+          }
+          break;
+
+        case 'cte':
+          // CTE file - look in private-cte directory
+          const cteName = fileName.replace('.cte', '');
+          filePath = path.join(this.workspaceBasePath, 'private-cte', `${cteName}.sql`);
+          
+          try {
+            content = await fs.readFile(filePath, 'utf8');
+            this.logger.log(`[WORKSPACE] Retrieved CTE file: ${cteName} (${content.length} chars)`);
+          } catch (cteError) {
+            this.logger.log(`[WORKSPACE] CTE file not found: ${cteName}`);
+          }
+          break;
+
+        default:
+          res.status(400).json({
+            success: false,
+            error: `Unknown file type: ${type}`
+          });
+          return;
+      }
+
+      if (content) {
+        res.json({
+          success: true,
+          content,
+          fileName,
+          type
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: `File not found: ${fileName}`,
+          fileName,
+          type
+        });
+      }
+
+    } catch (error) {
+      this.logger.log(`[WORKSPACE] Error getting workspace file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
 }

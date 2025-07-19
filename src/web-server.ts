@@ -11,7 +11,6 @@ import { IntelliSenseDebugApi } from './api/intellisense-debug-api.js';
 import { SqlFormatterApi } from './api/sql-formatter-api.js';
 import { WorkspaceApi } from './api/workspace-api.js';
 import { CteValidatorApi } from './api/cte-validator-api.js';
-// import { getHtmlTemplate } from './web-ui/template-system.js'; // No longer needed - using static HTML
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -154,6 +153,9 @@ export class WebServer {
     this.app.get('/api/workspace/private-cte/:cteName', this.workspaceApi.handleGetSinglePrivateCte.bind(this.workspaceApi));
     this.app.put('/api/workspace/private-cte/:cteName', this.workspaceApi.handleUpdatePrivateCte.bind(this.workspaceApi));
     this.app.delete('/api/workspace', this.workspaceApi.handleClearWorkspace.bind(this.workspaceApi));
+    
+    // File access API for workspace
+    this.app.get('/api/workspace/:type/:fileName', this.workspaceApi.handleGetWorkspaceFile.bind(this.workspaceApi));
     
     // Diagram Generation API
     this.app.post('/api/generate-diagram', this.queryExecutorApi.handleGenerateDiagram.bind(this.queryExecutorApi));

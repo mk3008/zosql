@@ -448,8 +448,12 @@ export class WorkspacePanelShadowComponent {
       return;
     }
 
+    // メインクエリのコンテンツを明示的に渡す
+    const mainQueryContent = this.cteDependencyData.mainQuery || '';
+    console.log(`[WorkspacePanelShadow] Main query content length: ${mainQueryContent.length}`);
+    
     // ワークスペースからメインクエリファイルを取得
-    this.openWorkspaceFile(this.cteDependencyData.mainQueryName, 'main');
+    this.openWorkspaceFile(this.cteDependencyData.mainQueryName, 'main', mainQueryContent);
   }
 
   /**
@@ -482,8 +486,17 @@ export class WorkspacePanelShadowComponent {
       let fileContent = content;
       
       if (!fileContent) {
+        // まず、ファイルモデルマネージャーから取得を試行
+        if (window.fileModelManager) {
+          const existingModel = window.fileModelManager.getModelByName(fileName);
+          if (existingModel) {
+            fileContent = existingModel.getContent();
+            console.log(`[WorkspacePanelShadow] Retrieved content from FileModelManager: ${fileName} (${fileContent.length} chars)`);
+          }
+        }
+        
         // CTEデータから直接取得を試行
-        if (type === 'cte' && this.cteDependencyData && this.cteDependencyData.privateCtes) {
+        if (!fileContent && type === 'cte' && this.cteDependencyData && this.cteDependencyData.privateCtes) {
           const cteName = fileName.replace('.cte', '');
           const cteData = this.cteDependencyData.privateCtes[cteName];
           if (cteData && cteData.query) {
@@ -493,7 +506,7 @@ export class WorkspacePanelShadowComponent {
         }
         
         // メインクエリの場合、ワークスペースデータから取得
-        if (type === 'main' && this.cteDependencyData && this.cteDependencyData.mainQuery) {
+        if (!fileContent && type === 'main' && this.cteDependencyData && this.cteDependencyData.mainQuery) {
           fileContent = this.cteDependencyData.mainQuery;
           console.log('[WorkspacePanelShadow] Retrieved main query content from dependency data');
         }
@@ -516,8 +529,10 @@ export class WorkspacePanelShadowComponent {
         
         // 最終的にコンテンツがない場合のフォールバック
         if (!fileContent) {
-          fileContent = `-- ${fileName}\n-- Content temporarily unavailable\n-- Please reopen the original file to restore content\n\nSELECT 'placeholder' as message;`;
-          console.warn(`[WorkspacePanelShadow] Using fallback content for: ${fileName}`);
+          // ファイル名から拡張子を除去してSQLファイル名を取得
+          const baseName = fileName.replace(/\.(sql|cte)$/i, '');
+          fileContent = `-- ${baseName}\n-- Content not available`;
+          console.warn(`[WorkspacePanelShadow] Using fallback content for: ${fileName} (type: ${type})`);
         }
       }
 
