@@ -137,12 +137,31 @@ export class HeaderShadowComponent extends ShadowComponentBase {
             padding: 10px;
           }
           
-          .header-btn span {
+          /* サイドバートグルボタンのテキストのみ非表示 */
+          .sidebar-toggles .header-btn span {
             display: none;
+          }
+          
+          /* Openボタンは常に表示・最小サイズ確保 */
+          .header-btn.accent {
+            min-width: 80px;
+            padding: 10px 12px;
+            font-size: 14px;
+          }
+          
+          .header-btn.accent span {
+            display: inline;
           }
           
           .sidebar-toggles {
             padding: 0 10px;
+          }
+          
+          /* サイドバートグルボタンのサイズ調整 */
+          .header-btn.toggle {
+            min-width: 40px;
+            padding: 10px;
+            font-size: 16px;
           }
         }
       </style>
