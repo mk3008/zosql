@@ -14,6 +14,7 @@ import { CteValidatorApi } from './api/cte-validator-api.js';
 import { handleExecuteQuery, handleResetDatabase, handleHealthCheck, initializePGlite } from './api/pglite-api.js';
 import { CteComposeApi } from './api/cte-compose-api.js';
 import { SchemaExtractApi } from './api/schema-extract-api.js';
+import { SqlValidatorApi } from './api/sql-validator-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -173,6 +174,10 @@ export class WebServer {
     
     // Schema Extract API
     this.app.post('/api/extract-schema', this.schemaExtractApi.handleExtractSchema.bind(this.schemaExtractApi));
+    
+    // SQL Validator API
+    this.app.get('/api/validate-workspace', SqlValidatorApi.handleValidateWorkspace);
+    this.app.get('/api/validate-file/:type/:fileName', SqlValidatorApi.handleValidateFile);
     
     // File reading API
     this.app.get('/api/file', async (req, res) => {

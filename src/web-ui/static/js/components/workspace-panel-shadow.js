@@ -13,6 +13,8 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
     this.sections = new Map();
     this.cteTreeComponent = null;
     this.cteDependencyData = null;
+    this.validationResults = null;
+    this.isValidating = false;
   }
 
   /**
@@ -259,6 +261,72 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
           color: var(--text-muted, #6b7280);
           font-style: italic;
         }
+        
+        /* SQL Validation Styles */
+        .validation-status {
+          margin-left: 4px;
+          font-size: 12px;
+          font-weight: bold;
+        }
+        
+        .validation-status.valid {
+          color: #10b981;
+        }
+        
+        .validation-status.invalid {
+          color: #ef4444;
+        }
+        
+        .validation-status.pending {
+          color: #f59e0b;
+        }
+        
+        .validation-error {
+          font-size: 13px;
+          color: #e5e7eb;
+          margin-left: 20px;
+          margin-top: 2px;
+          background: #1f2937;
+          padding: 6px 8px;
+          border-radius: 0;
+          border-left: 3px solid #ef4444;
+          white-space: pre-wrap;
+          word-break: break-word;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          line-height: 1.4;
+        }
+        
+        .validation-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+        
+        .validate-button {
+          background: var(--bg-accent, #3b82f6);
+          color: white;
+          border: none;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .validate-button:hover {
+          background: #2563eb;
+        }
+        
+        .validate-button:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+        }
+        
+        .validation-summary {
+          font-size: 11px;
+          color: var(--text-muted, #6b7280);
+        }
       </style>
     `;
   }
@@ -307,7 +375,8 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
           <span class="collapse-icon">▶</span>
         </div>
         <div class="workspace-content">
-          ${this.renderCTEDependencyTree()}
+          ${this.renderValidationControls()}
+          ${this.renderCTEDependencyTreeWithValidation()}
         </div>
       </div>
     `;
@@ -370,10 +439,16 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
       e.preventDefault();
       e.stopPropagation();
       
-      const cteName = cteTreeItem.dataset.cte;
-      if (cteName === 'main') {
+      const type = cteTreeItem.dataset.type;
+      const name = cteTreeItem.dataset.name;
+      const cteName = cteTreeItem.dataset.cte; // 旧形式との互換性
+      
+      if (type === 'main' || cteName === 'main') {
         this.handleMainQueryClick();
+      } else if (type === 'cte' && name) {
+        this.handleCteTreeItemClick(name);
       } else if (cteName) {
+        // 旧形式への対応
         this.handleCteTreeItemClick(cteName);
       }
     });
@@ -646,13 +721,204 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
    */
   updateCTEDependencies(data) {
     this.cteDependencyData = data;
+    // ワークスペースが更新されたら検査結果をクリア
+    this.validationResults = null;
     
     // Workspaceセクションのみを再レンダリング
     const workspaceSection = this.$('[data-section="workspace"] .workspace-content');
     if (workspaceSection) {
-      workspaceSection.innerHTML = this.renderCTEDependencyTree();
+      workspaceSection.innerHTML = this.renderValidationControls() + this.renderCTEDependencyTreeWithValidation();
     }
   }
+
+  /**
+   * 検査コントロールのレンダリング
+   */
+  renderValidationControls() {
+    if (!this.cteDependencyData) {
+      return '';
+    }
+
+    const summary = this.getValidationSummary();
+    
+    return `
+      <div class="validation-controls">
+        <button class="validate-button" ${this.isValidating ? 'disabled' : ''} onclick="this.getRootNode().host.validateWorkspace()">
+          ${this.isValidating ? 'Validating...' : 'Validate SQL'}
+        </button>
+        ${summary ? `<span class="validation-summary">${summary}</span>` : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * 検査結果サマリーの取得
+   */
+  getValidationSummary() {
+    if (!this.validationResults) {
+      return '';
+    }
+
+    const validCount = this.validationResults.filter(r => r.isValid).length;
+    const totalCount = this.validationResults.length;
+    const invalidCount = totalCount - validCount;
+
+    if (invalidCount === 0) {
+      return `✅ All ${totalCount} files valid`;
+    } else {
+      return `❌ ${invalidCount}/${totalCount} files have errors`;
+    }
+  }
+
+  /**
+   * ワークスペースSQL検査の実行
+   */
+  async validateWorkspace() {
+    if (this.isValidating || !this.cteDependencyData) {
+      return;
+    }
+
+    this.isValidating = true;
+    this.render();
+
+    try {
+      const response = await fetch('/api/validate-workspace');
+      if (!response.ok) {
+        throw new Error(`Validation failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.validationResults = data.results || [];
+      
+      console.log('[WorkspacePanelShadow] Validation completed:', this.validationResults);
+      
+    } catch (error) {
+      console.error('[WorkspacePanelShadow] Validation error:', error);
+      this.validationResults = null;
+    } finally {
+      this.isValidating = false;
+      this.render();
+    }
+  }
+
+  /**
+   * ファイルの検査結果を取得
+   */
+  getValidationResult(fileName, type) {
+    if (!this.validationResults) {
+      return null;
+    }
+
+    // MAINクエリの場合
+    if (type === 'main') {
+      return this.validationResults.find(r => r.type === 'main');
+    }
+
+    // CTEの場合
+    const cteName = fileName.replace('.cte', '').replace('.sql', '');
+    return this.validationResults.find(r => r.type === 'cte' && r.name === cteName);
+  }
+
+  /**
+   * 検査結果付きCTE依存関係ツリーのレンダリング
+   */
+  renderCTEDependencyTreeWithValidation() {
+    if (!this.cteDependencyData || !this.cteDependencyData.privateCtes) {
+      return `
+        <div class="empty-workspace">
+          No CTE dependencies to display.<br>
+          Open a SQL file with CTEs to see the dependency tree.
+        </div>
+      `;
+    }
+
+    const tree = this.buildCTEDependencyTree(this.cteDependencyData.privateCtes);
+    const mainQueryName = this.cteDependencyData.mainQueryName || 'Main Query';
+
+    let html = `
+      <div class="cte-tree-wrapper">
+        <div class="cte-tree-item" data-level="0" data-type="main" data-name="${mainQueryName}">
+          <span class="cte-tree-icon">📝</span>
+          <span class="cte-tree-name">${mainQueryName}</span>
+          ${this.renderValidationStatus('main', mainQueryName)}
+        </div>
+        ${this.renderValidationError('main', mainQueryName)}
+    `;
+
+    // 既存のrenderCTETreeNodesメソッドを使用（検査ステータス付き）
+    html += this.renderCTETreeNodesWithValidation(tree, 1);
+    html += `</div>`;
+
+    return html;
+  }
+
+  /**
+   * 検査結果付きCTEツリーノードのレンダリング
+   */
+  renderCTETreeNodesWithValidation(tree, level = 1) {
+    if (!tree || typeof tree !== 'object') {
+      return '';
+    }
+
+    return Object.values(tree).map(node => {
+      const cteName = node.name;
+      
+      let html = `
+        <div class="cte-tree-item" data-level="${level}" data-type="cte" data-name="${cteName}">
+          <span class="cte-tree-icon">📦</span>
+          <span class="cte-tree-name">${cteName}</span>
+          ${this.renderValidationStatus('cte', cteName)}
+        </div>
+        ${this.renderValidationError('cte', cteName)}
+      `;
+
+      if (node.children && typeof node.children === 'object' && Object.keys(node.children).length > 0) {
+        html += this.renderCTETreeNodesWithValidation(node.children, level + 1);
+      }
+
+      return html;
+    }).join('');
+  }
+
+  /**
+   * 検査ステータスアイコンのレンダリング
+   */
+  renderValidationStatus(type, name) {
+    const result = this.getValidationResult(name, type);
+    
+    if (!result) {
+      return this.validationResults ? '<span class="validation-status pending">⏳</span>' : '';
+    }
+
+    if (result.isValid) {
+      return '<span class="validation-status valid">✅</span>';
+    } else {
+      return '<span class="validation-status invalid">❌</span>';
+    }
+  }
+
+  /**
+   * 検査エラー詳細のレンダリング
+   */
+  renderValidationError(type, name) {
+    const result = this.getValidationResult(name, type);
+    
+    if (!result || result.isValid || !result.error) {
+      return '';
+    }
+
+    return `<div class="validation-error">${this.escapeHtml(result.error.trim())}</div>`;
+  }
+
+  /**
+   * HTMLエスケープユーティリティ
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
 
   /**
    * CTE一覧の更新
@@ -737,7 +1003,8 @@ export class WorkspacePanelShadowElement extends ShadowElementBase {
   exposeComponentAPI() {
     this.exposeMethods([
       'updateCtes', 
-      'updateCTEDependencies'
+      'updateCTEDependencies',
+      'validateWorkspace'
     ]);
   }
 }
