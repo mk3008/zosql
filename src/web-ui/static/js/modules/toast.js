@@ -11,7 +11,7 @@ export function showToast(message, type = 'info', title = '', duration = 4000) {
   // Create toast element
   const toast = document.createElement('div');
   toast.id = id;
-  toast.className = `toast ${type}`;
+  toast.className = `toast toast-${type}`;
   
   // Create toast content - simplified without icon and close button
   toast.innerHTML = `
