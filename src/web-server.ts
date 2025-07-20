@@ -13,6 +13,7 @@ import { WorkspaceApi } from './api/workspace-api.js';
 import { CteValidatorApi } from './api/cte-validator-api.js';
 import { handleExecuteQuery, handleResetDatabase, handleHealthCheck, initializePGlite } from './api/pglite-api.js';
 import { CteComposeApi } from './api/cte-compose-api.js';
+import { SchemaExtractApi } from './api/schema-extract-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +39,7 @@ export class WebServer {
   private workspaceApi: WorkspaceApi;
   private cteValidatorApi: CteValidatorApi;
   private cteComposeApi: CteComposeApi;
+  private schemaExtractApi: SchemaExtractApi;
 
   constructor(options: WebServerOptions) {
     this.app = express();
@@ -57,6 +59,7 @@ export class WebServer {
     this.workspaceApi = new WorkspaceApi();
     this.cteValidatorApi = new CteValidatorApi();
     this.cteComposeApi = new CteComposeApi();
+    this.schemaExtractApi = new SchemaExtractApi();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -167,6 +170,9 @@ export class WebServer {
     
     // CTE Compose API
     this.app.post('/api/compose-cte', this.cteComposeApi.handleComposeCte.bind(this.cteComposeApi));
+    
+    // Schema Extract API
+    this.app.post('/api/extract-schema', this.schemaExtractApi.handleExtractSchema.bind(this.schemaExtractApi));
     
     // File reading API
     this.app.get('/api/file', async (req, res) => {

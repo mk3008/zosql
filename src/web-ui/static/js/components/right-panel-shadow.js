@@ -123,7 +123,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
           background: var(--bg-primary, #1e1e1e);
           border-bottom: 1px solid var(--border-primary, #e5e7eb);
           height: 40px;
-          overflow-x: auto;
+          overflow-x: hidden;
           scrollbar-width: none;
         }
         
@@ -165,6 +165,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
         .panel-content {
           padding: 0;
           overflow-y: auto;
+          overflow-x: hidden;
           height: calc(100% - 88px); /* 48px header + 40px tabs */
         }
         
@@ -180,11 +181,99 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
         .editor-wrapper {
           height: 100%;
           position: relative;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .values-description {
+          padding: 12px;
+          background: var(--bg-secondary, #2d2d30);
+          border-bottom: 1px solid var(--border-primary, #3e3e42);
+          color: var(--text-secondary, #999);
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .prompt-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 6px;
+        }
+
+        .copy-prompt-btn {
+          background: var(--accent, #007acc);
+          color: white;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 4px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .copy-prompt-btn:hover {
+          background: var(--accent-hover, #005a9e);
+        }
+
+        .copy-prompt-btn:active {
+          background: var(--accent-active, #004578);
+        }
+
+        .schema-collector-option {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 12px;
+          color: var(--text-secondary, #999);
+        }
+
+        .schema-collector-checkbox {
+          margin: 0;
+        }
+
+        .error-message {
+          margin-top: 8px;
+          padding: 8px;
+          background: var(--error-bg, #d73a49);
+          color: white;
+          border-radius: 4px;
+          font-size: 12px;
+          line-height: 1.4;
+          position: relative;
+          display: none;
+          border-left: 3px solid #cb2431;
+        }
+
+        .error-message.show {
+          display: block;
+        }
+
+        .error-close-btn {
+          position: absolute;
+          top: 4px;
+          right: 6px;
+          background: none;
+          border: none;
+          color: white;
+          cursor: pointer;
+          font-size: 14px;
+          padding: 0;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .error-close-btn:hover {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
         }
         
         textarea.code-editor {
           width: 100%;
-          height: 100%;
+          flex: 1;
           background: var(--bg-primary, #1e1e1e);
           color: var(--text-primary, #ccc);
           border: none;
@@ -194,6 +283,8 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
           line-height: 1.5;
           resize: none;
           outline: none;
+          white-space: nowrap;
+          overflow-x: auto;
         }
         
         textarea.code-editor::placeholder {
@@ -342,6 +433,21 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
     return `
       <div class="tab-content ${this.activeTab === 'values' ? 'active' : ''}" id="tab-values">
         <div class="editor-wrapper">
+          <div class="values-description">
+            Define test data using WITH clauses.<br>
+            For AI-assisted definition, use "Copy Prompt".
+            <div class="prompt-controls">
+              <button class="copy-prompt-btn" id="copy-prompt-btn">Copy Prompt</button>
+              <label class="schema-collector-option">
+                <input type="checkbox" class="schema-collector-checkbox" id="use-schema-collector" checked>
+                use SchemaCollector
+              </label>
+            </div>
+            <div class="error-message" id="schema-error-message">
+              <button class="error-close-btn" id="error-close-btn">×</button>
+              <span class="error-text"></span>
+            </div>
+          </div>
           <textarea class="code-editor" id="values-editor" placeholder="Define test data CTEs here...">${this.valuesContent}</textarea>
         </div>
       </div>
@@ -434,6 +540,12 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
         this.triggerCallback('values-changed', { content: this.valuesContent });
       });
     }
+
+    // Copy Promptボタンのイベントハンドラー
+    this.addClickHandler('#copy-prompt-btn', () => this.handleCopyPrompt());
+
+    // エラーメッセージを閉じるボタンのイベントハンドラー
+    this.addClickHandler('#error-close-btn', () => this.hideErrorMessage());
 
     // セクションの開閉
     this.addClickHandler('.section-header', (e, target) => {
@@ -532,6 +644,160 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
    */
   getValuesContent() {
     return this.valuesContent;
+  }
+
+  /**
+   * Copy Promptボタンの処理
+   */
+  async handleCopyPrompt() {
+    try {
+      // エラーメッセージをクリア
+      this.hideErrorMessage();
+
+      // 中央パネルからSQLを取得
+      const centerPanel = window.appState?.components?.centerPanelShadow;
+      if (!centerPanel || !centerPanel.getActiveTabContent) {
+        throw new Error('Center panel not available');
+      }
+
+      const currentSql = centerPanel.getActiveTabContent();
+      if (!currentSql || !currentSql.trim()) {
+        throw new Error('No SQL query found in center panel');
+      }
+
+      // SchemaCollectorチェックボックスの状態を確認
+      const useSchemaCollector = this.$('#use-schema-collector')?.checked ?? true;
+
+      // プロンプトを生成
+      const prompt = await this.generatePrompt(currentSql, useSchemaCollector);
+      
+      // クリップボードにコピー
+      await navigator.clipboard.writeText(prompt);
+      
+      // 成功トーストを表示
+      this.showToast('Prompt copied to clipboard!', 'success');
+      
+    } catch (error) {
+      console.error('[RightPanel] Copy prompt failed:', error);
+      
+      // SchemaCollectorエラーの場合は持続的なエラーメッセージを表示
+      if (error.message.includes('Schema analysis failed')) {
+        this.showErrorMessage(error.message);
+      } else {
+        // その他のエラーはトーストで表示
+        this.showToast(`Failed to copy prompt: ${error.message}`, 'error');
+      }
+    }
+  }
+
+  /**
+   * プロンプト生成
+   */
+  async generatePrompt(sql, useSchemaCollector = true) {
+    if (!useSchemaCollector) {
+      // SchemaCollectorを使わない場合 - AIにスキーマ解析を委ねる
+      return `このSQLをDB環境依存なしで動かしたいので、
+元のSQLは変更せずに、必要なテーブルを VALUES 文で定義したモックテーブルとして
+WITH句のみ を作成してください。
+SELECT文などは不要で、WITH句だけ回答してください。
+
+\`\`\`sql
+${sql}
+\`\`\``;
+    }
+
+    // SchemaCollectorを使用する場合
+    try {
+      // rawsql-ts SchemaCollectorでテーブル名と列名を抽出
+      const schemaInfo = await this.extractSchemaInfo(sql);
+      
+      if (schemaInfo.tables.length === 0) {
+        // テーブルが検出されない場合
+        throw new Error('No tables detected in the SQL query');
+      }
+
+      // テーブル情報を文字列形式に整形
+      const tableDescriptions = schemaInfo.tables.map(table => 
+        `${table.name}(${table.columns.join(', ')})`
+      ).join(', ');
+
+      return `このSQLをDB環境依存なしで動かしたいので、
+元のSQLは変更せずに、必要なテーブル ${tableDescriptions} を VALUES 文で定義したモックテーブルとして
+WITH句のみ を作成してください。
+SELECT文などは不要で、WITH句だけ回答してください。
+
+\`\`\`sql
+${sql}
+\`\`\``;
+
+    } catch (error) {
+      console.error('[RightPanel] Schema extraction failed:', error);
+      
+      // SchemaCollectorのエラーの場合は、クエリ修正を促す
+      throw new Error(`Schema analysis failed: ${error.message}. Please fix the SQL query to resolve ambiguous column references (e.g., use table.column instead of column).`);
+    }
+  }
+
+  /**
+   * スキーマ情報の抽出
+   */
+  async extractSchemaInfo(sql) {
+    const response = await fetch('/api/extract-schema', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ sql })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Schema extraction failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Schema extraction failed');
+    }
+
+    return {
+      tables: result.tables || []
+    };
+  }
+
+  /**
+   * エラーメッセージの表示
+   */
+  showErrorMessage(message) {
+    const errorMessage = this.$('#schema-error-message');
+    const errorText = this.$('#schema-error-message .error-text');
+    
+    if (errorMessage && errorText) {
+      errorText.textContent = message;
+      errorMessage.classList.add('show');
+    }
+  }
+
+  /**
+   * エラーメッセージの非表示
+   */
+  hideErrorMessage() {
+    const errorMessage = this.$('#schema-error-message');
+    if (errorMessage) {
+      errorMessage.classList.remove('show');
+    }
+  }
+
+  /**
+   * トースト表示
+   */
+  showToast(message, type = 'info') {
+    if (window.showToast) {
+      window.showToast(message, type);
+    } else {
+      // フォールバック
+      console.log(`[Toast] ${type}: ${message}`);
+    }
   }
 
   /**
