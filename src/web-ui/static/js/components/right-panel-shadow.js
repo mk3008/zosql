@@ -393,17 +393,6 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
     return `
       <div class="resize-handle" title="Resize panel"></div>
       
-      <div class="panel-header">
-        <div class="panel-title">
-          ${this.config.title}
-        </div>
-        <div class="panel-controls">
-          <button class="panel-btn" id="refresh-btn" title="Refresh">🔄</button>
-          <button class="panel-btn" id="settings-btn" title="Settings">⚙️</button>
-          ${this.config.collapsible ? '<button class="panel-btn" id="collapse-btn" title="Collapse">📌</button>' : ''}
-        </div>
-      </div>
-      
       <div class="tabs-container">
         ${this.renderTabs()}
       </div>
