@@ -12,6 +12,13 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
   beforeInit() {
     this.sections = new Map();
     this.isCollapsed = false;
+    this.activeTab = 'values'; // Default active tab
+    this.tabs = [
+      { id: 'values', label: 'Values', icon: '📊' },
+      { id: 'condition', label: 'Condition', icon: '🔍' }
+    ];
+    this.valuesContent = '-- Define test data CTEs here\n-- Example:\nwith _users(user_id, name) as (\n  values\n    (1, \'alice\'),\n    (2, \'bob\')\n),\nusers as (\n  select\n    user_id::bigint,\n    name::text\n  from _users\n)';
+    this.conditionContent = '-- Conditions will be implemented in future';
   }
 
   /**
@@ -110,10 +117,87 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
           color: var(--text-primary, #374151);
         }
         
+        /* Tab styles */
+        .tabs-container {
+          display: flex;
+          background: var(--bg-primary, #1e1e1e);
+          border-bottom: 1px solid var(--border-primary, #e5e7eb);
+          height: 40px;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        
+        .tabs-container::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .tab {
+          display: flex;
+          align-items: center;
+          padding: 0 16px;
+          height: 100%;
+          background: transparent;
+          border: none;
+          color: var(--text-secondary, #999);
+          font-size: 13px;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.2s;
+          border-bottom: 2px solid transparent;
+          gap: 4px;
+        }
+        
+        .tab:hover {
+          color: var(--text-primary, #ccc);
+          background: var(--bg-hover, rgba(255,255,255,0.05));
+        }
+        
+        .tab.active {
+          color: var(--text-primary, #fff);
+          border-bottom-color: var(--accent, #007acc);
+          background: var(--bg-hover, rgba(255,255,255,0.05));
+        }
+        
+        .tab-icon {
+          font-size: 14px;
+        }
+        
         .panel-content {
-          padding: 16px;
+          padding: 0;
           overflow-y: auto;
-          height: calc(100% - 48px);
+          height: calc(100% - 88px); /* 48px header + 40px tabs */
+        }
+        
+        .tab-content {
+          display: none;
+          height: 100%;
+        }
+        
+        .tab-content.active {
+          display: block;
+        }
+        
+        .editor-wrapper {
+          height: 100%;
+          position: relative;
+        }
+        
+        textarea.code-editor {
+          width: 100%;
+          height: 100%;
+          background: var(--bg-primary, #1e1e1e);
+          color: var(--text-primary, #ccc);
+          border: none;
+          padding: 12px;
+          font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+          font-size: 13px;
+          line-height: 1.5;
+          resize: none;
+          outline: none;
+        }
+        
+        textarea.code-editor::placeholder {
+          color: var(--text-muted, #666);
         }
         
         .empty-state {
@@ -229,8 +313,42 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
         </div>
       </div>
       
+      <div class="tabs-container">
+        ${this.renderTabs()}
+      </div>
+      
       <div class="panel-content">
-        ${this.renderPanelContent()}
+        ${this.renderTabContents()}
+      </div>
+    `;
+  }
+
+  /**
+   * タブのレンダリング
+   */
+  renderTabs() {
+    return this.tabs.map(tab => `
+      <button class="tab ${tab.id === this.activeTab ? 'active' : ''}" data-tab-id="${tab.id}">
+        <span class="tab-icon">${tab.icon}</span>
+        <span class="tab-label">${tab.label}</span>
+      </button>
+    `).join('');
+  }
+
+  /**
+   * タブコンテンツのレンダリング
+   */
+  renderTabContents() {
+    return `
+      <div class="tab-content ${this.activeTab === 'values' ? 'active' : ''}" id="tab-values">
+        <div class="editor-wrapper">
+          <textarea class="code-editor" id="values-editor" placeholder="Define test data CTEs here...">${this.valuesContent}</textarea>
+        </div>
+      </div>
+      <div class="tab-content ${this.activeTab === 'condition' ? 'active' : ''}" id="tab-condition">
+        <div class="editor-wrapper">
+          <textarea class="code-editor" id="condition-editor" readonly placeholder="Conditions will be implemented in future...">${this.conditionContent}</textarea>
+        </div>
       </div>
     `;
   }
@@ -298,6 +416,24 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
     this.addClickHandler('#refresh-btn', () => this.handleRefresh());
     this.addClickHandler('#settings-btn', () => this.handleSettings());
     this.addClickHandler('#collapse-btn', () => this.handleCollapse());
+
+    // タブ切り替え
+    this.shadowRoot.addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab');
+      if (tab) {
+        const tabId = tab.dataset.tabId;
+        this.switchTab(tabId);
+      }
+    });
+
+    // Values エディタの変更を追跡
+    const valuesEditor = this.$('#values-editor');
+    if (valuesEditor) {
+      valuesEditor.addEventListener('input', (e) => {
+        this.valuesContent = e.target.value;
+        this.triggerCallback('values-changed', { content: this.valuesContent });
+      });
+    }
 
     // セクションの開閉
     this.addClickHandler('.section-header', (e, target) => {
@@ -368,6 +504,34 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
     this.isCollapsed = !this.isCollapsed;
     console.log('[RightPanelShadow] Collapse toggled:', this.isCollapsed);
     this.triggerCallback('collapse', { isCollapsed: this.isCollapsed });
+  }
+
+  /**
+   * タブ切り替え
+   */
+  switchTab(tabId) {
+    if (this.activeTab === tabId) return;
+    
+    this.activeTab = tabId;
+    
+    // Update tab buttons
+    this.shadowRoot.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.tabId === tabId);
+    });
+    
+    // Update tab contents
+    this.shadowRoot.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.toggle('active', content.id === `tab-${tabId}`);
+    });
+    
+    this.triggerCallback('tab-switched', { tabId });
+  }
+
+  /**
+   * Values コンテンツの取得
+   */
+  getValuesContent() {
+    return this.valuesContent;
   }
 
   /**
@@ -452,7 +616,7 @@ export class RightPanelShadowElement extends ShadowElementBase {
    * コンポーネントAPIの公開
    */
   exposeComponentAPI() {
-    this.exposeMethods(['addSection', 'removeSection', 'setTitle']);
+    this.exposeMethods(['addSection', 'removeSection', 'setTitle', 'getValuesContent']);
   }
 }
 

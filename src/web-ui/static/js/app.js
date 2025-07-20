@@ -221,13 +221,52 @@ async function handleRunQuery(data) {
       resultsContainer.innerHTML = '<div class="results-loading">Executing query...</div>';
     }
     
+    // Get Values CTE definitions from right panel
+    const rightPanel = window.appState.components.rightPanelShadow;
+    let finalSql = sql;
+    
+    if (rightPanel && rightPanel.getValuesContent) {
+      const valuesContent = rightPanel.getValuesContent();
+      
+      if (valuesContent && valuesContent.trim()) {
+        // Compose CTE with main query
+        try {
+          const composeResponse = await fetch('/api/compose-cte', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              mainQuery: sql,
+              cteDefinitions: valuesContent
+            })
+          });
+          
+          const composeResult = await composeResponse.json();
+          
+          if (composeResult.success) {
+            finalSql = composeResult.composedQuery;
+            console.log('[App] CTE composed successfully, added', composeResult.cteCount, 'CTEs');
+          } else {
+            console.error('[App] CTE composition failed:', composeResult.error);
+            showErrorToast('CTE composition failed: ' + composeResult.error);
+            return;
+          }
+        } catch (error) {
+          console.error('[App] CTE composition error:', error);
+          showErrorToast('CTE composition error: ' + error.message);
+          return;
+        }
+      }
+    }
+    
     // Execute query via PGlite API
     const response = await fetch('/api/execute-query', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ sql })
+      body: JSON.stringify({ sql: finalSql })
     });
     
     const result = await response.json();
@@ -237,8 +276,8 @@ async function handleRunQuery(data) {
       displayQueryResults(tabId, result);
       showSuccessToast(`Query executed successfully (${result.result.rows.length} rows)`);
     } else {
-      // Display error
-      displayQueryError(tabId, result.error);
+      // Display error with SQL for debugging
+      displayQueryError(tabId, result.error, result.sql || finalSql);
       showErrorToast('Query execution failed: ' + result.error);
     }
     
@@ -376,16 +415,27 @@ function displayQueryResults(tabId, queryResult) {
 }
 
 // Display query error
-function displayQueryError(tabId, errorMessage) {
+function displayQueryError(tabId, errorMessage, sql = null) {
   const centerPanelShadow = window.appState.components.centerPanelShadow;
   const resultsContainer = centerPanelShadow.shadowRoot.getElementById(`results-${tabId}`);
   
   if (!resultsContainer) return;
   
+  let sqlSection = '';
+  if (sql) {
+    sqlSection = `
+      <details style="margin-top: 10px;">
+        <summary style="cursor: pointer; color: #666;">Generated SQL (click to expand)</summary>
+        <pre style="background: #f5f5f5; padding: 10px; margin: 5px 0; border-radius: 4px; overflow: auto; white-space: pre-wrap;">${escapeHtml(sql)}</pre>
+      </details>
+    `;
+  }
+  
   resultsContainer.innerHTML = `
     <div class="results-error">
       <strong>Query Error:</strong><br>
       ${escapeHtml(errorMessage)}
+      ${sqlSection}
     </div>
   `;
 }

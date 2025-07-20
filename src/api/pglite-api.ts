@@ -149,7 +149,8 @@ export async function handleExecuteQuery(req: Request, res: Response): Promise<v
     Logger.getInstance().error(`PGlite API: Execute query failed - ${errorMessage}`);
     res.status(500).json({
       success: false,
-      error: errorMessage
+      error: errorMessage,
+      sql: req.body.sql // デバッグ用にSQLを含める
     });
   }
 }

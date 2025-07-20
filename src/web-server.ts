@@ -12,6 +12,7 @@ import { SqlFormatterApi } from './api/sql-formatter-api.js';
 import { WorkspaceApi } from './api/workspace-api.js';
 import { CteValidatorApi } from './api/cte-validator-api.js';
 import { handleExecuteQuery, handleResetDatabase, handleHealthCheck, initializePGlite } from './api/pglite-api.js';
+import { CteComposeApi } from './api/cte-compose-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +37,7 @@ export class WebServer {
   private sqlFormatterApi: SqlFormatterApi;
   private workspaceApi: WorkspaceApi;
   private cteValidatorApi: CteValidatorApi;
+  private cteComposeApi: CteComposeApi;
 
   constructor(options: WebServerOptions) {
     this.app = express();
@@ -54,6 +56,7 @@ export class WebServer {
     this.sqlFormatterApi = new SqlFormatterApi();
     this.workspaceApi = new WorkspaceApi();
     this.cteValidatorApi = new CteValidatorApi();
+    this.cteComposeApi = new CteComposeApi();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -161,6 +164,9 @@ export class WebServer {
     
     // CTE Validation API
     this.app.get('/api/validate-ctes', this.cteValidatorApi.handleValidateCtes.bind(this.cteValidatorApi));
+    
+    // CTE Compose API
+    this.app.post('/api/compose-cte', this.cteComposeApi.handleComposeCte.bind(this.cteComposeApi));
     
     // File reading API
     this.app.get('/api/file', async (req, res) => {
