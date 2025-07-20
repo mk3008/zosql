@@ -550,6 +550,7 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
           const cteName = fileName.replace('.cte', '');
           const cteData = this.cteDependencyData.privateCtes[cteName];
           if (cteData && cteData.query) {
+            // CTEデータからはそのまま取得（既にextractCTEQuery処理済み）
             fileContent = cteData.query;
           }
         }

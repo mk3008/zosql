@@ -240,7 +240,13 @@ export class WorkspaceService {
             } else if (type === 'cte') {
                 const cteName = fileName.replace('.cte', '').replace('.sql', '');
                 const cte = this.workspace?.privateCtes?.[cteName];
-                content = cte?.query || '';
+                
+                // CTEの場合、rawsql-tsオブジェクトからSQL文字列に変換
+                if (cte && typeof cte.query === 'object') {
+                    content = await this.extractCTEQuery(cte);
+                } else {
+                    content = cte?.query || '';
+                }
             }
             
             if (content) {
@@ -344,20 +350,21 @@ export class WorkspaceService {
             
             // CTEの抽出
             if (simpleQuery.withClause && simpleQuery.withClause.tables) {
-                simpleQuery.withClause.tables.forEach(cte => {
+                for (const cte of simpleQuery.withClause.tables) {
                     const cteName = cte.aliasExpression?.table?.name || 'unknown';
                     privateCtes[cteName] = {
                         name: cteName,
-                        query: this.extractCTEQuery(cte),
+                        query: await this.extractCTEQuery(cte),
                         description: `Extracted CTE: ${cteName}`,
-                        dependencies: this.extractCTEDependencies(cte),
+                        dependencies: await this.extractCTEDependencies(cte),
                         columns: []
                     };
-                });
+                }
             }
             
             // フォーマット
-            const formatter = RawSqlBrowser.getFormatter(this.getDefaultFormatterConfig());
+            const formatterConfig = await this.getFormatterConfig();
+            const formatter = RawSqlBrowser.getFormatter(formatterConfig);
             const formatResult = formatter.format(simpleQuery);
             decomposedQuery = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
             
@@ -457,9 +464,21 @@ export class WorkspaceService {
     }
     
     /**
-     * デフォルトフォーマッター設定
+     * フォーマッター設定を取得
+     * zosql.formatter.jsonから設定を読み込み
      */
-    getDefaultFormatterConfig() {
+    async getFormatterConfig() {
+        try {
+            const response = await fetch('/zosql.formatter.json');
+            if (response.ok) {
+                const config = await response.json();
+                return config;
+            }
+        } catch (error) {
+            console.warn('[WorkspaceService] Failed to load formatter config, using defaults:', error);
+        }
+        
+        // フォールバック用のデフォルト設定
         return {
             identifierEscape: {
                 start: "",
@@ -480,16 +499,17 @@ export class WorkspaceService {
     
     /**
      * CTEクエリの抽出（修正版）
-     * rawsql-tsのSelectQueryオブジェクトをSQL文字列に変換
+     * CTEの元のクエリをフォーマットして返す（WITH句は追加しない）
      */
-    extractCTEQuery(cte) {
+    async extractCTEQuery(cte) {
         if (!cte || !cte.query) {
             return '';
         }
         
         try {
             // cte.queryはSelectQueryオブジェクトなので、SqlFormatterで文字列に変換
-            const formatter = RawSqlBrowser.getFormatter(this.getDefaultFormatterConfig());
+            const formatterConfig = await this.getFormatterConfig();
+            const formatter = RawSqlBrowser.getFormatter(formatterConfig);
             const formatResult = formatter.format(cte.query);
             
             // formatResultは {formattedSql: string, params: any} の形式
@@ -508,7 +528,7 @@ export class WorkspaceService {
      * CTE依存関係の抽出（修正版）
      * rawsql-tsのSelectQueryオブジェクトから依存関係を正しく抽出
      */
-    extractCTEDependencies(cte) {
+    async extractCTEDependencies(cte) {
         const dependencies = [];
         
         if (!cte || !cte.query) {
@@ -517,7 +537,8 @@ export class WorkspaceService {
         
         try {
             // まずSelectQueryオブジェクトをSQL文字列に変換
-            const formatter = RawSqlBrowser.getFormatter(this.getDefaultFormatterConfig());
+            const formatterConfig = await this.getFormatterConfig();
+            const formatter = RawSqlBrowser.getFormatter(formatterConfig);
             const formatResult = formatter.format(cte.query);
             const sql = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
             
