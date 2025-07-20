@@ -3,7 +3,7 @@
  * 左右サイドバーの開閉・状態管理
  */
 
-export class SidebarManager {
+class SidebarManager {
   constructor() {
     this.STORAGE_KEY_PREFIX = 'zosql-sidebar-';
     this.state = {
@@ -23,11 +23,9 @@ export class SidebarManager {
     
     this.setupEventListeners();
     
-    // 初期状態適用を遅延させる（Shadow DOMコンポーネントが確実に読み込まれるまで待つ）
-    setTimeout(() => {
-      this.applyInitialState();
-      console.log('[SidebarManager] Initialized with delayed state application');
-    }, 200);
+    // 初期状態を即座に適用
+    this.applyInitialState();
+    console.log('[SidebarManager] Initialized with immediate state application');
   }
 
   /**
@@ -131,7 +129,6 @@ export class SidebarManager {
         // 左サイドバーを表示する場合
         if (traditionalLeftSidebar) {
           traditionalLeftSidebar.style.display = 'block';
-          traditionalLeftSidebar.style.width = '280px';
           traditionalLeftSidebar.style.flexShrink = '0';
           traditionalLeftSidebar.style.visibility = 'visible';
           traditionalLeftSidebar.style.opacity = '1';
@@ -252,7 +249,6 @@ export class SidebarManager {
       if (traditionalRightSidebar) {
         if (this.state.rightSidebar) {
           traditionalRightSidebar.style.display = 'block';
-          traditionalRightSidebar.style.width = '300px';
         } else {
           traditionalRightSidebar.style.display = 'none';
         }
@@ -477,6 +473,12 @@ export class SidebarManager {
     console.log('[SidebarManager] Destroyed');
   }
 }
+
+// Export the class
+export { SidebarManager };
+
+// グローバルに公開
+window.SidebarManager = SidebarManager;
 
 // 自動初期化（singleton）
 if (!window.sidebarManager) {

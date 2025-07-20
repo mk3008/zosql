@@ -271,6 +271,44 @@ export class ShadowComponentBase {
     return this.shadowRoot.getElementById(id);
   }
 
+  /**
+   * Show toast notification
+   * @param {string} message - Toast message
+   * @param {string} type - Toast type (info, success, warning, error)
+   * @param {number} duration - Duration in milliseconds
+   */
+  showToast(message, type = 'info', duration = 4000) {
+    try {
+      // Use global toast function if available
+      if (typeof window.showToast === 'function') {
+        return window.showToast(message, type, '', duration);
+      }
+      
+      // Use specific toast functions
+      if (type === 'success' && typeof window.showSuccessToast === 'function') {
+        return window.showSuccessToast(message);
+      }
+      if (type === 'error' && typeof window.showErrorToast === 'function') {
+        return window.showErrorToast(message);
+      }
+      if (type === 'warning' && typeof window.showWarningToast === 'function') {
+        return window.showWarningToast(message);
+      }
+      if (type === 'info' && typeof window.showInfoToast === 'function') {
+        return window.showInfoToast(message);
+      }
+      
+      // Fallback: console log
+      console.log(`[TOAST ${type.toUpperCase()}] ${message}`);
+      return null;
+      
+    } catch (error) {
+      console.error('[ShadowComponentBase] Error showing toast:', error);
+      console.log(`[TOAST ${type.toUpperCase()}] ${message}`);
+      return null;
+    }
+  }
+
   // ============================================================
   // Lifecycle
   // ============================================================

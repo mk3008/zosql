@@ -51,12 +51,10 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
           flex-direction: column;
           background: var(--bg-secondary, #f9fafb);
           height: 100%;
+          width: 100%;
           overflow-y: auto;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
           flex-shrink: 0;
-          width: var(--right-panel-width, 300px);
-          min-width: 200px;
-          max-width: 500px;
           border-left: 1px solid var(--border-primary, #e5e7eb);
           padding: 12px;
         }
@@ -577,7 +575,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
       this.hideErrorMessage();
 
       // 中央パネルからSQLを取得
-      const centerPanel = window.appState?.components?.centerPanelShadow;
+      const centerPanel = document.getElementById('center-panel-shadow');
       if (!centerPanel || !centerPanel.getActiveTabContent) {
         throw new Error('Center panel not available');
       }

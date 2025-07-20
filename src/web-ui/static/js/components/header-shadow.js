@@ -269,10 +269,16 @@ export class HeaderShadowComponent extends ShadowComponentBase {
           const content = e.target.result;
           this.triggerCallback('open-file', { fileName: file.name, content });
           this.setLoading(false);
+          
+          // トースト通知を表示
+          this.showToast(`File opened: ${file.name}`, 'success');
         };
         reader.onerror = () => {
           console.error('Failed to read file');
           this.setLoading(false);
+          
+          // エラートースト通知を表示
+          this.showToast(`Failed to read file: ${file.name}`, 'error');
         };
         reader.readAsText(file);
       } else {

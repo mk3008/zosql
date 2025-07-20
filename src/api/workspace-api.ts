@@ -5,47 +5,44 @@ import { Logger } from '../utils/logging.js';
 import { SelectQueryParser, SqlFormatter, QueryFlowDiagramGenerator, CTEComposer } from 'rawsql-ts';
 import { FileManager } from '../utils/file-manager.js';
 import { CTEDecomposer } from '../utils/cte-decomposer.js';
+import { WorkspaceStorageInterface, WorkspaceInfo, PrivateCte } from '../storage/workspace-storage-interface.js';
+import { FilesystemWorkspaceStorage } from '../storage/filesystem-workspace-storage.js';
+import { LocalStorageWorkspaceStorage } from '../storage/localstorage-workspace-storage.js';
 
 // Use any for now to avoid type compatibility issues
 type FormatterConfig = any;
 
-interface PrivateCte {
-  name: string;
-  query: string;
-  description?: string;
-  dependencies: string[];
-  columns?: string[];
-}
-
-interface WorkspaceInfo {
-  name: string;
-  originalQuery: string;
-  originalFilePath: string;  // 元のSQLファイルパス
-  decomposedQuery: string;   // CTEを除去したクエリ
-  privateCtes: Record<string, PrivateCte>;
-  created: string;
-  lastModified: string;
-}
+// Use interfaces from storage layer
 
 export class WorkspaceApi {
   private logger: Logger;
-  private workspaceBasePath: string;
+  private storage: WorkspaceStorageInterface;
   private formatterConfigPath: string;
   private fileManager: FileManager;
   private cteDecomposer: CTEDecomposer;
 
-  constructor() {
+  constructor(storageType: 'filesystem' | 'localstorage' = 'filesystem') {
     this.logger = Logger.getInstance();
-    this.workspaceBasePath = path.join(process.cwd(), 'zosql', 'workspace');
+    
+    // ストレージ実装の選択
+    switch (storageType) {
+      case 'localstorage':
+        this.storage = new LocalStorageWorkspaceStorage();
+        this.logger.log('[WORKSPACE-API] Using LocalStorage backend');
+        break;
+      case 'filesystem':
+      default:
+        this.storage = new FilesystemWorkspaceStorage();
+        this.logger.log('[WORKSPACE-API] Using Filesystem backend');
+        break;
+    }
+    
     this.formatterConfigPath = path.join(process.cwd(), 'zosql.formatter.json');
     this.fileManager = new FileManager();
     this.cteDecomposer = new CTEDecomposer();
   }
 
-  private async ensureWorkspaceStructure(): Promise<void> {
-    const privateCteDir = path.join(this.workspaceBasePath, 'private-cte');
-    await fs.mkdir(privateCteDir, { recursive: true });
-  }
+  // ensureWorkspaceStructure is now handled by storage implementations
 
   private async loadFormatterConfig(): Promise<FormatterConfig> {
     try {
@@ -199,8 +196,7 @@ export class WorkspaceApi {
       this.logger.log(`[WORKSPACE] Decomposing query: ${queryName || 'unnamed'}`);
 
       // Clear existing workspace
-      await this.clearWorkspace();
-      await this.ensureWorkspaceStructure();
+      await this.storage.clearWorkspace();
 
       // Extract CTEs and create decomposed query
       const { privateCtes, decomposedQuery, flowDiagram } = await this.extractCTEsAndDecomposeQuery(sql);
@@ -216,15 +212,10 @@ export class WorkspaceApi {
         lastModified: new Date().toISOString()
       };
 
-      // Save private CTE files
-      await this.savePrivateCteFiles(privateCtes);
+      // Save workspace using storage abstraction
+      await this.storage.saveWorkspace(workspaceInfo);
 
-      // Save workspace info
-      await this.saveWorkspaceInfo(workspaceInfo);
-
-      // Save decomposed query file (CTE除去済み)
-      const decomposedQueryPath = path.join(this.workspaceBasePath, `${workspaceInfo.name}.sql`);
-      await fs.writeFile(decomposedQueryPath, decomposedQuery, 'utf8');
+      // Note: decomposed query file is now handled by storage implementation
 
       res.json({
         success: true,
@@ -246,24 +237,14 @@ export class WorkspaceApi {
 
   public async handleGetWorkspace(_req: Request, res: Response): Promise<void> {
     try {
-      const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
+      const workspaceInfo = await this.storage.getWorkspace();
+      const hasWorkspace = await this.storage.hasWorkspace();
       
-      try {
-        const content = await fs.readFile(infoPath, 'utf8');
-        const workspaceInfo = JSON.parse(content);
-        
-        res.json({
-          success: true,
-          workspace: workspaceInfo,
-          hasWorkspace: true
-        });
-      } catch {
-        res.json({
-          success: true,
-          workspace: null,
-          hasWorkspace: false
-        });
-      }
+      res.json({
+        success: true,
+        workspace: workspaceInfo,
+        hasWorkspace: hasWorkspace
+      });
     } catch (error) {
       this.logger.log(`[WORKSPACE] Error getting workspace: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ 
@@ -275,53 +256,13 @@ export class WorkspaceApi {
 
   public async handleGetPrivateCtes(_req: Request, res: Response): Promise<void> {
     try {
-      const privateCteDir = path.join(this.workspaceBasePath, 'private-cte');
+      const privateCtes = await this.storage.getPrivateCtes();
       
-      try {
-        const files = await fs.readdir(privateCteDir);
-        const privateCtes: Record<string, PrivateCte> = {};
-
-        for (const file of files) {
-          if (file.endsWith('.sql')) {
-            const filePath = path.join(privateCteDir, file);
-            const content = await fs.readFile(filePath, 'utf8');
-            
-            // Parse metadata from comments
-            const nameMatch = content.match(/\/\* name: (.*?) \*\//);
-            const descMatch = content.match(/\/\* description: (.*?) \*\//);
-            const depsMatch = content.match(/\/\* dependencies: (.*?) \*\//);
-            
-            // Extract complete SQL (without metadata comments)
-            const fullQuery = content.replace(/\/\*[\s\S]*?\*\/\s*/g, '').trim();
-            const cteName = nameMatch ? nameMatch[1] : path.basename(file, '.sql');
-            
-            // Use the query as-is from CTEQueryDecomposer output
-            // The library already provides the appropriate format for each use case
-            let query = fullQuery;
-            
-            privateCtes[cteName] = {
-              name: cteName,
-              query,
-              description: descMatch ? descMatch[1] : '',
-              dependencies: depsMatch ? JSON.parse(depsMatch[1]) : [],
-              columns: []
-            };
-          }
-        }
-
-        res.json({
-          success: true,
-          privateCtes,
-          count: Object.keys(privateCtes).length
-        });
-
-      } catch {
-        res.json({
-          success: true,
-          privateCtes: {},
-          count: 0
-        });
-      }
+      res.json({
+        success: true,
+        privateCtes,
+        count: Object.keys(privateCtes).length
+      });
     } catch (error) {
       this.logger.log(`[WORKSPACE] Error getting private CTEs: ${error instanceof Error ? error.message : 'Unknown error'}`);
       res.status(500).json({ 
@@ -496,7 +437,7 @@ ${formattedQuery}`;
 
   public async handleClearWorkspace(_req: Request, res: Response): Promise<void> {
     try {
-      await this.clearWorkspace();
+      await this.storage.clearWorkspace();
       
       res.json({
         success: true,
@@ -652,91 +593,15 @@ ${formattedQuery}`;
       const { type, fileName } = req.params;
       
       this.logger.log(`[WORKSPACE] Getting ${type} file: ${fileName}`);
-      console.log(`[WORKSPACE API] Request details:`, {
-        type,
-        fileName,
-        workspaceBasePath: this.workspaceBasePath,
-        fullPath: type === 'main' ? path.join(this.workspaceBasePath, fileName) : null
-      });
+      
+      const result = await this.storage.getWorkspaceFile(type as 'main' | 'cte', fileName);
 
-      let filePath: string;
-      let content: string = '';
-
-      switch (type) {
-        case 'main':
-          // Main query file - try multiple approaches
-          try {
-            // 1. First try to read the direct SQL file from workspace root
-            const mainFileName = fileName.replace(/\.(sql)?$/, '') + '.sql';
-            const mainFilePath = path.join(this.workspaceBasePath, mainFileName);
-            
-            try {
-              console.log(`[WORKSPACE API] Trying to read main file at: ${mainFilePath}`);
-              content = await fs.readFile(mainFilePath, 'utf8');
-              console.log(`[WORKSPACE API] SUCCESS: Read main query from workspace file: ${mainFileName} (${content.length} chars)`);
-              this.logger.log(`[WORKSPACE] Retrieved main query from workspace file: ${mainFileName} (${content.length} chars)`);
-            } catch (directFileError) {
-              console.log(`[WORKSPACE API] FAILED: Direct file read failed for ${mainFileName}:`, directFileError);
-              this.logger.log(`[WORKSPACE] Direct file read failed for ${mainFileName}: ${directFileError instanceof Error ? directFileError.message : 'Unknown error'}`);
-              
-              // 2. Fallback to workspace info
-              const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
-              console.log(`[WORKSPACE API] Falling back to workspace info at: ${infoPath}`);
-              const infoContent = await fs.readFile(infoPath, 'utf8');
-              const workspaceInfo: WorkspaceInfo = JSON.parse(infoContent);
-              
-              // Use decomposedQuery (formatted) instead of originalQuery
-              content = workspaceInfo.decomposedQuery || workspaceInfo.originalQuery || '';
-              console.log(`[WORKSPACE API] Retrieved main query from workspace info (${content.length} chars)`);
-              this.logger.log(`[WORKSPACE] Retrieved main query from workspace info (${content.length} chars)`);
-            }
-          } catch (infoError) {
-            this.logger.log(`[WORKSPACE] Could not read workspace info: ${infoError instanceof Error ? infoError.message : 'Unknown error'}`);
-            
-            // 3. Final fallback: try to read from the original file path if available
-            try {
-              const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
-              const infoContent = await fs.readFile(infoPath, 'utf8');
-              const workspaceInfo: WorkspaceInfo = JSON.parse(infoContent);
-              
-              if (workspaceInfo.originalFilePath) {
-                const originalPath = path.resolve(process.cwd(), workspaceInfo.originalFilePath.replace(/^\//, ''));
-                content = await fs.readFile(originalPath, 'utf8');
-                this.logger.log(`[WORKSPACE] Retrieved main query from original file (${content.length} chars)`);
-              }
-            } catch (fallbackError) {
-              this.logger.log(`[WORKSPACE] Fallback failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
-            }
-          }
-          break;
-
-        case 'cte':
-          // CTE file - look in private-cte directory
-          const cteName = fileName.replace('.cte', '');
-          filePath = path.join(this.workspaceBasePath, 'private-cte', `${cteName}.sql`);
-          
-          try {
-            content = await fs.readFile(filePath, 'utf8');
-            this.logger.log(`[WORKSPACE] Retrieved CTE file: ${cteName} (${content.length} chars)`);
-          } catch (cteError) {
-            this.logger.log(`[WORKSPACE] CTE file not found: ${cteName}`);
-          }
-          break;
-
-        default:
-          res.status(400).json({
-            success: false,
-            error: `Unknown file type: ${type}`
-          });
-          return;
-      }
-
-      if (content) {
+      if (result) {
         res.json({
           success: true,
-          content,
-          fileName,
-          type
+          content: result.content,
+          fileName: result.fileName,
+          type: result.type
         });
       } else {
         res.status(404).json({

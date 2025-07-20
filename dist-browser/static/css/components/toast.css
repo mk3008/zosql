@@ -1,0 +1,39 @@
+/* toast.css - Notification toast messages */
+
+/* Note: Main toast styles are defined in dark-theme.css */
+/* This file only contains animation and show/hide states */
+
+/* Icons - hidden by default */
+.toast-icon {
+  display: none;
+}
+
+/* Content styling */
+.toast-content {
+  flex: 1;
+}
+
+.toast-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.toast-message {
+  font-weight: 400;
+}
+
+/* Close button - hidden for now */
+.toast-close {
+  display: none;
+}
+
+/* Animation states */
+.toast:not(.show) {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
