@@ -100,7 +100,7 @@ export class CenterPanelStyles {
         .tab.active {
           background: var(--bg-secondary, #1e293b);
           color: var(--text-white, #ffffff);
-          border-top: 2px solid var(--accent, #007acc);
+          border-top: 1px solid var(--accent, #007acc);
           border-bottom: none;
           position: relative;
           z-index: 3;

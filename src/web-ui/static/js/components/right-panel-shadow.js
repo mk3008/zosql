@@ -41,7 +41,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
   }
 
   /**
-   * Shadow DOM内のCSS定義
+   * Shadow DOM内のCSS定義 - Workspace panelから完全コピー
    */
   getStyles() {
     return `
@@ -49,15 +49,16 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
         :host {
           display: flex;
           flex-direction: column;
-          background: var(--bg-secondary, #ffffff);
-          border-left: 1px solid var(--border-primary, #e5e7eb);
+          background: var(--bg-secondary, #f9fafb);
           height: 100%;
+          overflow-y: auto;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+          flex-shrink: 0;
           width: var(--right-panel-width, 300px);
           min-width: 200px;
           max-width: 500px;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-          position: relative;
-          flex-shrink: 0;
+          border-left: 1px solid var(--border-primary, #e5e7eb);
+          padding: 12px;
         }
         
         .resize-handle {
@@ -75,108 +76,57 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
           background: var(--border-accent, #3b82f6);
         }
         
-        .panel-header {
+        .workspace-panel-content {
+          display: flex;
+          flex-direction: column;
+          padding: 0;
+        }
+        
+        .workspace-section {
+          border-bottom: 1px solid var(--border-primary, #e5e7eb);
+          padding: 8px;
+        }
+        
+        .workspace-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 4px 8px;
-          border-bottom: 1px solid var(--border-primary, #454545);
-          background: #1E293B;
-          height: 28px;
-        }
-        
-        .panel-title {
-          font-size: 12px;
+          cursor: pointer;
+          user-select: none;
           font-weight: 500;
-          color: #cccccc;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .panel-controls {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        
-        .panel-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-secondary, #6b7280);
-          cursor: pointer;
-          padding: 4px;
-          border-radius: 4px;
-          font-size: 16px;
-          line-height: 1;
-          transition: all 0.2s;
-        }
-        
-        .panel-btn:hover {
-          background: var(--bg-hover, #f3f4f6);
-          color: var(--text-primary, #374151);
-        }
-        
-        /* Tab styles */
-        .tabs-container {
-          display: flex;
-          background: var(--bg-primary, #1e1e1e);
-          border-bottom: 1px solid var(--border-primary, #e5e7eb);
-          height: 40px;
-          overflow-x: hidden;
-          scrollbar-width: none;
-        }
-        
-        .tabs-container::-webkit-scrollbar {
-          display: none;
-        }
-        
-        .tab {
-          display: flex;
-          align-items: center;
-          padding: 0 16px;
-          height: 100%;
-          background: transparent;
-          border: none;
-          color: var(--text-secondary, #999);
-          font-size: 13px;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all 0.2s;
-          border-bottom: 2px solid transparent;
-          gap: 4px;
-        }
-        
-        .tab:hover {
-          color: var(--text-primary, #ccc);
-          background: var(--bg-hover, rgba(255,255,255,0.05));
-        }
-        
-        .tab.active {
-          color: var(--text-primary, #fff);
-          border-bottom-color: var(--accent, #007acc);
-          background: var(--bg-hover, rgba(255,255,255,0.05));
-        }
-        
-        .tab-icon {
+          color: var(--text-primary, #111827);
           font-size: 14px;
+          margin-bottom: 8px;
+          transition: color 0.2s;
         }
         
-        .panel-content {
-          padding: 0;
-          overflow-y: auto;
-          overflow-x: hidden;
-          height: calc(100% - 88px); /* 48px header + 40px tabs */
+        .workspace-header:hover {
+          color: var(--text-accent, #3b82f6);
         }
         
-        .tab-content {
+        .workspace-content {
+          font-size: 14px;
+          color: var(--text-secondary, #6b7280);
+        }
+        
+        .collapse-icon {
+          transition: transform 0.2s;
+          font-size: 12px;
+        }
+        
+        .workspace-section.collapsed .collapse-icon {
+          transform: rotate(0deg);
+        }
+        
+        .workspace-section:not(.collapsed) .collapse-icon {
+          transform: rotate(90deg);
+        }
+        
+        .workspace-section.collapsed .workspace-content {
           display: none;
-          height: 100%;
         }
         
-        .tab-content.active {
-          display: block;
-        }
+        
         
         .editor-wrapper {
           height: 100%;
@@ -188,7 +138,6 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
         .values-description {
           padding: 12px;
           background: var(--bg-secondary, #2d2d30);
-          border-bottom: 1px solid var(--border-primary, #3e3e42);
           color: var(--text-secondary, #999);
           font-size: 12px;
           line-height: 1.4;
@@ -285,6 +234,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
           outline: none;
           white-space: nowrap;
           overflow-x: auto;
+          box-sizing: border-box;
         }
         
         textarea.code-editor::placeholder {
@@ -319,43 +269,10 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
           line-height: 1.5;
         }
         
-        .section {
-          margin-bottom: 20px;
-        }
-        
-        .section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 0;
-          border-bottom: 1px solid var(--border-light, #f3f4f6);
-          margin-bottom: 12px;
-          cursor: pointer;
-        }
-        
-        .section-title {
+        .workspace-title {
+          font-weight: 500;
+          color: var(--text-primary, #111827);
           font-size: 14px;
-          font-weight: 600;
-          color: var(--text-primary, #374151);
-        }
-        
-        .section-toggle {
-          font-size: 12px;
-          color: var(--text-muted, #9ca3af);
-          transition: transform 0.2s;
-        }
-        
-        .section.collapsed .section-toggle {
-          transform: rotate(-90deg);
-        }
-        
-        .section-content {
-          overflow: hidden;
-          transition: max-height 0.3s ease-out;
-        }
-        
-        .section.collapsed .section-content {
-          max-height: 0;
         }
         
         /* レスポンシブ対応 */
@@ -392,13 +309,8 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
   renderContent() {
     return `
       <div class="resize-handle" title="Resize panel"></div>
-      
-      <div class="tabs-container">
-        ${this.renderTabs()}
-      </div>
-      
-      <div class="panel-content">
-        ${this.renderTabContents()}
+      <div class="workspace-panel-content">
+        ${this.renderSections()}
       </div>
     `;
   }
@@ -406,44 +318,62 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
   /**
    * タブのレンダリング
    */
-  renderTabs() {
-    return this.tabs.map(tab => `
-      <button class="tab ${tab.id === this.activeTab ? 'active' : ''}" data-tab-id="${tab.id}">
-        <span class="tab-icon">${tab.icon}</span>
-        <span class="tab-label">${tab.label}</span>
-      </button>
-    `).join('');
+  renderSections() {
+    return `
+      <div class="workspace-section ${this.getSectionState('values') ? 'collapsed' : ''}" data-section="values">
+        <div class="workspace-header">
+          <span>📊 Values</span>
+          <span class="collapse-icon">▶</span>
+        </div>
+        <div class="workspace-content">
+          ${this.renderValuesContent()}
+        </div>
+      </div>
+      <div class="workspace-section ${this.getSectionState('condition') ? 'collapsed' : ''}" data-section="condition">
+        <div class="workspace-header">
+          <span>🔍 Condition</span>
+          <span class="collapse-icon">▶</span>
+        </div>
+        <div class="workspace-content">
+          ${this.renderConditionContent()}
+        </div>
+      </div>
+    `;
   }
 
   /**
-   * タブコンテンツのレンダリング
+   * Valuesセクションコンテンツのレンダリング
    */
-  renderTabContents() {
+  renderValuesContent() {
     return `
-      <div class="tab-content ${this.activeTab === 'values' ? 'active' : ''}" id="tab-values">
-        <div class="editor-wrapper">
-          <div class="values-description">
-            Define test data using WITH clauses.<br>
-            For AI-assisted definition, use "Copy Prompt".
-            <div class="prompt-controls">
-              <button class="copy-prompt-btn" id="copy-prompt-btn">Copy Prompt</button>
-              <label class="schema-collector-option">
-                <input type="checkbox" class="schema-collector-checkbox" id="use-schema-collector" checked>
-                use SchemaCollector
-              </label>
-            </div>
-            <div class="error-message" id="schema-error-message">
-              <button class="error-close-btn" id="error-close-btn">×</button>
-              <span class="error-text"></span>
-            </div>
+      <div class="editor-wrapper">
+        <div class="values-description">
+          Define test data using WITH clauses.<br>
+          For AI-assisted definition, use "Copy Prompt".
+          <div class="prompt-controls">
+            <button class="copy-prompt-btn" id="copy-prompt-btn">Copy Prompt</button>
+            <label class="schema-collector-option">
+              <input type="checkbox" class="schema-collector-checkbox" id="use-schema-collector" checked>
+              use SchemaCollector
+            </label>
           </div>
-          <textarea class="code-editor" id="values-editor" placeholder="Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)">${this.valuesContent}</textarea>
+          <div class="error-message" id="schema-error-message">
+            <button class="error-close-btn" id="error-close-btn">×</button>
+            <span class="error-text"></span>
+          </div>
         </div>
+        <textarea class="code-editor" id="values-editor" placeholder="Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)">${this.valuesContent}</textarea>
       </div>
-      <div class="tab-content ${this.activeTab === 'condition' ? 'active' : ''}" id="tab-condition">
-        <div class="editor-wrapper">
-          <textarea class="code-editor" id="condition-editor" readonly placeholder="Conditions will be implemented in future...">${this.conditionContent}</textarea>
-        </div>
+    `;
+  }
+
+  /**
+   * Conditionセクションコンテンツのレンダリング
+   */
+  renderConditionContent() {
+    return `
+      <div class="editor-wrapper">
+        <textarea class="code-editor" id="condition-editor" readonly placeholder="Conditions will be implemented in future...">${this.conditionContent}</textarea>
       </div>
     `;
   }
@@ -491,12 +421,12 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
   renderSection(key, section) {
     const collapsed = section.collapsed ? 'collapsed' : '';
     return `
-      <div class="section ${collapsed}" data-section="${key}">
-        <div class="section-header">
-          <div class="section-title">${section.title}</div>
-          <div class="section-toggle">▼</div>
+      <div class="workspace-section ${collapsed}" data-section="${key}">
+        <div class="workspace-header">
+          <div class="workspace-title">${section.title}</div>
+          <div class="collapse-icon">▼</div>
         </div>
-        <div class="section-content">
+        <div class="workspace-content">
           ${section.content}
         </div>
       </div>
@@ -512,12 +442,20 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
     this.addClickHandler('#settings-btn', () => this.handleSettings());
     this.addClickHandler('#collapse-btn', () => this.handleCollapse());
 
-    // タブ切り替え
-    this.shadowRoot.addEventListener('click', (e) => {
-      const tab = e.target.closest('.tab');
-      if (tab) {
-        const tabId = tab.dataset.tabId;
-        this.switchTab(tabId);
+    // セクションヘッダークリックで折りたたみ切り替え（独立形式）
+    this.addClickHandler('.workspace-header', (e, header) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const section = header.closest('.workspace-section');
+      if (section) {
+        const sectionKey = section.dataset.section;
+        
+        // 現在のセクションをトグル（アコーディオンなし）
+        section.classList.toggle('collapsed');
+        
+        // 状態を保存
+        this.saveSectionState(sectionKey, section.classList.contains('collapsed'));
       }
     });
 
@@ -536,12 +474,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
     // エラーメッセージを閉じるボタンのイベントハンドラー
     this.addClickHandler('#error-close-btn', () => this.hideErrorMessage());
 
-    // セクションの開閉
-    this.addClickHandler('.section-header', (e, target) => {
-      const section = target.closest('.section');
-      const sectionKey = section.dataset.section;
-      this.toggleSection(sectionKey);
-    });
+    // 上記のヘッダークリックハンドラーで処理済み
 
     // リサイズハンドル
     this.setupResizeHandler();
@@ -793,10 +726,33 @@ ${sql}
    * セクションの開閉
    */
   toggleSection(sectionKey) {
-    const section = this.sections.get(sectionKey);
-    if (section) {
-      section.collapsed = !section.collapsed;
-      this.render();
+    const sectionElement = this.shadowRoot.querySelector(`[data-section="${sectionKey}"]`);
+    if (sectionElement) {
+      sectionElement.classList.toggle('collapsed');
+      this.saveSectionState(sectionKey, sectionElement.classList.contains('collapsed'));
+    }
+  }
+
+  /**
+   * セクション状態の保存
+   */
+  saveSectionState(sectionKey, collapsed) {
+    try {
+      localStorage.setItem(`right-panel-section-${sectionKey}`, collapsed.toString());
+    } catch (error) {
+      console.warn('Could not save section state:', error);
+    }
+  }
+
+  /**
+   * セクション状態の取得
+   */
+  getSectionState(sectionKey) {
+    try {
+      const state = localStorage.getItem(`right-panel-section-${sectionKey}`);
+      return state === 'true';
+    } catch (error) {
+      return false;
     }
   }
 
