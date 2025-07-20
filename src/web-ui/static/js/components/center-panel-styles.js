@@ -244,7 +244,7 @@ export class CenterPanelStyles {
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          transition: height 0.2s ease;
+          /* transition: height 0.2s ease; */ /* Monaco Editor初期化を妨げるため無効化 */
           width: 100%;
           min-width: 0;
         }

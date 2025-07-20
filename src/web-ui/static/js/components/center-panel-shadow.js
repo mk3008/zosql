@@ -51,12 +51,14 @@ export class CenterPanelShadowComponent {
   init() {
     console.log('[CenterPanelShadow] Initializing...');
     
-    // デフォルトタブを作成（レンダリング前）
-    const tabId = this.createDefaultTab();
-    console.log('[CenterPanelShadow] Default tab created:', tabId);
-    
     this.render();
     console.log('[CenterPanelShadow] Rendered');
+    
+    // デフォルトタブを作成（レンダリング後に遅延）
+    setTimeout(() => {
+      const tabId = this.createDefaultTab();
+      console.log('[CenterPanelShadow] Default tab created after render:', tabId);
+    }, 100);
     
     this.setupEventListeners();
     console.log('[CenterPanelShadow] Event listeners setup');
