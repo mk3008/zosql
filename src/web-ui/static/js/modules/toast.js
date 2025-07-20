@@ -13,24 +13,11 @@ export function showToast(message, type = 'info', title = '', duration = 4000) {
   toast.id = id;
   toast.className = `toast ${type}`;
   
-  // Get icon based on type
-  const icons = {
-    success: '[✓]',
-    error: '[✗]',
-    warning: '[!]',
-    info: '[i]'
-  };
-  
-  const icon = icons[type] || icons.info;
-  
-  // Create toast content
+  // Create toast content - simplified without icon and close button
   toast.innerHTML = `
-    <span class="toast-icon">${icon}</span>
     <div class="toast-content">
-      ${title ? `<div class="toast-title">${title}</div>` : ''}
       <div class="toast-message">${message}</div>
     </div>
-    <button class="toast-close" onclick="removeToast('${id}')">×</button>
   `;
   
   // Add to container
@@ -64,20 +51,20 @@ export function removeToast(id) {
   }, 300);
 }
 
-export function showSuccessToast(message, title = 'Success') {
-  return showToast(message, 'success', title);
+export function showSuccessToast(message) {
+  return showToast(message, 'success');
 }
 
-export function showErrorToast(message, title = 'Error') {
-  return showToast(message, 'error', title);
+export function showErrorToast(message) {
+  return showToast(message, 'error');
 }
 
-export function showWarningToast(message, title = 'Warning') {
-  return showToast(message, 'warning', title);
+export function showWarningToast(message) {
+  return showToast(message, 'warning');
 }
 
-export function showInfoToast(message, title = 'Info') {
-  return showToast(message, 'info', title);
+export function showInfoToast(message) {
+  return showToast(message, 'info');
 }
 
 // Make functions globally available
