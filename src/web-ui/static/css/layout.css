@@ -69,7 +69,7 @@
   min-width: 200px;
   max-width: 500px;
   background: var(--bg-secondary);
-  /* border-right: 1px solid var(--border-primary); */
+  border-right: 1px solid var(--border-primary);
   padding: 12px;
   overflow-y: auto;
   overflow-x: hidden; /* Prevent horizontal overflow */
