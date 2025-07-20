@@ -246,7 +246,18 @@ export class CenterPanelTabManager {
       return this.createNewTab({
         name: 'Demo',
         type: 'sql',
-        content: '-- Welcome to zosql Browser!\n--\n-- No table setup needed.\n-- Define structure and data in the Values panel on the right.\n--\n-- Try pressing Ctrl+Enter to execute this query!\n--\n-- Shortcuts:\n--   Ctrl+Enter: Execute SQL\n--   Ctrl+Shift+F: Format SQL\n\nselect * from users'
+        content: `-- Welcome to zosql Browser!
+--
+-- No table setup needed.
+-- Define structure and data in the Values panel on the right.
+--
+-- Try pressing Ctrl+Enter to execute this query!
+--
+-- Shortcuts:
+--   Ctrl+Enter: Execute SQL
+--   Ctrl+Shift+F: Format SQL
+
+select * from users`
       });
     }
     return null;
