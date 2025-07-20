@@ -294,50 +294,12 @@ export class HeaderControls {
    * トーストメッセージ表示
    */
   showToast(message, type = 'info') {
-    // 既存のトーストを削除
-    const existingToast = document.querySelector('.header-toast');
-    if (existingToast) {
-      existingToast.remove();
+    if (window.showToast) {
+      window.showToast(message, type);
+    } else {
+      // フォールバック
+      console.log(`[Toast] ${type}: ${message}`);
     }
-
-    const toast = document.createElement('div');
-    toast.className = 'header-toast';
-    toast.textContent = message;
-    
-    const colors = {
-      success: { bg: '#10b981', border: '#059669' },
-      info: { bg: '#3b82f6', border: '#2563eb' },
-      error: { bg: '#ef4444', border: '#dc2626' }
-    };
-    
-    const color = colors[type] || colors.info;
-    
-    toast.style.cssText = `
-      position: fixed;
-      top: 70px;
-      right: 10px;
-      z-index: 10000;
-      padding: 12px 16px;
-      background: ${color.bg};
-      color: white;
-      border: 2px solid ${color.border};
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      animation: slideIn 0.3s ease-out;
-      max-width: 300px;
-    `;
-
-    document.body.appendChild(toast);
-
-    // 3秒後に自動削除
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.style.animation = 'slideIn 0.3s ease-out reverse';
-        setTimeout(() => toast.remove(), 300);
-      }
-    }, 3000);
   }
 }
 
