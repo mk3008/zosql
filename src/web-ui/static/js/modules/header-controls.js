@@ -76,13 +76,13 @@ export class HeaderControls {
       await this.analyzeCTEDependencies(formattedContent, file.name);
       
       // 成功メッセージ表示
-      this.showToast(`ファイル "${file.name}" を開きました`, 'success');
+      this.showToast(`File "${file.name}" opened successfully`, 'success');
       
       console.log(`[HeaderControls] Loaded file: ${file.name}`);
       
     } catch (error) {
       console.error('[HeaderControls] Failed to load file:', error);
-      this.showToast(`ファイル読み込みエラー: ${error.message}`, 'error');
+      this.showToast(`File loading error: ${error.message}`, 'error');
     }
   }
 
@@ -98,7 +98,7 @@ export class HeaderControls {
       };
       
       reader.onerror = (event) => {
-        reject(new Error('ファイル読み込みに失敗しました'));
+        reject(new Error('Failed to read file'));
       };
       
       reader.readAsText(file, 'UTF-8');

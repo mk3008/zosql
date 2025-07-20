@@ -131,13 +131,13 @@ function setupShadowComponentEventListeners() {
           await window.headerControls.analyzeCTEDependencies(formattedContent, fileName);
           
           // Show success message
-          window.headerControls.showToast(`ファイル "${fileName}" を開きました`, 'success');
+          window.headerControls.showToast(`File "${fileName}" opened successfully`, 'success');
           
           console.log(`[App] Successfully processed file: ${fileName}`);
           
         } catch (error) {
           console.error('[App] Failed to process file:', error);
-          window.headerControls.showToast(`ファイル処理エラー: ${error.message}`, 'error');
+          window.headerControls.showToast(`File processing error: ${error.message}`, 'error');
         }
       } else {
         console.error('[App] HeaderControls not available to handle file open');

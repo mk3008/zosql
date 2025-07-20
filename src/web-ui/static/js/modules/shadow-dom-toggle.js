@@ -194,7 +194,7 @@ export class ShadowDOMToggle {
       const fallbackButton = document.createElement('button');
       fallbackButton.id = 'shadow-dom-toggle-fallback';
       fallbackButton.innerHTML = '🔓 → Shadow DOM';
-      fallbackButton.title = 'Shadow DOMモードに切り替え（右下フォールバック）';
+      fallbackButton.title = 'Switch to Shadow DOM mode (fallback button)';
       fallbackButton.style.cssText = `
         position: fixed;
         bottom: 20px;
@@ -271,7 +271,7 @@ export class ShadowDOMToggle {
     
     // トーストメッセージ表示
     this.showToast(
-      `${enabled ? 'Shadow DOM' : 'Traditional'} コンポーネントに切り替えました`,
+      `Switched to ${enabled ? 'Shadow DOM' : 'Traditional'} components`,
       enabled ? 'success' : 'info'
     );
     
