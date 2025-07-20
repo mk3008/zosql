@@ -322,7 +322,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
     return `
       <div class="workspace-section ${this.getSectionState('values') ? 'collapsed' : ''}" data-section="values">
         <div class="workspace-header">
-          <span>📊 Values</span>
+          <span>Values</span>
           <span class="collapse-icon">▶</span>
         </div>
         <div class="workspace-content">
@@ -331,7 +331,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
       </div>
       <div class="workspace-section ${this.getSectionState('condition') ? 'collapsed' : ''}" data-section="condition">
         <div class="workspace-header">
-          <span>🔍 Condition</span>
+          <span>Condition</span>
           <span class="collapse-icon">▶</span>
         </div>
         <div class="workspace-content">
