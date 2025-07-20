@@ -20,7 +20,7 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
    */
   getDefaultConfig() {
     return {
-      defaultSections: ['workspace', 'tables'],
+      defaultSections: ['workspace'],
       collapsible: true,
       persistState: true
     };
@@ -283,8 +283,7 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
     // デフォルトセクション: Workspace
     html += this.renderWorkspaceSection();
     
-    // デフォルトセクション: Tables
-    html += this.renderTablesSection();
+    // Tables section removed
     
     // カスタムセクション
     for (const [key, section] of this.sections) {
@@ -315,36 +314,8 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
   }
 
   /**
-   * Tablesセクションのレンダリング
+   * Tablesセクションのレンダリング (廃止)
    */
-  renderTablesSection() {
-    const collapsed = this.getSectionState('tables');
-    return `
-      <div class="workspace-section ${collapsed ? 'collapsed' : ''}" data-section="tables">
-        <div class="workspace-header">
-          <span>Tables</span>
-          <span class="collapse-icon">▶</span>
-        </div>
-        <div class="workspace-content">
-          <div id="tables-list">
-            <!-- テーブル一覧はdynamicに更新される -->
-            <div class="table-item" data-table="users">
-              <span class="table-name">users</span>
-              <span class="table-columns">5 cols</span>
-            </div>
-            <div class="table-item" data-table="orders">
-              <span class="table-name">orders</span>
-              <span class="table-columns">8 cols</span>
-            </div>
-          </div>
-          
-          <div class="cte-container" id="cte-list">
-            <!-- CTE一覧 -->
-          </div>
-        </div>
-      </div>
-    `;
-  }
 
   /**
    * カスタムセクションのレンダリング
@@ -545,7 +516,7 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
       const centerPanel = document.getElementById('center-panel-shadow');
       if (centerPanel && centerPanel.createOrReuseTabForFile) {
         centerPanel.createOrReuseTabForFile(fileName, fileContent, {
-          type: 'sql'
+          type: type === 'cte' ? 'private-cte' : 'sql'
         });
       }
       
@@ -555,21 +526,8 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
   }
 
   /**
-   * テーブル一覧の更新
+   * テーブル一覧の更新 (廃止)
    */
-  updateTables(tables) {
-    const tablesList = this.$('#tables-list');
-    if (!tablesList) return;
-    
-    const html = tables.map(table => `
-      <div class="table-item" data-table="${table.name}">
-        <span class="table-name">${table.name}</span>
-        <span class="table-columns">${table.columnCount || 0} cols</span>
-      </div>
-    `).join('');
-    
-    tablesList.innerHTML = html;
-  }
 
   /**
    * CTE依存関係ツリーのレンダリング
@@ -590,7 +548,7 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
     let html = `
       <div class="cte-tree-wrapper">
         <div class="cte-tree-item" data-level="0" data-cte="main">
-          <span class="cte-tree-icon">[MAIN]</span>
+          <span class="cte-tree-icon">📝</span>
           <span class="cte-tree-name">${mainQueryName}</span>
         </div>
     `;
@@ -669,7 +627,7 @@ export class WorkspacePanelShadowComponent extends ShadowComponentBase {
     Object.entries(tree).forEach(([name, node]) => {
       html += `
         <div class="cte-tree-item" data-level="${level}" data-cte="${name}">
-          <span class="cte-tree-icon">[CTE]</span>
+          <span class="cte-tree-icon">📦</span>
           <span class="cte-tree-name">${name}</span>
         </div>
       `;
@@ -752,7 +710,7 @@ export class WorkspacePanelShadowElement extends ShadowElementBase {
    */
   gatherOptions() {
     return {
-      defaultSections: ['workspace', 'tables'],
+      defaultSections: ['workspace'],
       collapsible: this.getBooleanAttribute('collapsible'),
       persistState: this.getBooleanAttribute('persist-state')
     };
@@ -778,7 +736,6 @@ export class WorkspacePanelShadowElement extends ShadowElementBase {
    */
   exposeComponentAPI() {
     this.exposeMethods([
-      'updateTables', 
       'updateCtes', 
       'updateCTEDependencies'
     ]);

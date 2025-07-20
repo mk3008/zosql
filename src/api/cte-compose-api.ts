@@ -42,23 +42,32 @@ export class CteComposeApi {
         return;
       }
 
-      // Validate CTE definitions if provided
+      // Parse and validate CTE definitions if provided
+      let processedCteDefinitions = cteDefinitions || '';
+      let parsedWithClause: any = null;
+      let parseMethod = 'none';
+      
       if (cteDefinitions && cteDefinitions.trim() !== '') {
         try {
-          WithClauseParser.parse(cteDefinitions);
-        } catch (parseError) {
-          this.logger.error(`CTE Compose: Failed to parse CTE definitions - ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+          const result = this.getWithClauseFromInput(cteDefinitions);
+          parsedWithClause = result.withClause;
+          parseMethod = result.method;
+          processedCteDefinitions = cteDefinitions;
+          this.logger.query(`CTE Compose: CTE definitions parsed successfully with ${parseMethod}`);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(`CTE Compose: Failed to parse CTE definitions - ${errorMessage}`);
           res.status(400).json({
             success: false,
-            error: `Invalid CTE definitions: ${parseError instanceof Error ? parseError.message : 'Parse error'}`
+            error: `Invalid CTE definitions: ${errorMessage}`
           });
           return;
         }
       }
 
       // Use CteComposer for composition logic
-      let composedQuery = this.cteComposer.compose(mainQuery, cteDefinitions || '');
-      const cteCount = this.cteComposer.countCtes(cteDefinitions || '');
+      let composedQuery = this.cteComposer.compose(mainQuery, processedCteDefinitions);
+      const cteCount = this.cteComposer.countCtes(processedCteDefinitions);
 
       // Format the composed query
       try {
@@ -80,7 +89,10 @@ export class CteComposeApi {
       res.json({
         success: true,
         composedQuery: composedQuery,
-        cteCount: cteCount
+        cteCount: cteCount,
+        processedCteDefinitions: processedCteDefinitions,
+        parsedWithClause: parsedWithClause,
+        parseMethod: parseMethod
       });
 
     } catch (error) {
@@ -91,5 +103,38 @@ export class CteComposeApi {
         error: errorMessage
       });
     }
+  }
+
+  /**
+   * Get WITH clause from input using multiple fallback strategies
+   * @param input - Can be pure WITH clause or complete SELECT query with WITH
+   * @returns WithClause object and parsing method used
+   * @throws Error if parsing fails with all strategies
+   */
+  private getWithClauseFromInput(input: string): { withClause: any; method: string } {
+    // Strategy 1: Try WithClauseParser (for pure WITH clauses)
+    try {
+      const withClause = WithClauseParser.parse(input);
+      this.logger.query('WithClause extraction: Success with WithClauseParser');
+      return { withClause, method: 'WithClauseParser' };
+    } catch (withClauseError) {
+      this.logger.query(`WithClause extraction: WithClauseParser failed - ${withClauseError instanceof Error ? withClauseError.message : String(withClauseError)}`);
+    }
+
+    // Strategy 2: Try SelectQueryParser (for full SELECT queries with WITH)
+    try {
+      const fullQuery = SelectQueryParser.parse(input).toSimpleQuery();
+      if (fullQuery.withClause) {
+        this.logger.query('WithClause extraction: Success with SelectQueryParser');
+        return { withClause: fullQuery.withClause, method: 'SelectQueryParser' };
+      } else {
+        throw new Error('No WITH clause found in SELECT query');
+      }
+    } catch (selectQueryError) {
+      this.logger.query(`WithClause extraction: SelectQueryParser failed - ${selectQueryError instanceof Error ? selectQueryError.message : String(selectQueryError)}`);
+    }
+
+    // Both strategies failed
+    throw new Error('Unable to parse CTE definitions. Input must be either a WITH clause or a SELECT query with WITH clause.');
   }
 }

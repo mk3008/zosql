@@ -51,11 +51,41 @@ export class CenterPanelTabManager {
       
       return `
         <div class="tab${activeClass}" data-tab-id="${tab.id}">
-          <span class="tab-name" title="${tab.name}">${tab.name}</span>
+          <span class="tab-name" title="${tab.name}">${this.getTabEmoji(tab)} ${this.getDisplayName(tab)}</span>
           ${tab.closable ? `<span class="tab-close" data-tab-id="${tab.id}">×</span>` : ''}
         </div>
       `;
     }).join('');
+  }
+
+  /**
+   * タブの絵文字を取得
+   */
+  getTabEmoji(tab) {
+    // デバッグ情報
+    console.log('[TabManager] Tab classification:', {
+      name: tab.name,
+      type: tab.type
+    });
+
+    // typeプロパティで判定
+    if (tab.type === 'shared-cte' || tab.type === 'private-cte') {
+      return '📦';
+    } else if (tab.type === 'main-file' || tab.type === 'main') {
+      return '📝';
+    } else {
+      return '📝'; // デフォルトは MAIN
+    }
+  }
+
+  /**
+   * タブの表示名を取得（.cteを除去）
+   */
+  getDisplayName(tab) {
+    if (tab.name && tab.name.endsWith('.cte')) {
+      return tab.name.replace('.cte', '');
+    }
+    return tab.name;
   }
 
   /**
@@ -214,8 +244,9 @@ export class CenterPanelTabManager {
   createDefaultTab() {
     if (this.tabs.size === 0) {
       return this.createNewTab({
-        name: 'New Query',
-        type: 'sql'
+        name: 'Demo',
+        type: 'sql',
+        content: '-- Welcome to zosql Browser!\n--\n-- No table setup needed.\n-- Define structure and data in the Values panel on the right.\n--\n-- Try pressing Ctrl+Enter to execute this query!\n--\n-- Shortcuts:\n--   Ctrl+Enter: Execute SQL\n--   Ctrl+Shift+F: Format SQL\n\nselect * from users'
       });
     }
     return null;

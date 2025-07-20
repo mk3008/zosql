@@ -17,7 +17,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
       { id: 'values', label: 'Values', icon: '📊' },
       { id: 'condition', label: 'Condition', icon: '🔍' }
     ];
-    this.valuesContent = '-- Define test data CTEs here\n-- Example:\nwith _users(user_id, name) as (\n  values\n    (1, \'alice\'),\n    (2, \'bob\')\n),\nusers as (\n  select\n    user_id::bigint,\n    name::text\n  from _users\n)';
+    this.valuesContent = '-- Define test data CTEs here\n-- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)\n-- Example:\nwith _users(user_id, name) as (\n  values\n    (1, \'alice\'),\n    (2, \'bob\')\n),\nusers as (\n  select\n    user_id::bigint,\n    name::text\n  from _users\n)';
     this.conditionContent = '-- Conditions will be implemented in future';
   }
 
@@ -448,7 +448,7 @@ export class RightPanelShadowComponent extends ShadowComponentBase {
               <span class="error-text"></span>
             </div>
           </div>
-          <textarea class="code-editor" id="values-editor" placeholder="Define test data CTEs here...">${this.valuesContent}</textarea>
+          <textarea class="code-editor" id="values-editor" placeholder="Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)">${this.valuesContent}</textarea>
         </div>
       </div>
       <div class="tab-content ${this.activeTab === 'condition' ? 'active' : ''}" id="tab-condition">

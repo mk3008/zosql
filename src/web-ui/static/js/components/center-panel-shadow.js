@@ -128,7 +128,7 @@ export class CenterPanelShadowComponent {
    * 個別タブコンテンツのレンダリング
    */
   renderTabContent(tab) {
-    if (tab.type === 'sql' || !tab.type) {
+    if (tab.type === 'sql' || tab.type === 'private-cte' || tab.type === 'shared-cte' || tab.type === 'main-file' || tab.type === 'main' || !tab.type) {
       return this.renderSQLTabContent(tab);
     }
     
@@ -158,7 +158,7 @@ export class CenterPanelShadowComponent {
               💾 Save
             </button>
             <div style="flex: 1;"></div>
-            <span class="tab-info">${tab.name}</span>
+            <span class="tab-info">${this.getTabClassification(tab)}</span>
           </div>
           <div class="editor-container" id="editor-${tab.id}">
             <!-- Monaco Editor will be mounted here -->
@@ -456,6 +456,19 @@ export class CenterPanelShadowComponent {
    */
   closeTab(tabId) {
     return this.tabManager.closeTab(tabId);
+  }
+
+  /**
+   * タブの分類を取得
+   */
+  getTabClassification(tab) {
+    if (tab.type === 'shared-cte' || tab.type === 'private-cte') {
+      return 'CTE';
+    } else if (tab.type === 'main-file' || tab.type === 'main') {
+      return 'MAIN';
+    } else {
+      return 'MAIN'; // デフォルトは MAIN
+    }
   }
 
   /**
