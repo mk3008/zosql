@@ -1,8 +1,16 @@
-import React, { useState, useImperativeHandle, forwardRef } from 'react';
-import { Tab, QueryExecutionResult } from '@shared/types';
+import React, { useState, useImperativeHandle, forwardRef, useMemo } from 'react';
+import { QueryExecutionResult } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { Toast } from './Toast';
+import { useTabManager } from '@ui/hooks/useTabManager';
+import { useToast } from '@ui/hooks/useToast';
+import { usePromptGenerator } from '@ui/hooks/usePromptGenerator';
+import { useFormatterManager } from '@ui/hooks/useFormatterManager';
+import { PromptGenerator } from '@core/usecases/prompt-generator';
+import { FormatterManager } from '@core/usecases/formatter-manager';
+import { RawsqlSqlParser } from '@adapters/parsers/rawsql-sql-parser';
+import { FormatterConfigStorage } from '@adapters/storage/formatter-config-storage';
 
 export interface MainContentRef {
   openValuesTab: () => void;
@@ -10,89 +18,44 @@ export interface MainContentRef {
 }
 
 export const MainContent = forwardRef<MainContentRef>((props, ref) => {
-  const [tabs, setTabs] = useState<Tab[]>([
-    {
-      id: 'main',
-      title: 'main.sql',
-      type: 'main',
-      content: '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;',
-      isDirty: false
-    }
-  ]);
-  const [activeTabId, setActiveTabId] = useState<string>('main');
+  // Core Dependencies (Hexagonal Architecture)
+  const sqlParser = useMemo(() => new RawsqlSqlParser(), []);
+  const promptGenerator = useMemo(() => new PromptGenerator(sqlParser), [sqlParser]);
+  const formatterStorage = useMemo(() => new FormatterConfigStorage(), []);
+  const formatterManager = useMemo(() => new FormatterManager(formatterStorage), [formatterStorage]);
+
+  // UI State Management through Custom Hooks
+  const { toast, showSuccess, showError, hideToast } = useToast();
+  const {
+    tabs,
+    activeTabId,
+    activeTab,
+    openValuesTab,
+    openFormatterTab,
+    closeTab,
+    updateTabContent,
+    setActiveTabId,
+    addNewTab
+  } = useTabManager();
+
+  // Business Logic Hooks
+  const { generateAndCopyPrompt, isGenerating } = usePromptGenerator(
+    promptGenerator,
+    showSuccess,
+    showError
+  );
+  const { applyConfig, getCurrentConfigJson, isApplying } = useFormatterManager(
+    formatterManager,
+    showSuccess,
+    showError
+  );
+
+  // Local UI State
   const [resultsVisible, setResultsVisible] = useState(false);
   const [queryResult, setQueryResult] = useState<QueryExecutionResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [useSchemaCollector, setUseSchemaCollector] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  const activeTab = tabs.find(tab => tab.id === activeTabId);
-
-  const addNewTab = (type: 'main' | 'cte' | 'values' | 'formatter' = 'main', title?: string, content?: string) => {
-    const defaultContent = {
-      values: `-- Define test data CTEs here
--- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)
--- Example:
-with users(user_id, name) as (
-  values
-    (1::bigint, 'alice'::text),
-    (2::bigint, 'bob'::text)
-)`,
-      formatter: `{
-  "identifierEscape": {
-    "start": "",
-    "end": ""
-  },
-  "parameterSymbol": ":",
-  "parameterStyle": "named",
-  "indentSize": 4,
-  "indentChar": " ",
-  "newline": "\\n",
-  "keywordCase": "lower",
-  "commaBreak": "before",
-  "andBreak": "before",
-  "withClauseStyle": "full-oneline",
-  "preserveComments": true
-}`
-    };
-
-    const defaultTitle = {
-      values: 'Values & Test Data',
-      formatter: 'SQL Formatter Config',
-      main: 'Untitled.sql',
-      cte: 'Untitled.cte'
-    };
-
-    const newTab: Tab = {
-      id: `tab-${Date.now()}`,
-      title: title || defaultTitle[type] || 'Untitled',
-      type,
-      content: content || defaultContent[type] || '',
-      isDirty: false
-    };
-    setTabs([...tabs, newTab]);
-    setActiveTabId(newTab.id);
-  };
-
-  const openValuesTab = () => {
-    // Check if values tab already exists
-    const existingValuesTab = tabs.find(tab => tab.type === 'values');
-    if (existingValuesTab) {
-      setActiveTabId(existingValuesTab.id);
-    } else {
-      addNewTab('values');
-    }
-  };
-
-  const openFormatterTab = () => {
-    // Check if formatter tab already exists
-    const existingFormatterTab = tabs.find(tab => tab.type === 'formatter');
-    if (existingFormatterTab) {
-      setActiveTabId(existingFormatterTab.id);
-    } else {
-      addNewTab('formatter');
-    }
-  };
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -100,22 +63,6 @@ with users(user_id, name) as (
     openFormatterTab
   }));
 
-  const closeTab = (tabId: string) => {
-    const updatedTabs = tabs.filter(tab => tab.id !== tabId);
-    setTabs(updatedTabs);
-    
-    if (activeTabId === tabId && updatedTabs.length > 0) {
-      setActiveTabId(updatedTabs[0].id);
-    }
-  };
-
-  const updateTabContent = (tabId: string, content: string) => {
-    setTabs(tabs.map(tab => 
-      tab.id === tabId 
-        ? { ...tab, content, isDirty: true }
-        : tab
-    ));
-  };
 
   const executeQuery = async () => {
     if (!activeTab?.content.trim()) return;
@@ -159,53 +106,27 @@ with users(user_id, name) as (
   };
 
   const copyPrompt = async () => {
-    try {
-      // Get main SQL from the first main tab
-      const mainTab = tabs.find(tab => tab.type === 'main');
-      const currentSql = mainTab?.content || '';
-      
-      if (!currentSql || !currentSql.trim()) {
-        throw new Error('No SQL query found in main editor');
-      }
-
-      const prompt = generatePrompt(currentSql, useSchemaCollector);
-      
-      await navigator.clipboard.writeText(prompt);
-      setToast({ message: 'Prompt copied to clipboard!', type: 'success' });
-      
-    } catch (error) {
-      console.error('Copy prompt failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to copy prompt';
-      setToast({ message: errorMessage, type: 'error' });
+    const mainTab = tabs.find(tab => tab.type === 'main');
+    const currentSql = mainTab?.content || '';
+    
+    if (!currentSql || !currentSql.trim()) {
+      showError('No SQL query found in main editor');
+      return;
     }
+
+    await generateAndCopyPrompt(currentSql, { useSchemaCollector });
   };
 
-  const generatePrompt = (sql: string, useSchemaCollector: boolean): string => {
-    if (!useSchemaCollector) {
-      // AI-assisted mode
-      return `このSQLをDB環境依存なしで動かしたいので、
-元のSQLは変更せずに、必要なテーブルを VALUES 文で定義したモックテーブルとして
-WITH句のみ を作成してください。
-SELECT文などは不要で、WITH句だけ回答してください。
-
-\`\`\`sql
-${sql}
-\`\`\``;
+  const applyFormatterConfig = async () => {
+    if (activeTab?.type !== 'formatter') return;
+    
+    const configJson = activeTab.content.trim();
+    if (!configJson) {
+      showError('No formatter configuration found');
+      return;
     }
 
-    // Schema-aware mode (simplified for now)
-    // TODO: Implement schema extraction using rawsql-ts
-    const mockTables = ['users(id, name, email)', 'orders(id, user_id, amount)'];
-    const tableDescriptions = mockTables.join(', ');
-
-    return `このSQLをDB環境依存なしで動かしたいので、
-元のSQLは変更せずに、必要なテーブル ${tableDescriptions} を VALUES 文で定義したモックテーブルとして
-WITH句のみ を作成してください。
-SELECT文などは不要で、WITH句だけ回答してください。
-
-\`\`\`sql
-${sql}
-\`\`\``;
+    await applyConfig(configJson);
   };
 
   return (
@@ -302,10 +223,11 @@ ${sql}
                   
                   <button
                     onClick={copyPrompt}
-                    className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm flex items-center gap-2"
+                    disabled={isGenerating}
+                    className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Copy prompt for generating VALUES CTEs to clipboard"
                   >
-                    📋 Copy Prompt
+                    📋 {isGenerating ? 'Copying...' : 'Copy Prompt'}
                   </button>
                 </div>
               </>
@@ -317,13 +239,11 @@ ${sql}
                 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => {
-                      // TODO: Apply formatter config
-                      setToast({ message: 'Formatter config saved', type: 'success' });
-                    }}
-                    className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm"
+                    onClick={applyFormatterConfig}
+                    disabled={isApplying || !activeTab?.content.trim()}
+                    className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Apply Config
+                    {isApplying ? 'Applying...' : 'Apply Config'}
                   </button>
                 </div>
               </>
@@ -397,7 +317,7 @@ ${sql}
         <Toast
           message={toast.message}
           type={toast.type}
-          onClose={() => setToast(null)}
+          onClose={hideToast}
         />
       )}
     </main>
