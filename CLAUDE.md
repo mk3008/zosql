@@ -1,189 +1,101 @@
-# CLAUDE.md - zosql開発メモ
-発言時、参照しているclaude.md ファイルのフルパスを明示すること。
+# CLAUDE.md - zosql CTE Debug App 開発メモ
+参照: `/root/github/worktree/repositories/zosql/first_commit/CLAUDE.md`
 
-## 🔧 デプロイ手順（重要）
-**スクロールバー問題を防ぐため、以下の手順を必ず守ること**
+## 🎯 プロジェクト目標
+**GitHub PagesでCTEのデバッグが行えるアプリを作成する**
 
-### 問題が発生する原因
-- tsxやNode.jsのモジュールキャッシュが原因で、古いコードが実行される
-- 未追跡ファイル（src/web-ui.ts, src/web-routes.ts等）が残っていると、それらもコンパイルされ、意図しないHTMLが送信される
-- dist/フォルダに古いコンパイル結果が残っている
+### 🏗️ アーキテクチャ設計原則
+**アーキテクチャ名**: **Modular Layered SPA with Hexagonal Core**
 
-### 正しいデプロイ手順
-1. **未追跡ファイルの削除**: `git status` で未追跡ファイルを確認し、不要なファイルを削除
-2. **キャッシュクリア**: `rm -rf node_modules/.cache/tsx` でtsxキャッシュを削除
-3. **クリーンビルド**: `rm -rf dist/ && npm run build` で完全リビルド
-4. **サーバー起動**: `npm run dev web` または `node dist/index.js web` で起動
-5. **動作確認**: `curl http://localhost:3000` で実際のHTMLを確認
+#### 基本設計思想
+- **Hexagonal Architecture (Ports & Adapters)**: コアビジネスロジックを外部依存から完全分離
+- **Modular Monolith**: 機能別モジュール分割で保守性確保
+- **TypeScript-First**: 完全型安全性による実行時エラー防止  
+- **Test-Driven Development**: コアロジックの品質保証
+- **Component-Based UI**: React/TypeScriptによる宣言的UI構築
 
-### 緊急時の対処法
-- 複雑なHTML/JavaScriptが返される場合は、必ず上記手順を実行
-- 特に「textarea#sql-editor」が含まれる場合は、Monaco Editor統合が原因
-- 問題のあるコミットから `git reset --hard` でロールバックを検討
+### 技術要件
+- **GitHub Pages**: 静的サイトホスティング（バックエンドサーバー不要）
+- **WASM Postgres**: ブラウザ内でSQL実行環境を提供
+- **rawsql-ts**: SQL解析・CTE依存解析・CTE合成・パース・整形を担当
+- **React + TypeScript**: モダンUIライブラリによる宣言的コンポーネント
+- **LocalStorage**: クライアントサイドでのデータ永続化
 
-## 開発方針の大原則
-- **スモールスタート**: 最小限の機能から開始
-- **細かく検証**: 各機能を個別に確認・テスト
-- **小さい成功を重ねる**: 段階的な成果を積み上げ
-- **一気に作りこまない**: 複雑な機能は後回し
-- **小さい成功をするたびにコミット**: 機能単位で確実にコミット
-- **テスト可能な事例ならt-wada方式で進める**: TDD実践
-- **コミット前の確認**: 単体テスト・TSC実行でデグレがないことを確認
-- **一時ファイル**: 調査・実験用ファイルは`.tmp/`ディレクトリを使用（gitignore済み）
-- **`.tmp/`フォルダ処理**: 内容はテスト格上げ・機能取り込み・検証後削除のいずれかを実施
+### 開発方針
+- **完全TypeScript化**: 全コードの型安全性確保
+- **ファイルサイズ制限**: 1ファイル500行推奨、1000行上限（コメント除く）
+- **TDD実践**: t-wada形式でのテスト駆動開発
+- **レイヤー分離**: UI・ビジネスロジック・インフラの明確な分離
+- **単体テスト重視**: ビジネスロジックを徹底的にテスト
 
-## 🚨 重要な設計判断
+## 🚨 アーキテクチャ刷新計画 (2025年7月)
 
-### Monaco EditorとShadow DOMの非互換性
-Monaco EditorはShadow DOM内で正常に動作しないため、意図的に通常のDOM（document.body）に配置しています。
+### **現状の深刻な問題**
+1. **型安全性危機**: コアビジネスロジック (2,229行) がJavaScriptで未テスト状態
+2. **責務混在**: WorkspaceService (287行) でUI・永続化・ビジネスロジックが癒合
+3. **保守性低下**: ファイルサイズ制限違反により可読性・テスト性が劣化
 
-**問題点**:
-- IME（日本語入力）が正しく動作しない（高さ0の不可視入力エリア）
-- フォーカス管理の失敗（document.activeElementがShadow DOM境界を越えられない）
-- イベント伝播の問題（キーボード/マウスイベントの処理不良）
+### **段階的マイグレーション計画**
 
-**解決策**:
-- Monaco Editorを通常DOMに作成し、Shadow DOM内のコンテナと位置を同期
-- `center-panel-shadow.js`のsetupMonacoEditorメソッドで実装
+#### **Phase 1: 緊急対応 (1-2週間)**
+1. **コアロジックTypeScript化**
+   - `src/browser/core/cte-dependency-resolver.js` → `src/core/cte-resolver.ts`
+   - `src/browser/api/workspace-service.js` → 責務分離リファクタリング
+   - 完全な型安全性確保
 
-**注意**: この実装を変更する際は必ず日本語入力のテストを実施すること
-
-## 🏗️ difitアーキテクチャ分析と改修計画
-
-### **difitの優れた設計思想**
-1. **明確な責務分離**: CLI/Server/Client/Shared/Utilsの5層構造
-2. **型安全性**: 共有型定義による契約の保証
-3. **ライフサイクル管理**: SSEによるブラウザ連動
-4. **開発体験**: Hot Reload、並行起動、自動フォーマット
-5. **堅牢性**: ポートフォールバック、エラーハンドリング
-
-### **zosqlの現状課題**
-- **レイアウト崩れの頻発**: div戦略の限界、CSS設計の問題
-- **責務の混在**: CLI/Server/Clientが密結合
-- **型定義の分散**: API契約が不明確
-- **開発体験の不足**: ビルドプロセスなし
-
-### **改修優先順位**
-1. **UIコンポーネントシステム** (優先度:高)
-   - Web Components採用でレイアウト問題解決
-   - Shadow DOMによるスタイル分離
-   - 標準技術で学習コスト低
-
-2. **CLI/Server分離** (優先度:高)
-   ```
-   src/cli/     → CLIエントリーポイント
-   src/server/  → Expressサーバー
-   src/client/  → 静的リソース
-   ```
-
-3. **共有型定義** (優先度:高)
-   ```
-   src/types/
-   ├── api.types.ts
-   ├── schema.types.ts
-   └── shared.types.ts
-   ```
-
-## 🚀 革新的なアイデア：SQLの制約を超えたIDE
-
-### **核心概念**
-GUIとIntelliSenseを完全に制御できるようになったことで、**SQLの文法制約から解放**された開発環境を実現可能。
-
-### **テーブル/共有CTE の概念**
-- **テーブル**: 従来のテーブル定義（users, orders, products等）
-- **共有CTE**: CTE（Common Table Expression）に名前を付けたもの
-- **革新点**: IDE内ではCTEのimportを明示する必要がない
-
-```sql
--- 従来のSQL（制約あり）
-WITH dat AS (SELECT 1 as value)  -- 毎回定義が必要
-SELECT o.user_id FROM orders AS o 
-INNER JOIN dat AS d ON d.value = 1
-
--- zosql IDE（制約なし）
-SELECT o.user_id FROM orders AS o 
-INNER JOIN dat AS d ON d.value = 1  -- datは既に共有CTEに登録済み
+2. **新ディレクトリ構造 (Hexagonal Architecture)**
+```
+src/
+├── core/                    # Domain Layer (ビジネスロジック)
+│   ├── entities/           # エンティティ (<200行/ファイル)
+│   ├── usecases/           # ユースケース (<300行/ファイル)
+│   └── ports/              # インターフェース定義 (<100行/ファイル)
+├── adapters/               # Infrastructure Layer
+│   ├── storage/            # LocalStorage実装 (<200行/ファイル)
+│   ├── api/                # API実装 (<300行/ファイル)
+│   └── parsers/            # rawsql-ts統合 (<400行/ファイル)
+├── ui/                     # Presentation Layer (React)
+│   ├── components/         # UIコンポーネント (<200行/ファイル)
+│   ├── hooks/              # カスタムフック (<150行/ファイル)
+│   └── pages/              # ページコンポーネント (<300行/ファイル)
+└── shared/                 # 共有型・ユーティリティ
+    ├── types/              # 型定義 (<100行/ファイル)
+    └── utils/              # ヘルパー関数 (<200行/ファイル)
 ```
 
-### **実現予定の機能**
-1. **動的テストデータ注入**
-   ```sql
-   -- GUI上の表記
-   SELECT * FROM orders WHERE user_id = @test_user_id
-   
-   -- 実行時変換
-   WITH test_data AS (VALUES (1, 'test_user'))
-   SELECT * FROM orders WHERE user_id = (SELECT user_id FROM test_data)
-   ```
+#### **Phase 2: React + TypeScript移行 (2-4週間)**
+1. **React導入**
+   - Shadow DOM → React コンポーネント移行
+   - 状態管理: Zustand (軽量) または Redux Toolkit
+   - Monaco Editor: `@monaco-editor/react`で統合
 
-2. **Visual Query Builder**（ドラッグ&ドロップでCTE組み立て）
-3. **依存関係の可視化**
-4. **Smart IntelliSense**（コンテキスト別補完）
-
-### **技術的実装**
-```typescript
-// 新しいスキーマレジストリ
-interface SharedCte {
-  name: string;           // CTE名
-  query: string;          // SELECT文
-  columns: Column[];      // カラム定義
-  dependencies: string[]; // 依存するCTE
-}
-
-// SQL トランスパイラ
-class SqlTranspiler {
-  transpile(extendedSql: string): string {
-    // zosql独自構文 → 標準SQL
-    // 共有CTE参照 → WITH句展開
-    // テストデータ埋め込み → VALUES句展開
+2. **GitHub Pages最適化**
+```javascript
+// vite.config.ts (webpackから移行)
+export default defineConfig({
+  base: '/zosql/',
+  build: {
+    outDir: 'docs',
+    rollupOptions: {
+      output: {
+        chunkFileNames: 'js/[name]-[hash].js',
+        entryFileNames: 'js/[name]-[hash].js'
+      }
+    }
   }
-}
+});
 ```
 
-## 現在のTODOリスト
-**重要**: 計画に進捗、変更があるたびに以下のTODOリストを更新すること
+#### **Phase 3: 品質向上・最適化 (1-2ヶ月)**
+1. **完全TypeScript化**: 残存JavaScript除去
+2. **包括的テストスイート**: 全レイヤーの単体・統合テスト
+3. **パフォーマンス最適化**: コード分割・遅延読み込み
 
-### Phase 1 (完了) - zosql browser基盤構築
-1. **基盤設計**: フォルダ構成・アーキテクチャ設計 [x]
-2. **Web UI構築**: Express.js + 基本UI [x]
-3. **Monaco Editor**: SQL編集機能 [x]
-4. **スキーマ管理**: zosql.schema.js読み込み [x]
-5. **インテリセンス**: SQL補完機能 [x]
-6. **構文チェック**: rawsql-ts統合 [x]
-7. **CTE対応**: WITH句のIntelliSense [x]
-8. **サブクエリ対応**: JOIN内サブクエリの補完 [x]
-9. **FROM句コンテキスト**: テーブル名のみ表示 [x]
-10. **リファクタリング**: 責務分離による保守性向上 [x]
-
-### Phase 2 (完了) - SQL制約を超えた機能
-1. **クエリ実行機能**: WASM Postgres統合 [x]
-2. **共有CTE**: 事前定義リソース機能 [x]
-3. **デバッグ機能強化**: ファイル出力システム [x]
-4. **UI責務分離**: web-ui-template.ts分離 [x]
-
-### Phase 3 (実装中) - アーキテクチャ改善
-1. **UIコンポーネントシステム**: レイアウト崩れ対策 [ ]
-2. **CLI/Server分離**: 責務の明確化 [ ]
-3. **共有型定義**: src/types/ディレクトリ作成 [ ]
-4. **ブラウザライフサイクル**: SSE実装 [ ]
-5. **ポート衝突対策**: フォールバック機能 [ ]
-
-### Phase 4 (次期実装) - 高度機能拡張
-1. **共有CTE管理**: 追加・編集・削除機能 [ ]
-2. **SQL トランスパイラ**: 独自構文→標準SQL変換 [ ]
-3. **スキーマレジストリ**: テーブル/共有CTE管理 [ ]
-4. **テストデータ埋め込み**: VALUES句自動生成 [ ]
-
-### Phase 5 (将来実装) - 高度機能
-- **npx zosql web**: ブラウザ自動起動 [ ]
-- **ファイルシステム**: /develop/,/resources/管理 [ ]
-- **セッション管理**: /develop/{session_id}/自動作成 [ ]
-- **AIコメントシステム**: Copy Prompt機能 [ ]
-- **プロジェクトエクスプローラー**: ファイル一覧・操作UI [ ]
-- **CTE依存関係可視化**: グラフ表示機能 [ ]
-- **リアルタイム更新**: WebSocket/SSE実装 [ ]
-- **リソース管理**: /resources/⇔/develop/移動機能 [ ]
-- **従来CLI機能統合**: browser内でdecompose/compose [ ]
+### **新アーキテクチャの効果**
+- ✅ **型安全性**: 100% TypeScript でコンパイル時エラー検出
+- ✅ **保守性**: ファイルサイズ制限遵守で可読性向上
+- ✅ **テスタビリティ**: レイヤー分離で単体テスト容易化
+- ✅ **拡張性**: Hexagonal架構で外部依存変更に柔軟対応
 
 ## rawsql-ts の使用方法
 
@@ -234,77 +146,48 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
 // query.addCTE() などのメソッドがあるかは要確認
 ```
 
-## 📁 現在のアーキテクチャ（リファクタリング後）
+## 📊 現状実装分析 (2025年7月)
 
-### **責務分離による保守性向上**
-- **web-server.ts**: 118行（92%削減） - メインサーバークラス
-- **api/sql-parser-api.ts**: 351行 - SQL解析ロジック
-- **api/schema-api.ts**: 69行 - スキーマ処理
-- **api/debug-api.ts**: 22行 - デバッグAPI
-- **utils/logging.ts**: 46行 - ログ管理
-- **web-ui-template.ts**: 994行 - HTML+クライアントサイドJS
+### **コードベース統計**
+- **TypeScript**: 10,421行 (完全型安全)
+- **JavaScript**: 2,229行 ⚠️ **リスク: 型チェック対象外**
+- **テストコード**: 3,520行 (良好なカバレッジ)
 
-### **実装済み機能**
-- ✅ **Monaco Editor統合** - SQL構文ハイライト・補完
-- ✅ **スキーマ管理** - zosql.schema.js読み込み
-- ✅ **IntelliSense** - テーブル・カラム・関数・キーワード補完
-- ✅ **CTE対応** - WITH句のテーブル認識・補完
-- ✅ **サブクエリ対応** - JOIN内サブクエリの補完
-- ✅ **ワイルドカード展開** - SELECT *を実際のカラム名に展開
-- ✅ **FROM句コンテキスト** - FROM/JOIN後はテーブル名のみ表示
-- ✅ **キャッシュ管理** - パース結果キャッシュでパフォーマンス向上
+### **問題のあるファイル**
+| ファイル | 行数 | 言語 | 問題 |
+|---------|------|------|------|
+| `src/browser/api/workspace-service.js` | 287行 | JS | 責務過多・未テスト |
+| `src/browser/core/cte-dependency-resolver.js` | 73行 | JS | コアロジック・未テスト |
+| 旧UIコンポーネント群 | ~1,800行 | JS | Shadow DOM複雑性 |
 
-## プロジェクトの開発方針
-- t-wada方式でTDD実践
-- テストが成功するたびにステージング・コミット
-- vitestを使用してテスト実行
+### **優秀なアーキテクチャ例**
+- ✅ **TDD実装**: 20+テストファイルで包括的検証
+- ✅ **型定義**: StorageInterface等の抽象化設計
+- ✅ **IntelliSense**: 60+ケースの回帰防止システム
 
-## ファイル管理設計
-- `FileManager`クラスでメモリ上のファイル管理を実装
-- 実際のファイルシステムに書き出す前にメモリ上で検証可能
-- テスト時にファイルI/Oを避けて高速実行を実現
+## 🔧 アーキテクチャ原則・制約事項
 
-## フォーマッター設定
-- デフォルトフォーマットスタイルを実装
-  - 識別子クォートなし
-  - キーワード小文字
-  - パラメータスタイル: named
-  - インデント: 4スペース
-- `FormatterConfig`インターフェースで設定をカスタマイズ可能
-- 将来的にユーザー設定ファイルからの読み込みに対応予定
+### **ファイルサイズガバナンス**
+- **500行推奨**: 可読性・保守性の最適化
+- **1000行上限**: コメント除く実行コード
+- **違反時対応**: 責務分離による分割必須
 
-## SqlFormatterオプション（rawsql-ts 0.11.11-beta）
-- `withClauseStyle` - WITH句の整形スタイル
-  - `'standard'` - 標準的な改行付きフォーマット
-  - `'cte-oneline'` - 各CTEを1行にまとめる（CTEリストは改行）
-  - `'full-oneline'` - WITH句全体を1行にまとめる **（zosqlで使用）**
-- `cteOneline: true` - CTEをワンライナーでフォーマット（廃止予定、withClauseStyleを使用）
-- `indentChar`, `indentSize`, `newline` - インデント・改行設定
-- `commaBreak`, `andBreak`, `keywordCase` - 構造設定
+### **技術選択制約**
+- **rawsql-ts準拠**: SQL解析・整形は必ずrawsql-ts使用
+- **TypeScript-First**: 新規コードはTypeScript必須
+- **TDD実践**: コアロジックは必ずテスト先行
+- **レイヤー分離**: UI・Domain・Infrastructure混在禁止
 
-## 重要な制約・方針
-- **SQLの整形はrawsql-tsを必ず使用すること**
-- **現時点では独自のパース、整形処理は実装してはならない**
-- rawsql-ts 0.11.11-betaからは`withClauseStyle: 'full-oneline'`を使用
-- CTE依存関係コメントはzosql側でSelectQueryに追加する（rawsql-ts機能ではない）
-
-## CTE操作に関する調査結果
-- `withClause`プロパティにCTE情報が格納される
-- `withClause.tables`配列に各CTEが格納（CommonTableオブジェクト）
-- CTE名は`cte.aliasExpression.table.name`でアクセス
-- `cteNameCache`にCTE名のSetが格納される
-- `getCTENames()`メソッドでCTE名一覧を取得可能
-
-## CTE依存関係コメント形式
-- zosqlではCTEの依存関係をコメントとして記述
-- SelectQueryのコメントとしてWITH句の前に配置
-- フォーマット:
-  ```
-  /* Auto-generated CTE block - do not edit manually */
-  /* Dependencies: */
-  /* - {cte_name}.cte.sql */
-  ```
-- 将来的にはVSCode拡張でファイルリンク化を想定
+### **品質保証方針**
+```typescript
+// 必須の品質ゲート
+interface QualityGates {
+  typeCheck: "tsc --noEmit"; // 型エラー0件
+  unittest: "vitest run";    // テスト成功率100%
+  linting: "eslint --max-warnings 0"; // 警告0件
+  fileSize: "< 1000 lines";  // ファイルサイズ制限
+}
+```
 
 ## 🔧 デバッグ機能強化 (Phase 2完了)
 
@@ -361,39 +244,6 @@ logger.getLogFilePaths(); // ログファイルパス取得
 - **`test/intellisense-regression.test.ts`**: 60+の実用的テストケース
 - **`scripts/test-intellisense.js`**: 自動回帰検知スクリプト
 - **`npm run test:intellisense`**: ワンコマンドでの完全テスト
-
-### **テストカバレッジ**
-```typescript
-// 実際のユーザーシナリオをテスト
-{ text: 'where u.', char: '.', expected: ['u.', 'u', ''] }  // 最頻出パターン
-{ text: 'SELECT o', char: '.', expected: ['o.', 'o', ''] }  // Monaco Editor動作
-{ text: 'high_value_orders.', char: '.', expected: [...] } // 複雑エイリアス
-{ text: '123.invalid', char: 'd', expected: null }         // 不正パターン拒否
-```
-
-### **エイリアス検出修正**
-```typescript
-// 修正前: 数字開始エイリアスを許可（不正）
-/([a-zA-Z0-9_]+)$/
-
-// 修正後: アルファベット開始のみ許可（正常）
-/([a-zA-Z][a-zA-Z0-9_]*)$/
-```
-
-### **回帰防止効果**
-- ✅ **60+ テストケース**ですべての動作パターンを検証
-- ✅ **自動レポート生成**で問題の早期発見
-- ✅ **CI/CD統合可能**でデプロイ前検証
-- ✅ **実用性重視**でユーザー体験を直接テスト
-
-### **使用方法**
-```bash
-npm run test:intellisense      # 完全回帰テスト
-npm run test:regression        # 回帰テストのみ  
-npm run test:once -- test/    # 全テスト実行
-```
-
-これでIntelliSenseの品質が大幅に向上し、デグレのリスクが最小化されました。
 
 ## 🔧 ロギング設定システム (Phase 2完了)
 

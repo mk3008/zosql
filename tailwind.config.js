@@ -1,56 +1,61 @@
-import { defineConfig } from 'tailwindcss'
-
-export default defineConfig({
+/** @type {import('tailwindcss').Config} */
+export default {
   content: [
-    './src/web-ui/**/*.{html,js}',
-    './src/web-ui/static/**/*.{html,js}'
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // zosql専用色
-        'cte': {
-          'primary': '#3b82f6',    // CTE関連
-          'secondary': '#64748b',   // セカンダリ
-          'success': '#10b981',     // 成功
-          'warning': '#f59e0b',     // 警告
-          'error': '#ef4444'        // エラー
+        // VS Code Dark Theme inspired colors
+        primary: {
+          500: '#0e639c',
+          600: '#007acc',
+          700: '#0c5d8a'
         },
-        'query': {
-          'primary': '#10b981',     // クエリ関連
-          'secondary': '#6b7280'
+        dark: {
+          // Background colors
+          primary: '#1e1e1e',
+          secondary: '#252526', 
+          tertiary: '#2d2d30',
+          hover: '#383838',
+          active: '#3c3c3c',
+          
+          // Text colors
+          text: {
+            primary: '#cccccc',
+            secondary: '#888888',
+            white: '#ffffff',
+            muted: '#666666'
+          },
+          
+          // Border colors
+          border: {
+            primary: '#454545',
+            accent: '#007acc'
+          }
         },
-        'bg': {
-          'primary': '#ffffff',
-          'secondary': '#f8fafc',
-          'tertiary': '#f1f5f9',
-          'hover': '#e2e8f0',
-          'active': '#cbd5e1'
-        },
-        'text': {
-          'primary': '#1e293b',
-          'secondary': '#64748b',
-          'tertiary': '#94a3b8'
-        },
-        'border': {
-          'primary': '#e2e8f0',
-          'secondary': '#cbd5e1'
-        }
+        
+        // Status colors
+        success: '#4caf50',
+        warning: '#ffa500', 
+        error: '#f44336',
+        info: '#2196f3'
       },
+      
+      spacing: {
+        'header': '60px',
+        'tab': '40px',
+        'toolbar': '40px',
+        'sidebar': '300px',
+        'context-sidebar': '400px'
+      },
+      
       fontFamily: {
         'mono': ['Consolas', 'Monaco', 'Courier New', 'monospace']
-      },
-      fontSize: {
-        'xs': '0.75rem',
-        'sm': '0.875rem',
-        'base': '1rem',
-        'lg': '1.125rem'
-      },
-      spacing: {
-        '18': '4.5rem',
-        '22': '5.5rem'
       }
-    }
+    },
   },
-  plugins: []
-})
+  plugins: [],
+}
