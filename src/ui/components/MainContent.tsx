@@ -12,9 +12,15 @@ import { FormatterManager } from '@core/usecases/formatter-manager';
 import { RawsqlSqlParser } from '@adapters/parsers/rawsql-sql-parser';
 import { FormatterConfigStorage } from '@adapters/storage/formatter-config-storage';
 
+import { SqlModelEntity, TestValuesModel } from '@shared/types';
+import { useTestValuesManager } from '@ui/hooks/useTestValuesManager';
+
 export interface MainContentRef {
   openValuesTab: () => void;
   openFormatterTab: () => void;
+  getCurrentSql: () => string;
+  openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => void;
+  setCurrentModelEntity: (model: SqlModelEntity) => void;
 }
 
 export const MainContent = forwardRef<MainContentRef>((props, ref) => {
@@ -55,12 +61,56 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
   const [queryResult, setQueryResult] = useState<QueryExecutionResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [useSchemaCollector, setUseSchemaCollector] = useState(true);
+  const [currentModelEntity, setCurrentModelEntity] = useState<SqlModelEntity | null>(null);
+  const [tabModelMap, setTabModelMap] = useState<Map<string, SqlModelEntity>>(new Map());
+  
+  // Test Values Manager
+  const { 
+    testValuesModel, 
+    displayString: testValuesDisplayString, 
+    createFromString: createTestValuesFromString,
+    updateFromString: updateTestValuesFromString
+  } = useTestValuesManager();
 
+
+  // Get current SQL from active main tab
+  const getCurrentSql = () => {
+    const mainTab = tabs.find(tab => tab.type === 'main');
+    return mainTab?.content || '';
+  };
+  
+  // Open SQL model in new tab
+  const openSqlModel = (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => {
+    // Check if tab already exists
+    const existingTab = tabs.find(tab => tab.title === name);
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      if (modelEntity) {
+        setTabModelMap(prev => new Map(prev.set(existingTab.id, modelEntity)));
+      }
+    } else {
+      const newTab = addNewTab(type, name, sql);
+      if (modelEntity) {
+        setTabModelMap(prev => new Map(prev.set(newTab.id, modelEntity)));
+      }
+    }
+  };
+  
+  // Set current model entity for active tab
+  const handleSetCurrentModelEntity = (model: SqlModelEntity) => {
+    setCurrentModelEntity(model);
+    if (activeTab) {
+      setTabModelMap(prev => new Map(prev.set(activeTab.id, model)));
+    }
+  };
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
     openValuesTab,
-    openFormatterTab
+    openFormatterTab,
+    getCurrentSql,
+    openSqlModel,
+    setCurrentModelEntity: handleSetCurrentModelEntity
   }));
 
 
@@ -71,10 +121,36 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
     setResultsVisible(true);
 
     try {
+      // Get the SQL to execute
+      let sqlToExecute = activeTab.content;
+      
+      // If this tab has an associated model entity, use getFullSql() for execution
+      const associatedModel = tabModelMap.get(activeTab.id);
+      if (associatedModel) {
+        // Get test values - prefer TestValuesModel if available, otherwise use tab content
+        const valuesTab = tabs.find(tab => tab.type === 'values');
+        let testValues: TestValuesModel | string | undefined;
+        
+        if (testValuesModel) {
+          // Use structured TestValuesModel for better formatting
+          testValues = testValuesModel;
+        } else if (valuesTab?.content?.trim()) {
+          // Fallback to string-based test values and try to create model
+          updateTestValuesFromString(valuesTab.content);
+          testValues = valuesTab.content;
+        }
+        
+        // Use getFullSql() with test values for database-independent execution
+        sqlToExecute = associatedModel.getFullSql(testValues);
+        
+        console.log('Executing SQL with test values:', sqlToExecute);
+      }
+      
       // Simulate query execution for demo
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Mock result - replace with actual SQL execution later
+      // TODO: Replace with actual PGlite or database execution
       const mockResult: QueryExecutionResult = {
         success: true,
         data: [
@@ -83,7 +159,8 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
           { id: 3, name: 'Bob Johnson', email: 'bob@example.com', created_at: '2024-01-17' }
         ],
         executionTime: 127,
-        rowCount: 3
+        rowCount: 3,
+        executedSql: sqlToExecute // Include the executed SQL for debugging
       };
 
       setQueryResult(mockResult);
@@ -177,7 +254,7 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
         </div>
         
         <button
-          onClick={addNewTab}
+          onClick={() => addNewTab()}
           className="px-3 py-2 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-hover"
           title="New Tab"
         >

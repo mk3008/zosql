@@ -8,13 +8,15 @@ interface HeaderProps {
   onToggleRightSidebar: () => void;
   leftSidebarVisible: boolean;
   rightSidebarVisible: boolean;
+  onFileOpen?: (file: File) => Promise<void>;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onToggleLeftSidebar,
   onToggleRightSidebar,
   leftSidebarVisible,
-  rightSidebarVisible
+  rightSidebarVisible,
+  onFileOpen
 }) => {
   const { workspace, isLoading } = useWorkspace();
   const [showNewWorkspaceDialog, setShowNewWorkspaceDialog] = useState(false);
@@ -104,6 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
       <FileOpenDialog
         isOpen={showFileOpenDialog}
         onClose={() => setShowFileOpenDialog(false)}
+        onFileOpen={onFileOpen}
       />
     </header>
   );

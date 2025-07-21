@@ -1,13 +1,28 @@
 import React, { useState } from 'react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { ValuesSection } from './ValuesSection';
+import { SqlModelsList } from './SqlModelsList';
+import { SqlModelEntity } from '@shared/types';
 
 interface LeftSidebarProps {
   onOpenValuesTab?: () => void;
   onOpenFormatterTab?: () => void;
+  sqlModels?: SqlModelEntity[];
+  onModelClick?: (model: SqlModelEntity) => void;
+  selectedModelName?: string;
+  onDecomposeQuery?: () => void;
+  isDecomposing?: boolean;
 }
 
-export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenValuesTab, onOpenFormatterTab }) => {
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
+  onOpenValuesTab, 
+  onOpenFormatterTab,
+  sqlModels = [],
+  onModelClick,
+  selectedModelName,
+  onDecomposeQuery,
+  isDecomposing = false
+}) => {
   const { workspace, isLoading, validateWorkspace } = useWorkspace();
   const [isValidating, setIsValidating] = useState(false);
 
@@ -58,13 +73,26 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenValuesTab, onOpe
         )}
       </div>
 
-      {/* CTE List */}
+      {/* SQL Models List - Shows decomposed CTEs and main query */}
       <div className="mb-6">
         <h3 className="text-sm font-medium text-dark-text-white mb-3 border-b border-dark-border-primary pb-2">
-          CTEs
+          SQL Models
         </h3>
         
-        {workspace && Object.keys(workspace.privateCtes).length > 0 ? (
+        <SqlModelsList 
+          models={sqlModels}
+          onModelClick={onModelClick}
+          selectedModelName={selectedModelName}
+        />
+      </div>
+
+      {/* Legacy CTE List (from workspace) */}
+      {workspace && Object.keys(workspace.privateCtes).length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-dark-text-white mb-3 border-b border-dark-border-primary pb-2">
+            Workspace CTEs
+          </h3>
+          
           <div className="space-y-1">
             {Object.entries(workspace.privateCtes).map(([name, cte]) => (
               <div
@@ -90,10 +118,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenValuesTab, onOpe
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-sm text-dark-text-muted">No CTEs found</div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="mb-6">
@@ -103,12 +129,13 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenValuesTab, onOpe
         
         <div className="space-y-2">
           <button 
+            onClick={onDecomposeQuery}
             className="w-full px-3 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!workspace}
-            title={workspace ? "Decompose current query into CTEs" : "No workspace loaded"}
+            disabled={!onDecomposeQuery || isDecomposing}
+            title={onDecomposeQuery ? "Decompose current query into CTEs" : "No query to decompose"}
           >
             <span>📄</span>
-            Decompose Query
+            {isDecomposing ? 'Decomposing...' : 'Decompose Query'}
           </button>
           
           <button 

@@ -1,3 +1,5 @@
+// No longer need rawsql-ts imports for basic types
+
 // Domain Types
 export interface CTE {
   name: string;
@@ -30,6 +32,39 @@ export interface QueryExecutionResult {
   error?: string;
   executionTime?: number;
   rowCount?: number;
+  executedSql?: string; // The actual SQL that was executed (with WITH clauses)
+}
+
+// Forward declaration for circular reference
+export interface SqlModelEntity {
+  type: 'main' | 'cte';
+  name: string;
+  sqlWithoutCte: string;
+  dependents: SqlModelEntity[];
+  columns?: string[];
+  originalSql?: string;
+  getFullSql(testValues?: TestValuesModel | string, formatter?: any): string;
+  getDependentNames(): string[];
+}
+
+export interface SqlModel {
+  /** Type of SQL model - main query or CTE */
+  type: 'main' | 'cte';
+  
+  /** Name of the model - file name for main, CTE name for CTEs */
+  name: string;
+  
+  /** SQL query without WITH clause */
+  sqlWithoutCte: string;
+  
+  /** List of SQL models this model depends on */
+  dependents: SqlModelEntity[];
+  
+  /** Optional: Column information if available */
+  columns?: string[];
+  
+  /** Optional: Original full SQL (for main type only) */
+  originalSql?: string;
 }
 
 // UI State Types
@@ -47,6 +82,18 @@ export interface Tab {
   content: string;
   isDirty: boolean;
   cteName?: string;
+}
+
+// Test Values Types
+export interface TestValuesModel {
+  withClause: string;
+  getWithClause(): any; // WithClause object from rawsql-ts
+  getString(formatter: any): string;
+  toString(): string;
+  hasCte(cteName: string): boolean;
+  getCteNames(): string[];
+  clone(): TestValuesModel;
+  displayString: string; // getter for GUI binding
 }
 
 // API Types

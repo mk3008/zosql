@@ -10,7 +10,7 @@ interface UseTabManagerResult {
   tabs: Tab[];
   activeTabId: string;
   activeTab: Tab | undefined;
-  addNewTab: (type?: Tab['type'], title?: string, content?: string) => void;
+  addNewTab: (type?: Tab['type'], title?: string, content?: string) => Tab;
   openValuesTab: () => void;
   openFormatterTab: () => void;
   closeTab: (tabId: string) => void;
@@ -72,7 +72,7 @@ export const useTabManager = (): UseTabManagerResult => {
     type: Tab['type'] = 'main', 
     title?: string, 
     content?: string
-  ) => {
+  ): Tab => {
     const newTab: Tab = {
       id: `tab-${Date.now()}`,
       title: title || DEFAULT_TITLE[type] || 'Untitled',
@@ -83,6 +83,7 @@ export const useTabManager = (): UseTabManagerResult => {
     
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
+    return newTab;
   }, []);
 
   const openValuesTab = useCallback(() => {

@@ -4,9 +4,10 @@ import { useWorkspace } from '../context/WorkspaceContext';
 interface FileOpenDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onFileOpen?: (file: File) => Promise<void>;
 }
 
-export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose }) => {
+export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose, onFileOpen }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
@@ -69,11 +70,17 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose 
     setIsLoading(true);
     
     try {
-      await createWorkspace({
-        name: workspaceName.trim(),
-        sql: fileContent.trim(),
-        originalFilePath: selectedFile.name
-      });
+      // If custom file handler is provided, use it
+      if (onFileOpen) {
+        await onFileOpen(selectedFile);
+      } else {
+        // Default behavior: create workspace
+        await createWorkspace({
+          name: workspaceName.trim(),
+          sql: fileContent.trim(),
+          originalFilePath: selectedFile.name
+        });
+      }
       
       // Reset form and close dialog
       setSelectedFile(null);
@@ -81,7 +88,7 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose 
       setWorkspaceName('');
       onClose();
     } catch (error) {
-      console.error('Failed to create workspace from file:', error);
+      console.error('Failed to process file:', error);
     } finally {
       setIsLoading(false);
     }
