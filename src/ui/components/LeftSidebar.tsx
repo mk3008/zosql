@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { ValuesSection } from './ValuesSection';
 
-export const LeftSidebar: React.FC = () => {
+interface LeftSidebarProps {
+  onOpenValuesTab?: () => void;
+  onOpenFormatterTab?: () => void;
+}
+
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenValuesTab, onOpenFormatterTab }) => {
   const { workspace, isLoading, validateWorkspace } = useWorkspace();
   const [isValidating, setIsValidating] = useState(false);
 
@@ -128,7 +133,22 @@ export const LeftSidebar: React.FC = () => {
       </div>
 
       {/* Values Section */}
-      <ValuesSection />
+      <ValuesSection onOpenTab={onOpenValuesTab} />
+
+      {/* SQL Formatter Section */}
+      <div className="mb-6">
+        <div 
+          className="flex items-center justify-between cursor-pointer mb-3 border-b border-dark-border-primary pb-2"
+          onClick={onOpenFormatterTab}
+        >
+          <h3 className="text-sm font-medium text-dark-text-white hover:text-primary-400 transition-colors">
+            SQL Formatter Config
+          </h3>
+          <span className="text-dark-text-secondary text-xs">
+            →
+          </span>
+        </div>
+      </div>
 
       {/* System Status */}
       <div>

@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
 import { MonacoEditor } from './MonacoEditor';
 
-export const ValuesSection: React.FC = () => {
+interface ValuesSectionProps {
+  onOpenTab?: () => void;
+}
+
+export const ValuesSection: React.FC<ValuesSectionProps> = ({ onOpenTab }) => {
   const [valuesContent, setValuesContent] = useState(`-- Define test data CTEs here
 -- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)
 -- Example:
-with _users(user_id, name) as (
+with users(user_id, name) as (
   values
-    (1, 'alice'),
-    (2, 'bob')
-),
-users as (
-  select
-    user_id::bigint,
-    name::text
-  from _users
+    (1::bigint, 'alice'::text),
+    (2::bigint, 'bob'::text)
 )`);
 
   const [isExpanded, setIsExpanded] = useState(true);
@@ -89,17 +87,23 @@ ${sql}
     <div className="mb-6">
       <div 
         className="flex items-center justify-between cursor-pointer mb-3 border-b border-dark-border-primary pb-2"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => {
+          if (onOpenTab) {
+            onOpenTab();
+          } else {
+            setIsExpanded(!isExpanded);
+          }
+        }}
       >
-        <h3 className="text-sm font-medium text-dark-text-white">
+        <h3 className="text-sm font-medium text-dark-text-white hover:text-primary-400 transition-colors">
           Values & Test Data
         </h3>
         <span className="text-dark-text-secondary text-xs">
-          {isExpanded ? '▼' : '▶'}
+          {onOpenTab ? '→' : (isExpanded ? '▼' : '▶')}
         </span>
       </div>
 
-      {isExpanded && (
+      {isExpanded && !onOpenTab && (
         <div className="space-y-3">
           {/* Values Editor */}
           <div className="border border-dark-border-primary rounded overflow-hidden">
