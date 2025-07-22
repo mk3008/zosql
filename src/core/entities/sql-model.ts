@@ -5,6 +5,7 @@
 
 import { SqlFormatter } from 'rawsql-ts';
 import { TestValuesModel } from './test-values-model';
+import { QueryExecutionResult } from '@shared/types';
 
 export interface SqlModel {
   /** Type of SQL model - main query or CTE */
@@ -27,6 +28,8 @@ export interface SqlModel {
 }
 
 export class SqlModelEntity implements SqlModel {
+  private _queryResult?: QueryExecutionResult;
+
   constructor(
     public type: 'main' | 'cte',
     public name: string,
@@ -290,5 +293,33 @@ export class SqlModelEntity implements SqlModel {
    */
   setDependents(dependents: SqlModelEntity[]): void {
     this.dependents = dependents;
+  }
+
+  /**
+   * Get query execution result for this model
+   */
+  get queryResult(): QueryExecutionResult | undefined {
+    return this._queryResult;
+  }
+
+  /**
+   * Set query execution result for this model
+   */
+  setQueryResult(result: QueryExecutionResult): void {
+    this._queryResult = result;
+  }
+
+  /**
+   * Clear query execution result
+   */
+  clearQueryResult(): void {
+    this._queryResult = undefined;
+  }
+
+  /**
+   * Check if this model has a cached query result
+   */
+  hasQueryResult(): boolean {
+    return this._queryResult !== undefined;
   }
 }

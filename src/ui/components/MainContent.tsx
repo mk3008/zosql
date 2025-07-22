@@ -1,4 +1,4 @@
-import { useState, useImperativeHandle, forwardRef, useMemo } from 'react';
+import { useState, useImperativeHandle, forwardRef, useMemo, useEffect } from 'react';
 import '../styles/tab-scrollbar.css';
 import { QueryExecutionResult } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
@@ -114,6 +114,23 @@ export const MainContent = forwardRef<MainContentRef>((_props, ref) => {
     setCurrentModelEntity: handleSetCurrentModelEntity
   }));
 
+  // Update query result when active tab changes
+  useEffect(() => {
+    if (activeTab) {
+      const associatedModel = tabModelMap.get(activeTab.id);
+      if (associatedModel && associatedModel.hasQueryResult()) {
+        // Load cached query result for this model
+        setQueryResult(associatedModel.queryResult!);
+        setResultsVisible(true);
+        console.log('[DEBUG] Loaded cached query result for:', associatedModel.name);
+      } else {
+        // No cached result for this tab
+        setQueryResult(null);
+        console.log('[DEBUG] No cached query result for tab:', activeTab.title);
+      }
+    }
+  }, [activeTabId, tabModelMap]);
+
 
   const executeQuery = async () => {
     if (!activeTab?.content.trim()) return;
@@ -165,12 +182,24 @@ export const MainContent = forwardRef<MainContentRef>((_props, ref) => {
       };
 
       setQueryResult(mockResult);
+      
+      // Save result to associated model entity
+      if (associatedModel) {
+        associatedModel.setQueryResult(mockResult);
+        console.log('[DEBUG] Saved query result to model:', associatedModel.name);
+      }
     } catch (error) {
       const errorResult: QueryExecutionResult = {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
       };
       setQueryResult(errorResult);
+      
+      // Save error result to associated model entity
+      if (associatedModel) {
+        associatedModel.setQueryResult(errorResult);
+        console.log('[DEBUG] Saved error result to model:', associatedModel.name);
+      }
     } finally {
       setIsExecuting(false);
     }
