@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { ValuesSection } from './ValuesSection';
 import { SqlModelsList } from './SqlModelsList';
-import { SqlModelEntity } from '@shared/types';
+import { SqlModelEntity, WorkspaceEntity } from '@shared/types';
 
 interface LeftSidebarProps {
   onOpenValuesTab?: () => void;
@@ -12,6 +12,7 @@ interface LeftSidebarProps {
   selectedModelName?: string;
   onDecomposeQuery?: () => void;
   isDecomposing?: boolean;
+  workspace?: WorkspaceEntity | null;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
@@ -21,9 +22,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onModelClick,
   selectedModelName,
   onDecomposeQuery,
-  isDecomposing = false
+  isDecomposing = false,
+  workspace
 }) => {
-  const { workspace, isLoading, validateWorkspace } = useWorkspace();
+  const { isLoading, validateWorkspace } = useWorkspace();
   const [isValidating, setIsValidating] = useState(false);
 
   const handleValidateWorkspace = async () => {
@@ -53,7 +55,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           <div className="text-sm text-dark-text-secondary">Loading workspace...</div>
         )}
         
-        {!isLoading && !workspace && (
+        {!isLoading && !workspace && sqlModels.length === 0 && (
           <div className="text-sm text-dark-text-muted">No workspace loaded</div>
         )}
         
@@ -63,11 +65,28 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               <span className="text-dark-text-secondary">Name:</span> {workspace.name}
             </div>
             <div className="text-dark-text-primary">
-              <span className="text-dark-text-secondary">CTEs:</span> {Object.keys(workspace.privateCtes).length}
+              <span className="text-dark-text-secondary">CTEs:</span> {sqlModels.filter(m => m.type === 'cte').length}
+            </div>
+            <div className="text-dark-text-primary">
+              <span className="text-dark-text-secondary">Models:</span> {sqlModels.length}
             </div>
             <div className="text-dark-text-primary">
               <span className="text-dark-text-secondary">Modified:</span>{' '}
               {new Date(workspace.lastModified).toLocaleDateString()}
+            </div>
+          </div>
+        )}
+        
+        {!workspace && sqlModels.length > 0 && (
+          <div className="space-y-2 text-sm">
+            <div className="text-dark-text-primary">
+              <span className="text-dark-text-secondary">CTEs:</span> {sqlModels.filter(m => m.type === 'cte').length}
+            </div>
+            <div className="text-dark-text-primary">
+              <span className="text-dark-text-secondary">Models:</span> {sqlModels.length}
+            </div>
+            <div className="text-dark-text-muted">
+              File opened (no workspace saved)
             </div>
           </div>
         )}
@@ -86,40 +105,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         />
       </div>
 
-      {/* Legacy CTE List (from workspace) */}
-      {workspace && Object.keys(workspace.privateCtes).length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-medium text-dark-text-white mb-3 border-b border-dark-border-primary pb-2">
-            Workspace CTEs
-          </h3>
-          
-          <div className="space-y-1">
-            {Object.entries(workspace.privateCtes).map(([name, cte]) => (
-              <div
-                key={name}
-                className="p-2 rounded cursor-pointer hover:bg-dark-hover transition-colors group"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-dark-text-primary font-medium">{name}</span>
-                  <span className="text-xs text-dark-text-secondary opacity-0 group-hover:opacity-100 transition-opacity">
-                    {cte.dependencies.length} deps
-                  </span>
-                </div>
-                {cte.description && (
-                  <div className="text-xs text-dark-text-muted mt-1 truncate">
-                    {cte.description}
-                  </div>
-                )}
-                {cte.dependencies.length > 0 && (
-                  <div className="text-xs text-dark-text-secondary mt-1">
-                    Depends on: {cte.dependencies.join(', ')}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Actions */}
       <div className="mb-6">
@@ -155,6 +140,18 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           >
             <span>📊</span>
             View Dependencies
+          </button>
+          
+          <button 
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="w-full px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
+            title="Clear all cached data and reload page"
+          >
+            <span>🗑️</span>
+            Clear Cache
           </button>
         </div>
       </div>

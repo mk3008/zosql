@@ -33,7 +33,8 @@ export class SqlModelEntity implements SqlModel {
     public sqlWithoutCte: string,
     public dependents: SqlModelEntity[] = [],
     public columns?: string[],
-    public originalSql?: string
+    public originalSql?: string,
+    private _formatter?: SqlFormatter
   ) {}
 
   /**
@@ -67,27 +68,16 @@ export class SqlModelEntity implements SqlModel {
   }
 
 
-  /**
-   * Clone the model (shallow clone of dependencies)
-   */
-  clone(): SqlModelEntity {
-    return new SqlModelEntity(
-      this.type,
-      this.name,
-      this.sqlWithoutCte,
-      [...this.dependents], // Shallow clone - references same entities
-      this.columns ? [...this.columns] : undefined,
-      this.originalSql
-    );
-  }
 
   /**
    * Generate full SQL with WITH clause by recursively collecting dependencies
    * @param testValues - Optional test data model or string to add for testing
-   * @param formatter - SQL formatter instance
+   * @param formatter - SQL formatter instance (uses workspace formatter if not provided)
    * @returns Complete SQL with WITH clause including test data if provided
    */
   getFullSql(testValues?: TestValuesModel | string, formatter?: SqlFormatter): string {
+    // Use provided formatter or fall back to the instance formatter
+    const activeFormatter = formatter || this._formatter;
     // For main type with original SQL and no test values, return as-is
     if (this.type === 'main' && this.originalSql && !testValues) {
       return this.originalSql;
@@ -101,7 +91,7 @@ export class SqlModelEntity implements SqlModel {
     if (testValues) {
       if (testValues instanceof TestValuesModel) {
         // Use TestValuesModel to get formatted string
-        const testValueString = formatter ? testValues.getString(formatter) : testValues.toString();
+        const testValueString = activeFormatter ? testValues.getString(activeFormatter) : testValues.toString();
         const testCteStatements = this.parseTestValues(testValueString);
         allStatements.push(...testCteStatements);
       } else if (typeof testValues === 'string' && testValues.trim()) {
@@ -246,14 +236,59 @@ export class SqlModelEntity implements SqlModel {
   /**
    * Convert to plain object (for serialization)
    */
-  toJSON(): SqlModel {
+  toJSON(): {
+    type: 'main' | 'cte';
+    name: string;
+    sqlWithoutCte: string;
+    dependents: string[]; // Store as names for serialization
+    columns?: string[];
+    originalSql?: string;
+  } {
     return {
       type: this.type,
       name: this.name,
       sqlWithoutCte: this.sqlWithoutCte,
-      dependents: this.dependents, // Keep reference for now
+      dependents: this.dependents.map(d => d.name), // Store as names
       ...(this.columns && { columns: [...this.columns] }),
       ...(this.originalSql && { originalSql: this.originalSql })
     };
+  }
+
+  /**
+   * Create from plain object (for deserialization)
+   * Note: Dependencies must be resolved separately after all models are created
+   */
+  static fromJSON(data: any, formatter?: SqlFormatter): SqlModelEntity {
+    return new SqlModelEntity(
+      data.type,
+      data.name,
+      data.sqlWithoutCte,
+      [], // Dependencies will be resolved later
+      data.columns,
+      data.originalSql,
+      formatter
+    );
+  }
+
+  /**
+   * Clone the SQL model entity
+   */
+  clone(): SqlModelEntity {
+    return new SqlModelEntity(
+      this.type,
+      this.name,
+      this.sqlWithoutCte,
+      [...this.dependents], // Shallow copy of references
+      this.columns ? [...this.columns] : undefined,
+      this.originalSql,
+      this._formatter
+    );
+  }
+
+  /**
+   * Set dependencies (used during deserialization)
+   */
+  setDependents(dependents: SqlModelEntity[]): void {
+    this.dependents = dependents;
   }
 }

@@ -8,9 +8,10 @@ import { SqlModelEntity } from '@shared/types';
 import { SqlDecomposerUseCase } from '@core/usecases/sql-decomposer-usecase';
 import { SqlDecomposerParser } from '@adapters/parsers/sql-decomposer-parser';
 import { CteDependencyAnalyzerAdapter } from '@adapters/dependency-analyzer/cte-dependency-analyzer-adapter';
+import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 
 interface UseSqlDecomposerResult {
-  decomposeSql: (sql: string, fileName: string) => Promise<SqlModelEntity[]>;
+  decomposeSql: (sql: string, fileName: string, formatterEntity?: SqlFormatterEntity) => Promise<SqlModelEntity[]>;
   reconstructSql: (models: SqlModelEntity[], mainModelName: string) => Promise<string>;
   isDecomposing: boolean;
   error: string | null;
@@ -32,13 +33,14 @@ export const useSqlDecomposer = (): UseSqlDecomposerResult => {
 
   const decomposeSql = useCallback(async (
     sql: string, 
-    fileName: string
+    fileName: string,
+    formatterEntity?: SqlFormatterEntity
   ): Promise<SqlModelEntity[]> => {
     setIsDecomposing(true);
     setError(null);
 
     try {
-      const decomposedModels = await decomposer.decomposeSql(sql, fileName);
+      const decomposedModels = await decomposer.decomposeSql(sql, fileName, formatterEntity);
       setModels(decomposedModels);
       return decomposedModels;
     } catch (err) {

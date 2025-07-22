@@ -1,5 +1,10 @@
 // No longer need rawsql-ts imports for basic types
 
+// Entity exports
+export { FilterConditionsEntity } from '@core/entities/filter-conditions';
+export { SqlFormatterEntity } from '@core/entities/sql-formatter';
+export { WorkspaceEntity, ModelFilterConditions } from '@core/entities/workspace';
+
 // Domain Types
 export interface CTE {
   name: string;
@@ -43,7 +48,7 @@ export interface SqlModelEntity {
   dependents: SqlModelEntity[];
   columns?: string[];
   originalSql?: string;
-  getFullSql(testValues?: TestValuesModel | string, formatter?: any): string;
+  getFullSql(testValues?: TestValuesModel | string, formatter?: import('rawsql-ts').SqlFormatter): string;
   getDependentNames(): string[];
 }
 
@@ -87,12 +92,32 @@ export interface Tab {
 // Test Values Types
 export interface TestValuesModel {
   withClause: string;
-  getWithClause(): any; // WithClause object from rawsql-ts
-  getString(formatter: any): string;
+  getWithClause(): import('./sql-types').MinimalWithClause | null;
+  getString(formatter: import('rawsql-ts').SqlFormatter): string;
   toString(): string;
   hasCte(cteName: string): boolean;
   getCteNames(): string[];
   clone(): TestValuesModel;
+  displayString: string; // getter for GUI binding
+}
+
+// Filter Conditions Types
+export interface FilterConditionsModel {
+  conditions: string;
+  getFilterConditions(): import('rawsql-ts').FilterConditions;
+  setFilterConditions(conditions: import('rawsql-ts').FilterConditions): void;
+  isValid(): boolean;
+  clone(): FilterConditionsModel;
+  displayString: string; // getter for GUI binding
+}
+
+// SQL Formatter Types
+export interface SqlFormatterModel {
+  config: string;
+  getSqlFormatter(): import('rawsql-ts').SqlFormatter;
+  setFormatterConfig(options: any): void;
+  isValid(): boolean;
+  clone(): SqlFormatterModel;
   displayString: string; // getter for GUI binding
 }
 

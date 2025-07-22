@@ -182,7 +182,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
           automaticLayout: true,
           tabSize: 2,
           insertSpaces: true,
-          wordWrap: 'on',
+          wordWrap: 'off',
           contextmenu: true,
           mouseWheelZoom: true,
           smoothScrolling: true,

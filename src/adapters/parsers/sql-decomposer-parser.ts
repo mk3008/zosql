@@ -3,7 +3,7 @@
  * Infrastructure Layer - Implements SqlParserPort for SQL decomposition
  */
 
-import { SelectQueryParser, SimpleSelectQuery } from 'rawsql-ts';
+import { SelectQueryParser, SimpleSelectQuery, SqlFormatter } from 'rawsql-ts';
 import { SqlParserPort } from '@core/usecases/sql-decomposer-usecase';
 import { CTEEntity } from '@core/entities/cte';
 
@@ -112,23 +112,20 @@ export class SqlDecomposerParser implements SqlParserPort {
    * Extract CTE query as string from rawsql-ts CTE object
    */
   private extractCTEQueryString(cte: any): string {
+    if (!cte.query) {
+      throw new Error('CTE object does not have a query property');
+    }
+    
     try {
-      // If the CTE has a toSqlString method
-      if (cte.query && typeof cte.query.toSqlString === 'function') {
-        return cte.query.toSqlString();
-      }
-
-      // Try to reconstruct from the query object
-      if (cte.query) {
-        // This is a simplified version - actual implementation would need
-        // to properly reconstruct the SQL from the AST
-        return this.reconstructQueryFromAST(cte.query);
-      }
-
-      return '';
+      // Create a formatter instance
+      const formatter = new SqlFormatter();
+      
+      // The cte.query is a query object from rawsql-ts, format it
+      const formatted = formatter.format(cte.query);
+      return formatted.formattedSql;
     } catch (error) {
-      console.warn('Failed to extract CTE query string:', error);
-      return '';
+      console.error('Failed to format CTE query:', error);
+      throw error;
     }
   }
 

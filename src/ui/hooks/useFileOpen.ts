@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import { useSqlDecomposer } from './useSqlDecomposer';
 import { SqlModelEntity } from '@shared/types';
+import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 
 interface FileOpenResult {
   fileName: string;
@@ -14,7 +15,7 @@ interface FileOpenResult {
 }
 
 interface UseFileOpenResult {
-  openFile: (file: File) => Promise<FileOpenResult>;
+  openFile: (file: File, formatterEntity?: SqlFormatterEntity) => Promise<FileOpenResult>;
   isOpening: boolean;
   error: string | null;
   lastOpenedFile: FileOpenResult | null;
@@ -27,7 +28,7 @@ export const useFileOpen = (): UseFileOpenResult => {
   
   const { decomposeSql } = useSqlDecomposer();
 
-  const openFile = useCallback(async (file: File): Promise<FileOpenResult> => {
+  const openFile = useCallback(async (file: File, formatterEntity?: SqlFormatterEntity): Promise<FileOpenResult> => {
     setIsOpening(true);
     setError(null);
 
@@ -38,8 +39,8 @@ export const useFileOpen = (): UseFileOpenResult => {
       // Extract file name without extension
       const fileName = file.name.replace(/\.sql$/i, '');
       
-      // Decompose SQL into models
-      const models = await decomposeSql(content, fileName);
+      // Decompose SQL into models with formatter entity
+      const models = await decomposeSql(content, fileName, formatterEntity);
       
       const result: FileOpenResult = {
         fileName: file.name,

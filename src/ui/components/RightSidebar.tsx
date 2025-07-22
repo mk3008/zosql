@@ -1,30 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { WorkspaceEntity } from '@shared/types';
 
-type RightSidebarTab = 'context' | 'condition' | 'help';
+type RightSidebarTab = 'context' | 'condition' | 'formatter' | 'help';
 
-export const RightSidebar: React.FC = () => {
+interface RightSidebarProps {
+  workspace?: WorkspaceEntity | null;
+}
+
+export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
   const [activeTab, setActiveTab] = useState<RightSidebarTab>('context');
-  const [conditionJson, setConditionJson] = useState(`{
-  "filters": [
-    {
-      "field": "user_id",
-      "operator": "=",
-      "value": 1
-    },
-    {
-      "field": "created_at",
-      "operator": ">=",
-      "value": "2024-01-01"
+
+  // Get FilterConditions and SqlFormatter from workspace
+  const filterConditionsJson = workspace?.filterConditions.displayString || '{}';
+  const sqlFormatterJson = workspace?.formatter.displayString || '{}';
+
+  const handleFilterConditionsChange = (value: string) => {
+    if (workspace) {
+      workspace.filterConditions.displayString = value;
     }
-  ],
-  "sort": [
-    {
-      "field": "created_at",
-      "direction": "DESC"
+  };
+
+  const handleFormatterChange = (value: string) => {
+    if (workspace) {
+      workspace.formatter.displayString = value;
     }
-  ],
-  "limit": 100
-}`);
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -60,26 +60,35 @@ export const RightSidebar: React.FC = () => {
         return (
           <div className="p-4 h-full flex flex-col">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-dark-text-white">Query Conditions</h4>
-              <button
-                onClick={() => setConditionJson('{\n  \n}')}
-                className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
-                title="Clear JSON"
-              >
-                Clear
-              </button>
+              <h4 className="text-sm font-medium text-dark-text-white">Filter Conditions</h4>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => workspace?.filterConditions.reset()}
+                  className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
+                  title="Reset to template"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => workspace?.filterConditions.initializeFromModels(workspace.sqlModels)}
+                  className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
+                  title="Generate from SQL models"
+                >
+                  Generate
+                </button>
+              </div>
             </div>
             
             <div className="text-xs text-dark-text-muted mb-2">
-              Define query conditions, filters, and parameters in JSON format
+              rawsql-ts FilterConditions - Edit values only, structure is auto-generated from SQL
             </div>
             
             <div className="flex-1 min-h-0">
               <textarea
-                value={conditionJson}
-                onChange={(e) => setConditionJson(e.target.value)}
+                value={filterConditionsJson}
+                onChange={(e) => handleFilterConditionsChange(e.target.value)}
                 className="w-full h-full p-3 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary font-mono text-xs resize-none focus:outline-none focus:border-primary-600"
-                placeholder="Enter JSON conditions..."
+                placeholder="Filter conditions will be generated from SQL..."
                 style={{ 
                   fontFamily: 'Consolas, Monaco, Courier New, monospace',
                   lineHeight: '1.4'
@@ -91,14 +100,12 @@ export const RightSidebar: React.FC = () => {
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    try {
-                      const parsed = JSON.parse(conditionJson);
-                      setConditionJson(JSON.stringify(parsed, null, 2));
-                    } catch (error) {
-                      console.error('Invalid JSON:', error);
+                    if (workspace) {
+                      const formatted = workspace.filterConditions.getFormattedString();
+                      workspace.filterConditions.displayString = formatted;
                     }
                   }}
-                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-xs"
+                  className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs"
                   title="Format JSON"
                 >
                   Format
@@ -106,36 +113,115 @@ export const RightSidebar: React.FC = () => {
                 
                 <button
                   onClick={() => {
-                    try {
-                      JSON.parse(conditionJson);
-                      console.log('JSON is valid');
-                    } catch (error) {
-                      console.error('JSON validation failed:', error);
+                    if (workspace) {
+                      const conditions = workspace.filterConditions.getFilterConditions();
+                      console.log('Parsed FilterConditions:', conditions);
                     }
                   }}
                   className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-xs"
-                  title="Validate JSON"
+                  title="Test parsing to FilterConditions"
                 >
-                  Validate
+                  Test Parse
                 </button>
                 
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(conditionJson).then(() => {
-                      console.log('JSON copied to clipboard');
-                    }).catch(err => {
-                      console.error('Failed to copy:', err);
-                    });
+                    if (workspace) {
+                      navigator.clipboard.writeText(filterConditionsJson).then(() => {
+                        console.log('FilterConditions JSON copied to clipboard');
+                      }).catch(err => {
+                        console.error('Failed to copy:', err);
+                      });
+                    }
                   }}
-                  className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs"
+                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-xs"
                   title="Copy JSON"
                 >
                   Copy
                 </button>
               </div>
               
+              <div className="text-xs text-dark-text-secondary">
+                JSON validation: {workspace?.filterConditions.isValid() ? 
+                  <span className="text-green-400">✓ Valid</span> : 
+                  <span className="text-red-400">✗ Invalid</span>
+                }
+              </div>
               <div className="text-xs text-dark-text-muted">
-                💡 Use this JSON to define dynamic query conditions, filters, and sorting options.
+                💡 Generated from SQL columns. Edit values (undefined → actual values).
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'formatter':
+        return (
+          <div className="p-4 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-dark-text-white">SQL Formatter Config</h4>
+              <button
+                onClick={() => workspace?.formatter.reset()}
+                className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
+                title="Reset to default"
+              >
+                Reset
+              </button>
+            </div>
+            
+            <div className="text-xs text-dark-text-muted mb-2">
+              rawsql-ts SqlFormatter configuration - Adjust formatting preferences
+            </div>
+            
+            <div className="flex-1 min-h-0">
+              <textarea
+                value={sqlFormatterJson}
+                onChange={(e) => handleFormatterChange(e.target.value)}
+                className="w-full h-full p-3 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary font-mono text-xs resize-none focus:outline-none focus:border-primary-600"
+                placeholder="SQL formatter configuration..."
+                style={{ 
+                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
+                  lineHeight: '1.4'
+                }}
+              />
+            </div>
+            
+            <div className="mt-3 space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (workspace) {
+                      const formatted = workspace.formatter.getFormattedString();
+                      workspace.formatter.displayString = formatted;
+                    }
+                  }}
+                  className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs"
+                  title="Format JSON"
+                >
+                  Format
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (workspace) {
+                      const formatter = workspace.formatter.getSqlFormatter();
+                      console.log('SqlFormatter instance:', formatter);
+                    }
+                  }}
+                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-xs"
+                  title="Test creating SqlFormatter"
+                >
+                  Test Create
+                </button>
+              </div>
+              
+              <div className="text-xs text-dark-text-secondary">
+                JSON validation: {workspace?.formatter.isValid() ? 
+                  <span className="text-green-400">✓ Valid</span> : 
+                  <span className="text-red-400">✗ Invalid</span>
+                }
+              </div>
+              <div className="text-xs text-dark-text-muted">
+                💡 Controls SQL formatting style (indentation, keywords, line breaks).
               </div>
             </div>
           </div>
@@ -188,6 +274,7 @@ export const RightSidebar: React.FC = () => {
         {[
           { id: 'context' as const, label: 'Context', icon: '🎯' },
           { id: 'condition' as const, label: 'Condition', icon: '⚙️' },
+          { id: 'formatter' as const, label: 'Formatter', icon: '✨' },
           { id: 'help' as const, label: 'Help', icon: '❓' }
         ].map(tab => (
           <button

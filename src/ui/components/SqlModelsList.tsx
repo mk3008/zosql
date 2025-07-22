@@ -35,7 +35,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
       {mainModels.length > 0 && (
         <div>
           <h4 className="text-xs font-medium text-dark-text-secondary uppercase mb-2">
-            Main Queries
+            Main Query
           </h4>
           <div className="space-y-1">
             {mainModels.map((model) => (
@@ -161,7 +161,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
           </h4>
           <div className="text-xs text-dark-text-muted space-y-1">
             <div>Total models: {models.length}</div>
-            <div>Main queries: {mainModels.length}</div>
+            <div>Main query: {mainModels.length}</div>
             <div>CTEs: {cteModels.length}</div>
             {cteModels.length > 0 && (
               <div>
@@ -201,8 +201,8 @@ function calculateMaxDepth(models: SqlModelEntity[]): number {
     
     const maxDepDepth = Math.max(
       ...model.dependents
-        .filter((dep: any) => modelMap.has(dep.name))
-        .map((dep: any) => getDepth(dep.name, new Set(visited)))
+        .filter((dep: SqlModelEntity) => modelMap.has(dep.name))
+        .map((dep: SqlModelEntity) => getDepth(dep.name, new Set(visited)))
     );
     
     const depth = 1 + maxDepDepth;

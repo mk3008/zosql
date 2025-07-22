@@ -1,0 +1,223 @@
+/**
+ * Filter Conditions Entity
+ * Core Layer - Manages rawsql-ts FilterConditions with JSON string GUI binding
+ */
+
+import { FilterConditions, SelectableColumnCollector, DuplicateDetectionMode, SelectQueryParser } from 'rawsql-ts';
+import { SqlModelEntity } from './sql-model';
+
+/**
+ * Filter Conditions Entity for GUI binding
+ * Wraps rawsql-ts FilterConditions with string-based GUI interface
+ */
+export class FilterConditionsEntity {
+  constructor(
+    public conditions: string = '{}'
+  ) {}
+
+  /**
+   * Get parsed FilterConditions object from JSON string
+   * @returns Parsed FilterConditions object or empty object if parsing fails
+   */
+  getFilterConditions(): FilterConditions {
+    try {
+      const parsed = JSON.parse(this.conditions);
+      return parsed as FilterConditions;
+    } catch (error) {
+      console.warn('Failed to parse filter conditions:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Update conditions from FilterConditions object
+   * @param conditions - FilterConditions object to convert to string
+   */
+  setFilterConditions(conditions: FilterConditions): void {
+    try {
+      this.conditions = JSON.stringify(conditions, null, 2);
+    } catch (error) {
+      console.warn('Failed to stringify filter conditions:', error);
+      this.conditions = '{}';
+    }
+  }
+
+  /**
+   * Generate template FilterConditions JSON from SQL models
+   * Uses SelectableColumnCollector with upstream: true to get all available columns
+   * @param sqlModels - Array of SQL models to analyze
+   * @returns Template JSON string with undefined values
+   */
+  static generateTemplate(sqlModels: SqlModelEntity[]): string {
+    try {
+      // Find main model with original SQL
+      const mainModel = sqlModels.find(m => m.type === 'main' && m.originalSql);
+      if (!mainModel || !mainModel.originalSql) {
+        return FilterConditionsEntity.getDefaultTemplate();
+      }
+
+      // Parse the SQL to collect columns
+      const query = SelectQueryParser.parse(mainModel.originalSql);
+      
+      // Use SelectableColumnCollector with upstream: true
+      const collector = new SelectableColumnCollector(
+        null, // tableColumnResolver
+        false, // includeWildCard
+        DuplicateDetectionMode.ColumnNameOnly,
+        { upstream: true } // Enable upstream collection
+      );
+
+      const columns = collector.collect(query);
+      
+      // Generate template FilterConditions with all undefined values
+      const template: FilterConditions = {};
+      
+      for (const column of columns) {
+        const columnName = column.name;
+        template[columnName] = {
+          '=': undefined,
+          '>': undefined,
+          '<': undefined,
+          '>=': undefined,
+          '<=': undefined,
+          '!=': undefined,
+          '<>': undefined,
+          like: undefined,
+          ilike: undefined,
+          in: undefined,
+          any: undefined,
+          min: undefined,
+          max: undefined,
+          or: undefined,
+          and: undefined
+        };
+      }
+
+      return JSON.stringify(template, null, 2);
+    } catch (error) {
+      console.warn('Failed to generate template from SQL models:', error);
+      return FilterConditionsEntity.getDefaultTemplate();
+    }
+  }
+
+  /**
+   * Get default template when SQL analysis fails
+   */
+  private static getDefaultTemplate(): string {
+    const defaultTemplate: FilterConditions = {
+      id: {
+        '=': undefined,
+        '>': undefined,
+        '<': undefined,
+        '>=': undefined,
+        '<=': undefined,
+        '!=': undefined,
+        in: undefined,
+        min: undefined,
+        max: undefined
+      },
+      name: {
+        '=': undefined,
+        like: undefined,
+        ilike: undefined
+      },
+      created_at: {
+        '>=': undefined,
+        '<=': undefined,
+        min: undefined,
+        max: undefined
+      },
+      status: {
+        '=': undefined,
+        in: undefined
+      }
+    };
+
+    return JSON.stringify(defaultTemplate, null, 2);
+  }
+
+  /**
+   * Initialize template from SQL models
+   * @param sqlModels - Array of SQL models to analyze
+   */
+  initializeFromModels(sqlModels: SqlModelEntity[]): void {
+    this.conditions = FilterConditionsEntity.generateTemplate(sqlModels);
+  }
+
+  /**
+   * Reset to default template
+   */
+  reset(): void {
+    this.conditions = FilterConditionsEntity.getDefaultTemplate();
+  }
+
+  /**
+   * Validate JSON format
+   * @returns true if valid JSON, false otherwise
+   */
+  isValid(): boolean {
+    try {
+      JSON.parse(this.conditions);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get formatted JSON string for display
+   * @returns Formatted JSON string
+   */
+  getFormattedString(): string {
+    try {
+      const parsed = JSON.parse(this.conditions);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return this.conditions;
+    }
+  }
+
+  /**
+   * Clone the filter conditions entity
+   */
+  clone(): FilterConditionsEntity {
+    return new FilterConditionsEntity(this.conditions);
+  }
+
+  /**
+   * Convert to plain object for serialization
+   */
+  toJSON(): { conditions: string } {
+    return {
+      conditions: this.conditions
+    };
+  }
+
+  /**
+   * Create from plain object (for deserialization)
+   */
+  static fromJSON(data: any): FilterConditionsEntity {
+    return new FilterConditionsEntity(data.conditions || '{}');
+  }
+
+  /**
+   * Get display string for GUI binding (getter property)
+   */
+  get displayString(): string {
+    return this.conditions;
+  }
+
+  /**
+   * Set display string for GUI binding (setter property)
+   */
+  set displayString(value: string) {
+    this.conditions = value;
+  }
+
+  /**
+   * Get string representation
+   */
+  toString(): string {
+    return this.conditions;
+  }
+}

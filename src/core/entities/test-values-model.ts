@@ -5,6 +5,7 @@
  */
 
 import { SqlFormatter, SelectQueryParser } from 'rawsql-ts';
+import { MinimalWithClause } from '@shared/types/sql-types';
 
 export class TestValuesModel {
   constructor(
@@ -15,7 +16,7 @@ export class TestValuesModel {
    * Get parsed WithClause object using WithClauseParser
    * @returns Parsed WithClause object
    */
-  getWithClause(): any | null {
+  getWithClause(): MinimalWithClause | null {
     try {
       // Parse the WITH clause string using rawsql-ts
       const fullSql = this.withClause.trim().startsWith('WITH ') 
@@ -25,7 +26,7 @@ export class TestValuesModel {
       const parsedQuery = SelectQueryParser.parse(fullSql);
       const simpleQuery = parsedQuery.toSimpleQuery();
       
-      return simpleQuery.withClause || null;
+      return simpleQuery.withClause as MinimalWithClause || null;
     } catch (error) {
       console.warn('Failed to parse WITH clause:', error);
       return null;
@@ -40,7 +41,14 @@ export class TestValuesModel {
   getString(formatter: SqlFormatter): string {
     const withClauseObj = this.getWithClause();
     if (withClauseObj) {
-      return withClauseObj.format(formatter);
+      // Parse again with formatter to get formatted string
+      const fullSql = this.withClause.trim().startsWith('WITH ') 
+        ? `${this.withClause} SELECT 1`
+        : `WITH ${this.withClause} SELECT 1`;
+      
+      const parsedQuery = SelectQueryParser.parse(fullSql);
+      const formatted = formatter.format(parsedQuery);
+      return formatted.formattedSql;
     }
     return this.withClause;
   }
@@ -68,7 +76,7 @@ export class TestValuesModel {
    */
   hasCte(cteName: string): boolean {
     const withClauseObj = this.getWithClause();
-    return withClauseObj?.tables?.some((table: any) => 
+    return withClauseObj?.tables?.some(table => 
       table.aliasExpression?.table?.name === cteName
     ) || false;
   }
@@ -79,9 +87,9 @@ export class TestValuesModel {
    */
   getCteNames(): string[] {
     const withClauseObj = this.getWithClause();
-    return withClauseObj?.tables?.map((table: any) => 
+    return withClauseObj?.tables?.map(table => 
       table.aliasExpression?.table?.name
-    ).filter((name: any) => name !== undefined) as string[] || [];
+    ).filter((name): name is string => name !== undefined) || [];
   }
 
   /**

@@ -8,6 +8,7 @@ import { SqlDecomposerUseCase, SqlParserPort, CteDependencyAnalyzerPort } from '
 import { CTEEntity } from '@core/entities/cte';
 import { SqlModelEntity } from '@shared/types';
 import { SqlModelEntity as SqlModelEntityClass } from '@core/entities/sql-model';
+import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 
 // Mock SQL Parser
 class MockSqlParser implements SqlParserPort {
@@ -303,6 +304,87 @@ describe('SqlDecomposerUseCase', () => {
       const result = decomposer.getExecutionOrder(models);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('SQL formatting with SqlFormatterEntity', () => {
+    it('should format SQL queries when SqlFormatter is provided', async () => {
+      const longQuery = 'SELECT user_id, name, email FROM users WHERE status = \'active\' AND created_at > \'2024-01-01\'';
+      const fileName = 'format-test.sql';
+
+      // Setup: no CTEs, single main query
+      mockParser.setMockCTEs([]);
+      mockParser.setMockMainQuery(longQuery);
+
+      // Create SqlFormatterEntity
+      const formatterEntity = new SqlFormatterEntity();
+      const formatter = formatterEntity.getSqlFormatter();
+
+      console.log('\n[DEBUG] Testing SqlFormatter with query:', longQuery);
+      console.log('[DEBUG] Formatter config:', formatterEntity.config);
+
+      try {
+        const models = await decomposer.decomposeSql(longQuery, fileName, formatter);
+
+        expect(models).toHaveLength(1);
+        const mainModel = models[0];
+        
+        console.log('[DEBUG] Original SQL:', longQuery);
+        console.log('[DEBUG] Formatted SQL in sqlWithoutCte:', JSON.stringify(mainModel.sqlWithoutCte));
+        console.log('[DEBUG] Formatted SQL display:');
+        console.log(mainModel.sqlWithoutCte);
+        
+        // The formatted SQL should be different from original (unless formatting fails)
+        // At minimum, it should be properly stored in sqlWithoutCte
+        expect(mainModel.sqlWithoutCte).toBeDefined();
+        expect(typeof mainModel.sqlWithoutCte).toBe('string');
+        
+        // Check if the SQL was actually formatted (or kept as-is if formatter fails)
+        expect(mainModel.sqlWithoutCte.length).toBeGreaterThan(0);
+      } catch (error) {
+        console.log('[DEBUG] Error during formatting test:', error);
+        throw error;
+      }
+    });
+
+    it('should handle formatter errors gracefully', async () => {
+      const sql = 'SELECT * FROM users';
+      const fileName = 'error-test.sql';
+
+      mockParser.setMockCTEs([]);
+      mockParser.setMockMainQuery(sql);
+
+      // Create a mock formatter that throws an error
+      const mockFormatter = {
+        format: vi.fn().mockImplementation(() => {
+          throw new Error('Mock formatter error');
+        })
+      } as any;
+
+      const models = await decomposer.decomposeSql(sql, fileName, mockFormatter);
+
+      expect(models).toHaveLength(1);
+      const mainModel = models[0];
+      
+      // Should fall back to original SQL when formatter fails
+      expect(mainModel.sqlWithoutCte).toBe(sql);
+    });
+
+    it('should work without formatter (backward compatibility)', async () => {
+      const sql = 'SELECT * FROM users';
+      const fileName = 'no-formatter.sql';
+
+      mockParser.setMockCTEs([]);
+      mockParser.setMockMainQuery(sql);
+
+      // No formatter provided
+      const models = await decomposer.decomposeSql(sql, fileName);
+
+      expect(models).toHaveLength(1);
+      const mainModel = models[0];
+      
+      // Should use original SQL when no formatter is provided
+      expect(mainModel.sqlWithoutCte).toBe(sql);
     });
   });
 

@@ -6,6 +6,8 @@
 
 import { SqlModelEntity } from '@core/entities/sql-model';
 import { CTEEntity } from '@core/entities/cte';
+import { SqlFormatterEntity } from '@core/entities/sql-formatter';
+import { SelectQueryParser } from 'rawsql-ts';
 
 export interface SqlParserPort {
   /**
@@ -46,22 +48,48 @@ export class SqlDecomposerUseCase {
    * Decompose SQL with CTEs into individual SQL models
    * @param sql - Full SQL query potentially containing WITH clause
    * @param fileName - Name of the file (used for main model name)
+   * @param formatter - Optional SqlFormatter to use for the models
    * @returns Array of SQL model entities with proper references
    */
-  async decomposeSql(sql: string, fileName: string): Promise<SqlModelEntity[]> {
+  async decomposeSql(sql: string, fileName: string, formatterEntity?: SqlFormatterEntity): Promise<SqlModelEntity[]> {
     // Extract CTEs from the SQL
     const ctes = await this.parser.extractCTEs(sql);
     
     if (ctes.length === 0) {
       // No CTEs found, return single main model
       const mainQuery = await this.parser.extractMainQuery(sql);
+      
+      // Format the main query using the provided formatter
+      let formattedMainQuery = mainQuery;
+      if (formatterEntity) {
+        try {
+          const formatter = formatterEntity.getSqlFormatter();
+          console.log('[DEBUG] Attempting to parse and format:', mainQuery);
+          // Parse the SQL string first, then format it
+          const parsedQuery = SelectQueryParser.parse(mainQuery);
+          console.log('[DEBUG] Parse successful, query type:', parsedQuery.constructor.name);
+          const formatted = formatter.format(parsedQuery);
+          formattedMainQuery = formatted.formattedSql;
+          console.log('[DEBUG] Format successful:', formattedMainQuery);
+        } catch (error: any) {
+          console.error('[DEBUG] rawsql-ts error:', error);
+          console.error('[DEBUG] Error details:', {
+            type: error.constructor.name,
+            message: error.message,
+            sql: mainQuery
+          });
+          // Keep original query if formatting fails
+        }
+      }
+      
       const mainModel = new SqlModelEntity(
         'main',
         fileName,
-        mainQuery,
+        formattedMainQuery,
         [],
         undefined,
-        sql
+        sql,
+        formatterEntity?.getSqlFormatter()
       );
       return [mainModel];
     }
@@ -71,25 +99,75 @@ export class SqlDecomposerUseCase {
     
     // Create CTE models
     for (const cte of ctes) {
+      // Format the CTE query using the provided formatter
+      let formattedCteQuery = cte.query;
+      if (formatterEntity) {
+        try {
+          const formatter = formatterEntity.getSqlFormatter();
+          console.log(`[DEBUG] Attempting to parse and format CTE ${cte.name}:`, cte.query);
+          // Parse the SQL string first, then format it
+          const parsedQuery = SelectQueryParser.parse(cte.query);
+          console.log(`[DEBUG] CTE ${cte.name} parse successful, query type:`, parsedQuery.constructor.name);
+          const formatted = formatter.format(parsedQuery);
+          formattedCteQuery = formatted.formattedSql;
+          console.log(`[DEBUG] CTE ${cte.name} format successful:`, formattedCteQuery);
+        } catch (error: any) {
+          console.error(`[DEBUG] rawsql-ts error for CTE ${cte.name}:`, error);
+          console.error('[DEBUG] Error details:', {
+            type: error.constructor.name,
+            message: error.message,
+            sql: cte.query
+          });
+          // Keep original query if formatting fails
+        }
+      }
+      
       const cteModel = new SqlModelEntity(
         'cte',
         cte.name,
-        cte.query,
+        formattedCteQuery,
         [], // Will be populated in second pass
-        cte.getColumnNames()
+        cte.getColumnNames(),
+        undefined,
+        formatterEntity?.getSqlFormatter()
       );
       modelMap.set(cte.name, cteModel);
     }
 
     // Extract main query without WITH clause
     const mainQuery = await this.parser.extractMainQuery(sql);
+    
+    // Format the main query using the provided formatter
+    let formattedMainQuery = mainQuery;
+    if (formatterEntity) {
+      try {
+        const formatter = formatterEntity.getSqlFormatter();
+        console.log('[DEBUG] Attempting to parse and format main query:', mainQuery);
+        // Parse the SQL string first, then format it
+        const parsedQuery = SelectQueryParser.parse(mainQuery);
+        console.log('[DEBUG] Main query parse successful, query type:', parsedQuery.constructor.name);
+        const formatted = formatter.format(parsedQuery);
+        formattedMainQuery = formatted.formattedSql;
+        console.log('[DEBUG] Main query format successful:', formattedMainQuery);
+      } catch (error: any) {
+        console.error('[DEBUG] rawsql-ts error for main query:', error);
+        console.error('[DEBUG] Error details:', {
+          type: error.constructor.name,
+          message: error.message,
+          sql: mainQuery
+        });
+        // Keep original query if formatting fails
+      }
+    }
+    
     const mainModel = new SqlModelEntity(
       'main',
       fileName,
-      mainQuery,
+      formattedMainQuery,
       [], // Will be populated in second pass
       undefined,
-      sql
+      sql,
+      formatterEntity?.getSqlFormatter()
     );
     modelMap.set(fileName, mainModel);
 
