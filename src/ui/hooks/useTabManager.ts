@@ -12,7 +12,8 @@ interface UseTabManagerResult {
   activeTab: Tab | undefined;
   addNewTab: (type?: Tab['type'], title?: string, content?: string) => Tab;
   openValuesTab: (content?: string) => void;
-  openFormatterTab: () => void;
+  openFormatterTab: (content?: string) => void;
+  openConditionTab: (content?: string) => void;
   closeTab: (tabId: string) => void;
   updateTabContent: (tabId: string, content: string) => void;
   setActiveTabId: (tabId: string) => void;
@@ -44,6 +45,7 @@ with users(user_id, name) as (
   "withClauseStyle": "full-oneline",
   "preserveComments": true
 }`,
+  condition: '{}',
   main: '',
   cte: ''
 };
@@ -51,6 +53,7 @@ with users(user_id, name) as (
 const DEFAULT_TITLE = {
   values: 'Values & Test Data',
   formatter: 'SQL Formatter Config',
+  condition: 'Filter Conditions',
   main: 'Untitled.sql',
   cte: 'Untitled.cte'
 };
@@ -61,7 +64,7 @@ export const useTabManager = (): UseTabManagerResult => {
       id: 'main',
       title: 'main.sql',
       type: 'main',
-      content: '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;',
+      content: 'SELECT user_id, name FROM users;',
       isDirty: false
     }
   ]);
@@ -104,12 +107,37 @@ export const useTabManager = (): UseTabManagerResult => {
     }
   }, [tabs, addNewTab]);
 
-  const openFormatterTab = useCallback(() => {
+  const openFormatterTab = useCallback((content?: string) => {
     const existingTab = tabs.find(tab => tab.type === 'formatter');
     if (existingTab) {
       setActiveTabId(existingTab.id);
+      // Update content if provided
+      if (content !== undefined && existingTab.content !== content) {
+        setTabs(prev => prev.map(tab => 
+          tab.id === existingTab.id 
+            ? { ...tab, content, isDirty: false }
+            : tab
+        ));
+      }
     } else {
-      addNewTab('formatter');
+      addNewTab('formatter', undefined, content);
+    }
+  }, [tabs, addNewTab]);
+
+  const openConditionTab = useCallback((content?: string) => {
+    const existingTab = tabs.find(tab => tab.type === 'condition');
+    if (existingTab) {
+      setActiveTabId(existingTab.id);
+      // Update content if provided
+      if (content !== undefined && existingTab.content !== content) {
+        setTabs(prev => prev.map(tab => 
+          tab.id === existingTab.id 
+            ? { ...tab, content, isDirty: false }
+            : tab
+        ));
+      }
+    } else {
+      addNewTab('condition', undefined, content);
     }
   }, [tabs, addNewTab]);
 
@@ -142,6 +170,7 @@ export const useTabManager = (): UseTabManagerResult => {
     addNewTab,
     openValuesTab,
     openFormatterTab,
+    openConditionTab,
     closeTab,
     updateTabContent,
     setActiveTabId,

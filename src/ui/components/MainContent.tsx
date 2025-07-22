@@ -20,6 +20,7 @@ import { useTestValuesManager } from '@ui/hooks/useTestValuesManager';
 export interface MainContentRef {
   openValuesTab: () => void;
   openFormatterTab: () => void;
+  openConditionTab: () => void;
   getCurrentSql: () => string;
   openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => void;
   setCurrentModelEntity: (model: SqlModelEntity) => void;
@@ -47,7 +48,8 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
     activeTabId,
     activeTab,
     openValuesTab: openValuesTabInternal,
-    openFormatterTab,
+    openFormatterTab: openFormatterTabInternal,
+    openConditionTab: openConditionTabInternal,
     closeTab,
     updateTabContent: updateTabContentInternal,
     setActiveTabId,
@@ -134,6 +136,22 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
     console.log('[DEBUG] Workspace testValues raw withClause:', workspace?.testValues.withClause);
     openValuesTabInternal(content);
   };
+
+  // Open formatter tab with workspace content
+  const openFormatterTab = () => {
+    const content = workspace?.formatter.displayString || '';
+    console.log('[DEBUG] Opening Formatter tab with workspace content:', content.substring(0, 100));
+    console.log('[DEBUG] Workspace formatter exists:', !!workspace?.formatter);
+    openFormatterTabInternal(content);
+  };
+
+  // Open condition tab with workspace content
+  const openConditionTab = () => {
+    const content = workspace?.filterConditions.displayString || '{}';
+    console.log('[DEBUG] Opening Condition tab with workspace content:', content.substring(0, 100));
+    console.log('[DEBUG] Workspace filterConditions exists:', !!workspace?.filterConditions);
+    openConditionTabInternal(content);
+  };
   
   // Update tab content with workspace synchronization
   const updateTabContent = (tabId: string, content: string) => {
@@ -146,6 +164,26 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
       console.log('[DEBUG] Workspace testValues updated successfully');
     }
     
+    // If this is a formatter tab, update the workspace formatter
+    if (tab?.type === 'formatter' && workspace) {
+      console.log('[DEBUG] Updating workspace formatter with:', content.substring(0, 100));
+      try {
+        const config = JSON.parse(content);
+        workspace.formatter.setFormatterConfig(config);
+        console.log('[DEBUG] Workspace formatter updated successfully');
+      } catch (error) {
+        console.warn('[DEBUG] Failed to parse formatter config, saving as-is:', error);
+        workspace.formatter.config = content; // Save raw content if JSON parsing fails
+      }
+    }
+    
+    // If this is a condition tab, update the workspace filterConditions
+    if (tab?.type === 'condition' && workspace) {
+      console.log('[DEBUG] Updating workspace filterConditions with:', content.substring(0, 100));
+      workspace.filterConditions.displayString = content;
+      console.log('[DEBUG] Workspace filterConditions updated successfully');
+    }
+    
     updateTabContentInternal(tabId, content);
   };
 
@@ -153,6 +191,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
   useImperativeHandle(ref, () => ({
     openValuesTab,
     openFormatterTab,
+    openConditionTab,
     getCurrentSql,
     openSqlModel,
     setCurrentModelEntity: handleSetCurrentModelEntity,
@@ -485,7 +524,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
               value={activeTab?.content || ''}
               onChange={(value) => activeTab && updateTabContent(activeTab.id, value)}
               language={(() => {
-                const lang = activeTab?.type === 'formatter' ? 'json' : 'sql';
+                const lang = (activeTab?.type === 'formatter' || activeTab?.type === 'condition') ? 'json' : 'sql';
                 console.log('[DEBUG] Monaco language for tab:', activeTab?.title, 'type:', activeTab?.type, 'language:', lang);
                 console.log('[DEBUG] Tab content preview:', activeTab?.content?.substring(0, 50));
                 return lang;
@@ -498,7 +537,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
                 wrappingStrategy: 'simple',
                 scrollBeyondLastLine: false,
                 minimap: { enabled: false }
-              } : activeTab?.type === 'formatter' ? {
+              } : (activeTab?.type === 'formatter' || activeTab?.type === 'condition') ? {
                 wordWrap: 'off',
                 formatOnType: true,
                 formatOnPaste: true,

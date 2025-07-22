@@ -84,7 +84,7 @@ export interface UIState {
 export interface Tab {
   id: string;
   title: string;
-  type: 'main' | 'cte' | 'values' | 'formatter';
+  type: 'main' | 'cte' | 'values' | 'formatter' | 'condition';
   content: string;
   isDirty: boolean;
   cteName?: string;

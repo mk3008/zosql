@@ -6,7 +6,6 @@ import { SqlModelEntity, WorkspaceEntity } from '@shared/types';
 
 interface LeftSidebarProps {
   onOpenValuesTab?: () => void;
-  onOpenFormatterTab?: () => void;
   sqlModels?: SqlModelEntity[];
   onModelClick?: (model: SqlModelEntity) => void;
   selectedModelName?: string;
@@ -17,7 +16,6 @@ interface LeftSidebarProps {
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
   onOpenValuesTab, 
-  onOpenFormatterTab,
   sqlModels = [],
   onModelClick,
   selectedModelName,
@@ -158,21 +156,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
       {/* Values Section */}
       <ValuesSection onOpenTab={onOpenValuesTab} />
-
-      {/* SQL Formatter Section */}
-      <div className="mb-6">
-        <div 
-          className="flex items-center justify-between cursor-pointer mb-3 border-b border-dark-border-primary pb-2"
-          onClick={onOpenFormatterTab}
-        >
-          <h3 className="text-sm font-medium text-dark-text-white hover:text-primary-400 transition-colors">
-            SQL Formatter Config
-          </h3>
-          <span className="text-dark-text-secondary text-xs">
-            →
-          </span>
-        </div>
-      </div>
 
       {/* System Status */}
       <div>

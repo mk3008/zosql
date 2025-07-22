@@ -11,6 +11,7 @@ import { WorkspaceEntity } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 import { FilterConditionsEntity } from '@core/entities/filter-conditions';
+import { createValidatedDemoWorkspace } from '@core/factories/demo-workspace-factory';
 
 export const Layout: React.FC = () => {
   const [leftSidebarVisible, setLeftSidebarVisible] = useState(true);
@@ -134,41 +135,20 @@ export const Layout: React.FC = () => {
         }
         
         // Create initial workspace for main.sql if no saved workspace exists OR old workspace was cleared
-        console.log('[DEBUG] Creating new demoworkspace');
-        const defaultTestValues = `-- Define test data CTEs here
--- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)
--- Example:
-with users(user_id, name) as (
-  values
-    (1::bigint, 'alice'::text),
-    (2::bigint, 'bob'::text)
-)`;
-
-        const initialWorkspace = new WorkspaceEntity(
-          WorkspaceEntity.generateId(),
-          'demoworkspace',
-          'main.sql',
-          [], // Will be populated when main.sql is decomposed
-          new TestValuesModel(defaultTestValues),
-          new SqlFormatterEntity(),
-          new FilterConditionsEntity(),
-          {}
-        );
-        console.log('[DEBUG] Created workspace with testValues:', initialWorkspace.testValues.withClause);
+        console.log('[DEBUG] Creating new demoworkspace using factory');
         
-        // Add a default main SQL model to the initial workspace
-        const defaultMainSql = '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;';
-        const defaultMainModel = new SqlModelEntity(
-          'main',
-          'main.sql',
-          defaultMainSql,
-          [],
-          undefined,
-          defaultMainSql
-        );
-        initialWorkspace.addSqlModel(defaultMainModel);
-        
-        setCurrentWorkspace(initialWorkspace);
+        let initialWorkspace: WorkspaceEntity;
+        try {
+          initialWorkspace = createValidatedDemoWorkspace();
+          console.log('[DEBUG] Created workspace with testValues:', initialWorkspace.testValues.withClause);
+          console.log('[DEBUG] Initialized FilterConditions:', initialWorkspace.filterConditions.displayString);
+          
+          setCurrentWorkspace(initialWorkspace);
+        } catch (error) {
+          console.error('[ERROR] Failed to create demo workspace:', error);
+          showError('Failed to create initial workspace');
+          return;
+        }
         
         // Save initial workspace to localStorage
         try {
@@ -179,38 +159,10 @@ with users(user_id, name) as (
         }
       } catch (error) {
         console.warn('Failed to load saved workspace:', error);
-        // Create fallback initial workspace  
-        const defaultTestValues = `-- Define test data CTEs here
--- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)
--- Example:
-with users(user_id, name) as (
-  values
-    (1::bigint, 'alice'::text),
-    (2::bigint, 'bob'::text)
-)`;
-
-        const initialWorkspace = new WorkspaceEntity(
-          WorkspaceEntity.generateId(),
-          'demoworkspace',
-          'main.sql',
-          [],
-          new TestValuesModel(defaultTestValues),
-          new SqlFormatterEntity(),
-          new FilterConditionsEntity(),
-          {}
-        );
-        
-        // Add a default main SQL model to the fallback workspace
-        const defaultMainSql = '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;';
-        const defaultMainModel = new SqlModelEntity(
-          'main',
-          'main.sql',
-          defaultMainSql,
-          [],
-          undefined,
-          defaultMainSql
-        );
-        initialWorkspace.addSqlModel(defaultMainModel);
+        // Create fallback initial workspace using factory
+        console.log('[DEBUG] Creating fallback workspace using factory');
+        const initialWorkspace = createValidatedDemoWorkspace();
+        console.log('[DEBUG] Fallback workspace created with FilterConditions:', initialWorkspace.filterConditions.displayString);
         
         setCurrentWorkspace(initialWorkspace);
       }
@@ -243,7 +195,6 @@ with users(user_id, name) as (
         {leftSidebarVisible && (
           <LeftSidebar 
             onOpenValuesTab={() => mainContentRef.current?.openValuesTab()} 
-            onOpenFormatterTab={() => mainContentRef.current?.openFormatterTab()}
             sqlModels={currentWorkspace?.sqlModels || []}
             onModelClick={handleModelClick}
             selectedModelName={selectedModelName}
@@ -258,7 +209,11 @@ with users(user_id, name) as (
         
         {/* Right Sidebar */}
         {rightSidebarVisible && (
-          <RightSidebar workspace={currentWorkspace} />
+          <RightSidebar 
+            workspace={currentWorkspace} 
+            onOpenFormatterTab={() => mainContentRef.current?.openFormatterTab()}
+            onOpenConditionTab={() => mainContentRef.current?.openConditionTab()}
+          />
         )}
       </div>
     </div>

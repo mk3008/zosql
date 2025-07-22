@@ -5,9 +5,11 @@ type RightSidebarTab = 'context' | 'condition' | 'formatter' | 'help';
 
 interface RightSidebarProps {
   workspace?: WorkspaceEntity | null;
+  onOpenFormatterTab?: () => void;
+  onOpenConditionTab?: () => void;
 }
 
-export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
+export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFormatterTab, onOpenConditionTab }) => {
   const [activeTab, setActiveTab] = useState<RightSidebarTab>('context');
 
   // Get FilterConditions and SqlFormatter from workspace
@@ -62,6 +64,13 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium text-dark-text-white">Filter Conditions</h4>
               <div className="flex gap-2">
+                <button
+                  onClick={onOpenConditionTab}
+                  className="text-xs text-primary-400 hover:text-primary-300"
+                  title="Open in tab for editing"
+                >
+                  Open in Tab
+                </button>
                 <button
                   onClick={() => workspace?.filterConditions.reset()}
                   className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
@@ -159,13 +168,22 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
           <div className="p-4 h-full flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium text-dark-text-white">SQL Formatter Config</h4>
-              <button
-                onClick={() => workspace?.formatter.reset()}
-                className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
-                title="Reset to default"
-              >
-                Reset
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={onOpenFormatterTab}
+                  className="text-xs text-primary-400 hover:text-primary-300"
+                  title="Open in tab for editing"
+                >
+                  Open in Tab
+                </button>
+                <button
+                  onClick={() => workspace?.formatter.reset()}
+                  className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
+                  title="Reset to default"
+                >
+                  Reset
+                </button>
+              </div>
             </div>
             
             <div className="text-xs text-dark-text-primary opacity-75 mb-2">
