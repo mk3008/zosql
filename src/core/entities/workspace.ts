@@ -28,9 +28,38 @@ export interface ModelFilterConditions {
 }
 
 /**
+ * Represents an opened object in the workspace
+ */
+export interface OpenedObject {
+  id: string;
+  title: string;
+  type: 'main' | 'cte' | 'values' | 'formatter' | 'condition';
+  content: string;
+  isDirty: boolean;
+  modelEntity?: SqlModelEntity;
+}
+
+/**
+ * UI Layout state for workspace
+ */
+export interface WorkspaceLayoutState {
+  leftSidebarVisible: boolean;
+  rightSidebarVisible: boolean;
+  resultsVisible: boolean;
+}
+
+/**
  * Workspace entity managing SQL models and related configurations
  */
 export class WorkspaceEntity {
+  private _openedObjects: OpenedObject[] = [];
+  private _activeObjectId: string = '';
+  private _layoutState: WorkspaceLayoutState = {
+    leftSidebarVisible: true,
+    rightSidebarVisible: true,
+    resultsVisible: false
+  };
+
   constructor(
     public id: string,
     public name: string,
@@ -43,6 +72,94 @@ export class WorkspaceEntity {
     public created: string = new Date().toISOString(),
     public lastModified: string = new Date().toISOString()
   ) {}
+
+  // Opened Objects Management
+  
+  get openedObjects(): OpenedObject[] {
+    return this._openedObjects;
+  }
+
+  get activeObjectId(): string {
+    return this._activeObjectId;
+  }
+
+  get activeObject(): OpenedObject | null {
+    return this._openedObjects.find(obj => obj.id === this._activeObjectId) || null;
+  }
+
+  openObject(object: OpenedObject): void {
+    // Check if object already exists
+    const existingIndex = this._openedObjects.findIndex(obj => obj.id === object.id);
+    if (existingIndex !== -1) {
+      // Update existing object
+      this._openedObjects[existingIndex] = object;
+    } else {
+      // Add new object
+      this._openedObjects.push(object);
+    }
+    this._activeObjectId = object.id;
+    this.updateLastModified();
+  }
+
+  closeObject(objectId: string): void {
+    this._openedObjects = this._openedObjects.filter(obj => obj.id !== objectId);
+    
+    // Update active object if needed
+    if (this._activeObjectId === objectId && this._openedObjects.length > 0) {
+      this._activeObjectId = this._openedObjects[0].id;
+    } else if (this._openedObjects.length === 0) {
+      this._activeObjectId = '';
+    }
+    this.updateLastModified();
+  }
+
+  setActiveObject(objectId: string): void {
+    if (this._openedObjects.find(obj => obj.id === objectId)) {
+      this._activeObjectId = objectId;
+      this.updateLastModified();
+    }
+  }
+
+  updateObjectContent(objectId: string, content: string): void {
+    const object = this._openedObjects.find(obj => obj.id === objectId);
+    if (object) {
+      object.content = content;
+      object.isDirty = true;
+      this.updateLastModified();
+    }
+  }
+
+  clearAllObjects(): void {
+    this._openedObjects = [];
+    this._activeObjectId = '';
+    this.updateLastModified();
+  }
+
+  // Layout State Management
+
+  get layoutState(): WorkspaceLayoutState {
+    return { ...this._layoutState };
+  }
+
+  setLeftSidebarVisible(visible: boolean): void {
+    this._layoutState.leftSidebarVisible = visible;
+    this.updateLastModified();
+  }
+
+  setRightSidebarVisible(visible: boolean): void {
+    this._layoutState.rightSidebarVisible = visible;
+    this.updateLastModified();
+  }
+
+  setResultsVisible(visible: boolean): void {
+    this._layoutState.resultsVisible = visible;
+    this.updateLastModified();
+  }
+
+  updateLayoutState(layoutState: Partial<WorkspaceLayoutState>): void {
+    this._layoutState = { ...this._layoutState, ...layoutState };
+    this.updateLastModified();
+  }
 
   /**
    * Create a new workspace from file data

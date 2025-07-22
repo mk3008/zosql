@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Header } from './Header';
 import { LeftSidebar } from './LeftSidebar';
-import { MainContent, MainContentRef } from './MainContent';
+import { MainContentMvvm as MainContent, MainContentRef } from './MainContentMvvm';
 import { RightSidebar } from './RightSidebar';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
 import { useFileOpen } from '@ui/hooks/useFileOpen';
@@ -18,6 +18,8 @@ export const Layout: React.FC = () => {
   const [rightSidebarVisible, setRightSidebarVisible] = useState(true);
   const [selectedModelName, setSelectedModelName] = useState<string>();
   const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceEntity | null>(null);
+  const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(false);
+  const hasLoadedWorkspace = useRef(false);
   const mainContentRef = useRef<MainContentRef>(null);
   
   // SQL decomposer hook
@@ -113,6 +115,10 @@ export const Layout: React.FC = () => {
   // Load workspace on mount
   useEffect(() => {
     const loadSavedWorkspace = async () => {
+      if (isWorkspaceLoading || hasLoadedWorkspace.current) return; // Prevent multiple executions
+      hasLoadedWorkspace.current = true;
+      setIsWorkspaceLoading(true);
+      
       try {
         const saved = localStorage.getItem('zosql_workspace_v3');
         console.log('[DEBUG] Loading saved workspace from localStorage:', saved ? 'found' : 'not found');
@@ -131,11 +137,11 @@ export const Layout: React.FC = () => {
             console.log('[DEBUG] Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
             setCurrentWorkspace(workspace);
             
-            // Open the main SQL model from loaded workspace
+            // Open the main SQL model from loaded workspace (only if not already opened)
             const mainModel = workspace.sqlModels.find(m => m.type === 'main');
-            if (mainModel) {
+            if (mainModel && mainContentRef.current) {
               // Use processed sqlWithoutCte and pass the model entity for proper integration
-              mainContentRef.current?.openSqlModel(
+              mainContentRef.current.openSqlModel(
                 mainModel.name, 
                 mainModel.sqlWithoutCte, 
                 'main',
@@ -143,6 +149,7 @@ export const Layout: React.FC = () => {
               );
               console.log('[DEBUG] Opened loaded main model:', mainModel.name);
             }
+            setIsWorkspaceLoading(false);
             return; // Exit early if we loaded successfully
           }
         }
@@ -204,6 +211,8 @@ export const Layout: React.FC = () => {
           );
           console.log('[DEBUG] Opened fallback main model:', mainModel.name);
         }
+      } finally {
+        setIsWorkspaceLoading(false);
       }
     };
 
