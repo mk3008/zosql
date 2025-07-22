@@ -201,7 +201,39 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
 
     // Add keyboard event listener for shortcuts
     if (onKeyDown) {
+      // Add a custom keybinding command for Ctrl+Enter
+      editor.addAction({
+        id: 'execute-query',
+        label: 'Execute Query',
+        keybindings: [
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter
+        ],
+        run: () => {
+          console.log('[DEBUG] Monaco action triggered for Ctrl+Enter');
+          // Find and click the Run button instead of calling onKeyDown
+          const runButton = document.querySelector('button[title="Run Query (Ctrl+Enter)"]') as HTMLButtonElement;
+          if (runButton && !runButton.disabled) {
+            console.log('[DEBUG] Clicking Run button programmatically');
+            runButton.click();
+          } else {
+            console.log('[DEBUG] Run button not found or disabled');
+            // Fallback to the original event dispatch
+            const event = new KeyboardEvent('keydown', {
+              ctrlKey: true,
+              key: 'Enter'
+            });
+            onKeyDown(event);
+          }
+        }
+      });
+      
+      // Also handle other key events
       editor.onKeyDown((e) => {
+        // Skip Ctrl+Enter since it's handled by the action above
+        if (e.ctrlKey && e.code === 'Enter') {
+          return;
+        }
+        
         const event = new KeyboardEvent('keydown', {
           ctrlKey: e.ctrlKey,
           shiftKey: e.shiftKey,

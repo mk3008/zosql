@@ -216,6 +216,10 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
   }, [activeTabId, tabModelMap]);
 
   const executeQuery = useCallback(async () => {
+    console.log('[DEBUG] executeQuery called, activeTab:', activeTab?.id, 'type:', activeTab?.type);
+    console.log('[DEBUG] tabModelMap size:', tabModelMap.size);
+    console.log('[DEBUG] workspace exists:', !!workspace);
+    
     if (!activeTab?.content.trim()) return;
 
     setIsExecuting(true);
@@ -227,7 +231,13 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
       
       // If this tab has an associated model entity, use getFullSql() for execution
       const associatedModel = tabModelMap.get(activeTab.id);
+      console.log('[DEBUG] Looking for model for tab:', activeTab.id, 'found:', !!associatedModel);
+      
       if (associatedModel) {
+        // IMPORTANT: Update model's SQL with current tab content before composition
+        associatedModel.sqlWithoutCte = activeTab.content;
+        console.log('[DEBUG] Updated model SQL with current tab content');
+        
         // Get test values - prefer workspace TestValuesModel first
         let testValues: TestValuesModel | string | undefined;
         
@@ -257,10 +267,13 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
         console.log('[DEBUG] Final composed SQL:', sqlToExecute);
       } else {
         // No associated model - check if this is main tab and workspace has main model
+        console.log('[DEBUG] No associated model found, checking workspace...');
         if (activeTab.type === 'main' && workspace) {
           const mainModel = workspace.sqlModels.find(m => m.type === 'main');
           if (mainModel) {
             console.log('[DEBUG] Found main model in workspace, using for CTE composition');
+            // Update model's SQL with current tab content
+            mainModel.sqlWithoutCte = activeTab.content;
             const testValues = workspace.testValues;
             sqlToExecute = mainModel.getFullSql(testValues);
             console.log('[DEBUG] Composed SQL from workspace model:', sqlToExecute);
@@ -356,6 +369,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     // Ctrl+Enter for query execution
     if (event.ctrlKey && event.key === 'Enter') {
+      console.log('[DEBUG] Ctrl+Enter pressed, executing query...');
       event.preventDefault();
       executeQuery();
     }
