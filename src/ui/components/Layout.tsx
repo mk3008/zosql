@@ -55,6 +55,9 @@ export const Layout: React.FC = () => {
   // Handle file open with automatic decomposition and workspace creation
   const handleFileOpen = async (file: File) => {
     try {
+      // Clear all existing tabs and workspace content before opening new file
+      mainContentRef.current?.clearAllTabs();
+      
       // Create new WorkspaceEntity first with default formatter
       const fileName = file.name.replace(/\.sql$/i, '');
       const workspace = new WorkspaceEntity(
@@ -115,9 +118,67 @@ export const Layout: React.FC = () => {
           const workspaceData = JSON.parse(saved);
           const workspace = WorkspaceEntity.fromJSON(workspaceData);
           setCurrentWorkspace(workspace);
+        } else {
+          // Create initial workspace for main.sql if no saved workspace exists
+          const initialWorkspace = new WorkspaceEntity(
+            WorkspaceEntity.generateId(),
+            'syokiworkspace',
+            'main.sql',
+            [], // Will be populated when main.sql is decomposed
+            new TestValuesModel(''),
+            new SqlFormatterEntity(),
+            new FilterConditionsEntity(),
+            {}
+          );
+          
+          // Add a default main SQL model to the initial workspace
+          const defaultMainSql = '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;';
+          const defaultMainModel = new SqlModelEntity(
+            'main',
+            'main.sql',
+            defaultMainSql,
+            [],
+            undefined,
+            defaultMainSql
+          );
+          initialWorkspace.addSqlModel(defaultMainModel);
+          
+          setCurrentWorkspace(initialWorkspace);
+          
+          // Save initial workspace to localStorage
+          try {
+            localStorage.setItem('zosql_workspace_v3', JSON.stringify(initialWorkspace.toJSON()));
+          } catch (error) {
+            console.warn('Failed to save initial workspace to localStorage:', error);
+          }
         }
       } catch (error) {
         console.warn('Failed to load saved workspace:', error);
+        // Create fallback initial workspace
+        const initialWorkspace = new WorkspaceEntity(
+          WorkspaceEntity.generateId(),
+          'syokiworkspace',
+          'main.sql',
+          [],
+          new TestValuesModel(''),
+          new SqlFormatterEntity(),
+          new FilterConditionsEntity(),
+          {}
+        );
+        
+        // Add a default main SQL model to the fallback workspace
+        const defaultMainSql = '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;';
+        const defaultMainModel = new SqlModelEntity(
+          'main',
+          'main.sql',
+          defaultMainSql,
+          [],
+          undefined,
+          defaultMainSql
+        );
+        initialWorkspace.addSqlModel(defaultMainModel);
+        
+        setCurrentWorkspace(initialWorkspace);
       }
     };
 

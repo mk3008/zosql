@@ -16,6 +16,7 @@ interface UseTabManagerResult {
   closeTab: (tabId: string) => void;
   updateTabContent: (tabId: string, content: string) => void;
   setActiveTabId: (tabId: string) => void;
+  clearAllTabs: () => void;
 }
 
 const DEFAULT_CONTENT = {
@@ -121,6 +122,11 @@ export const useTabManager = (): UseTabManagerResult => {
     ));
   }, []);
 
+  const clearAllTabs = useCallback(() => {
+    setTabs([]);
+    setActiveTabId('');
+  }, []);
+
   return {
     tabs,
     activeTabId,
@@ -130,6 +136,7 @@ export const useTabManager = (): UseTabManagerResult => {
     openFormatterTab,
     closeTab,
     updateTabContent,
-    setActiveTabId
+    setActiveTabId,
+    clearAllTabs
   };
 };
