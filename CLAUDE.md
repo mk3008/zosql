@@ -13,6 +13,7 @@
 - **TypeScript-First**: 完全型安全性による実行時エラー防止  
 - **Test-Driven Development**: コアロジックの品質保証
 - **Component-Based UI**: React/TypeScriptによる宣言的UI構築
+- **Command Pattern**: UIイベントとビジネスロジックの分離によるテスタビリティ向上
 
 ### 技術要件
 - **GitHub Pages**: 静的サイトホスティング（バックエンドサーバー不要）
@@ -164,6 +165,55 @@ const query = SelectQueryParser.parse('SELECT * FROM users');
 - ✅ **TDD実装**: 20+テストファイルで包括的検証
 - ✅ **型定義**: StorageInterface等の抽象化設計
 - ✅ **IntelliSense**: 60+ケースの回帰防止システム
+
+## 🎯 コマンドパターン実装指針
+
+### **問題認識**
+- UIイベントハンドラーとビジネスロジックの密結合
+- Reactクロージャー問題による状態同期の困難さ
+- 単体テストの困難性
+
+### **解決策: Command Pattern**
+```typescript
+// Command Interface
+interface Command<T = void> {
+  execute(): Promise<T>;
+  canExecute(): boolean;
+}
+
+// Concrete Command
+class ExecuteQueryCommand implements Command<QueryResult> {
+  constructor(
+    private readonly workspace: WorkspaceEntity,
+    private readonly sqlModel: SqlModelEntity,
+    private readonly tabContent: string
+  ) {}
+  
+  async execute(): Promise<QueryResult> {
+    // ビジネスロジックをここに集約
+  }
+  
+  canExecute(): boolean {
+    return this.tabContent.trim().length > 0;
+  }
+}
+
+// Command Executor (UI層で使用)
+class CommandExecutor {
+  async execute<T>(command: Command<T>): Promise<T> {
+    if (!command.canExecute()) {
+      throw new Error('Command cannot be executed');
+    }
+    return command.execute();
+  }
+}
+```
+
+### **メリット**
+- ✅ **テスタビリティ**: コマンドの単体テストが容易
+- ✅ **再利用性**: 同じコマンドを異なるUIトリガーから実行可能
+- ✅ **保守性**: ビジネスロジックの変更がUI層に影響しない
+- ✅ **拡張性**: 新しいコマンドの追加が容易
 
 ## 🔧 アーキテクチャ原則・制約事項
 

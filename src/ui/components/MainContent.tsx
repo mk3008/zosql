@@ -16,6 +16,8 @@ import { FormatterConfigStorage } from '@adapters/storage/formatter-config-stora
 import { SqlModelEntity } from '@shared/types';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { useTestValuesManager } from '@ui/hooks/useTestValuesManager';
+import { commandExecutor } from '@core/services/command-executor';
+import { ExecuteQueryCommand } from '@core/commands/execute-query-command';
 
 export interface MainContentRef {
   openValuesTab: () => void;
@@ -216,160 +218,49 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
   }, [activeTabId, tabModelMap]);
 
   const executeQuery = useCallback(async () => {
-    console.log('[DEBUG] executeQuery called, activeTab:', activeTab?.id, 'type:', activeTab?.type);
-    console.log('[DEBUG] tabModelMap size:', tabModelMap.size);
-    console.log('[DEBUG] workspace exists:', !!workspace);
-    
     if (!activeTab?.content.trim()) return;
 
     setIsExecuting(true);
     setResultsVisible(true);
 
     try {
-      // Get the SQL to execute
-      let sqlToExecute = activeTab.content;
+      // Create command context
+      const context = {
+        workspace,
+        sqlModel: tabModelMap.get(activeTab.id) || null,
+        tabContent: activeTab.content,
+        tabType: activeTab.type
+      };
       
-      // If this tab has an associated model entity, use getFullSql() for execution
-      const associatedModel = tabModelMap.get(activeTab.id);
-      console.log('[DEBUG] Looking for model for tab:', activeTab.id, 'found:', !!associatedModel);
+      // Create and execute command
+      const command = new ExecuteQueryCommand(context);
+      const result = await commandExecutor.execute(command);
       
-      if (associatedModel) {
-        // IMPORTANT: Update model's SQL with current tab content before composition
-        associatedModel.sqlWithoutCte = activeTab.content;
-        console.log('[DEBUG] Updated model SQL with current tab content');
-        
-        // Get test values - prefer workspace TestValuesModel first
-        let testValues: TestValuesModel | string | undefined;
-        
-        if (workspace?.testValues) {
-          // Use TestValuesModel from workspace (structured and validated)
-          testValues = workspace.testValues;
-          console.log('[DEBUG] Using workspace testValues:', workspace.testValues.toString().substring(0, 100));
-        } else if (testValuesModel) {
-          // Fallback to hook-managed TestValuesModel
-          testValues = testValuesModel;
-          console.log('[DEBUG] Using hook testValues:', testValuesModel.toString().substring(0, 100));
-        } else {
-          // Final fallback to tab content
-          const valuesTab = tabs.find(tab => tab.type === 'values');
-          if (valuesTab?.content?.trim()) {
-            testValues = valuesTab.content;
-            console.log('[DEBUG] Using tab content testValues:', valuesTab.content.substring(0, 100));
-          }
-        }
-        
-        // Use getFullSql() with test values for database-independent execution
-        sqlToExecute = associatedModel.getFullSql(testValues);
-        
-        console.log('[DEBUG] Raw SQL from tab:', activeTab.content);
-        console.log('[DEBUG] Associated model found:', associatedModel.name, 'type:', associatedModel.type);
-        console.log('[DEBUG] Test values available:', !!testValues);
-        console.log('[DEBUG] Final composed SQL:', sqlToExecute);
-      } else {
-        // No associated model - check if this is main tab and workspace has main model
-        console.log('[DEBUG] No associated model found, checking workspace...');
-        if (activeTab.type === 'main' && workspace) {
-          const mainModel = workspace.sqlModels.find(m => m.type === 'main');
-          if (mainModel) {
-            console.log('[DEBUG] Found main model in workspace, using for CTE composition');
-            // Update model's SQL with current tab content
-            mainModel.sqlWithoutCte = activeTab.content;
-            const testValues = workspace.testValues;
-            sqlToExecute = mainModel.getFullSql(testValues);
-            console.log('[DEBUG] Composed SQL from workspace model:', sqlToExecute);
-            
-            // Update the tab model map for future executions
-            setTabModelMap(prev => new Map(prev.set(activeTab.id, mainModel)));
-          } else {
-            console.log('[DEBUG] No associated model and no main model in workspace - executing raw SQL');
-          }
-        } else {
-          console.log('[DEBUG] No associated model - executing raw SQL:', sqlToExecute);
-        }
-      }
+      // Update UI with result
+      setQueryResult(result);
       
-      // Execute query using PGlite (WASM Postgres engine only)
-      const startTime = performance.now();
-      let executedResult: QueryExecutionResult;
-      
-      try {
-        // Import PGlite dynamically
-        console.log('[DEBUG] Executing SQL with PGlite:', sqlToExecute);
-        
-        // Try to import PGlite - should work now that it's installed
-        const { PGlite } = await import('@electric-sql/pglite');
-        
-        // Initialize PGlite in memory-only mode for browser
-        const db = new PGlite();
-        
-        // Execute the actual SQL
-        const result = await db.query(sqlToExecute);
-        const executionTime = Math.round(performance.now() - startTime);
-        
-        console.log('[DEBUG] PGlite raw result:', result);
-        
-        executedResult = {
-          success: true,
-          data: result.rows,
-          executionTime,
-          rowCount: result.rows?.length || 0,
-          executedSql: sqlToExecute
-        };
-        
-        console.log('[DEBUG] Query executed successfully with PGlite:', executedResult);
-        setQueryResult(executedResult);
-        
-      } catch (dbError) {
-        const executionTime = Math.round(performance.now() - startTime);
-        const errorMessage = dbError instanceof Error ? dbError.message : 'SQL execution failed';
-        
-        console.error('[ERROR] SQL execution failed with query:', sqlToExecute);
-        console.error('[ERROR] Database error:', errorMessage);
-        
-        executedResult = {
-          success: false,
-          error: `${errorMessage}\n\nExecuted SQL:\n${sqlToExecute}`,
-          executionTime,
-          executedSql: sqlToExecute
-        };
-        
-        console.log('[DEBUG] Query execution failed:', executedResult);
-        setQueryResult(executedResult);
-      }
-      
-      // Save result to associated model entity (if available)
+      // Save result to model if available
       const model = tabModelMap.get(activeTab.id);
       if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
-        (model as any).setQueryResult(executedResult);
-        console.log('[DEBUG] Saved query result to model:', model.name);
+        (model as any).setQueryResult(result);
       }
-        
     } catch (error) {
-      // Handle non-SQL errors (e.g., import failures, network issues)
-      const executionTime = 0; // Cannot calculate precise time due to error location
+      // Handle execution errors
       const errorResult: QueryExecutionResult = {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
-        executionTime
+        executionTime: 0
       };
       setQueryResult(errorResult);
-      
-      // Save error result to associated model entity (if available)
-      const model = tabModelMap.get(activeTab.id);
-      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
-        (model as any).setQueryResult(errorResult);
-        console.log('[DEBUG] Saved error result to model:', model.name);
-      }
     } finally {
       setIsExecuting(false);
     }
-  }, [activeTab, tabs, testValuesModel, updateTestValuesFromString, tabModelMap, workspace, setTabModelMap]);
+  }, [activeTab, tabModelMap, workspace]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     // Ctrl+Enter for query execution
     if (event.ctrlKey && event.key === 'Enter') {
-      console.log('[DEBUG] Ctrl+Enter pressed, executing query...');
       event.preventDefault();
       executeQuery();
     }
