@@ -1,0 +1,9 @@
+/* Hide scrollbar but keep scroll functionality for tab container */
+.tab-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.tab-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}

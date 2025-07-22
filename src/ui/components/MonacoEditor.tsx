@@ -25,15 +25,19 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   options = {}
 }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
   const { setEditorRef } = useEditor();
 
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
     
     // Register main editor for global access
     if (isMainEditor) {
       setEditorRef(editor);
     }
+    
+    console.log('[DEBUG] Monaco Editor mounted with language:', language);
     
     // Define custom dark theme to match our VS Code Dark style
     monaco.editor.defineTheme('zosql-dark', {
@@ -64,7 +68,11 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     // Set the custom theme
     monaco.editor.setTheme('zosql-dark');
     
-    // Configure SQL language features
+    // Force language configuration for SQL (even if already set)
+    if (language === 'sql') {
+      console.log('[DEBUG] Setting SQL language configuration and tokens');
+      
+      // Configure SQL language features
     monaco.languages.setLanguageConfiguration('sql', {
       comments: {
         lineComment: '--',
@@ -91,12 +99,20 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     // Set SQL keywords for syntax highlighting
     monaco.languages.setMonarchTokensProvider('sql', {
       keywords: [
+        // Uppercase keywords
         'SELECT', 'FROM', 'WHERE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'OUTER',
         'ON', 'AS', 'WITH', 'CTE', 'UNION', 'INTERSECT', 'EXCEPT', 'ORDER', 'BY',
         'GROUP', 'HAVING', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER',
         'TABLE', 'VIEW', 'INDEX', 'DATABASE', 'SCHEMA', 'AND', 'OR', 'NOT', 'IN',
         'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL', 'DISTINCT', 'COUNT', 'SUM',
-        'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'
+        'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+        // Lowercase keywords (for case-insensitive matching)
+        'select', 'from', 'where', 'join', 'inner', 'left', 'right', 'full', 'outer',
+        'on', 'as', 'with', 'cte', 'union', 'intersect', 'except', 'order', 'by',
+        'group', 'having', 'insert', 'update', 'delete', 'create', 'drop', 'alter',
+        'table', 'view', 'index', 'database', 'schema', 'and', 'or', 'not', 'in',
+        'exists', 'between', 'like', 'is', 'null', 'distinct', 'count', 'sum',
+        'avg', 'min', 'max', 'case', 'when', 'then', 'else', 'end'
       ],
       operators: [
         '=', '>', '<', '!', '~', '?', ':', '==', '<=', '>=', '!=',
@@ -107,8 +123,8 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       symbols: /[=><!~?:&|+\-*\/\^%]+/,
       tokenizer: {
         root: [
-          [/[a-z_$][\w$]*/, { cases: { '@keywords': 'keyword', '@default': 'identifier' } }],
-          [/[A-Z][\w\$]*/, { cases: { '@keywords': 'keyword.uppercase', '@default': 'type.identifier' } }],
+          // Match identifiers and keywords (case-insensitive)
+          [/[a-zA-Z_$][\w$]*/, { cases: { '@keywords': 'keyword', '@default': 'identifier' } }],
           { include: '@whitespace' },
           [/[{}()\[\]]/, '@brackets'],
           [/[<>](?!@symbols)/, '@brackets'],
@@ -145,6 +161,30 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         ]
       }
     });
+    
+    console.log('[DEBUG] SQL Monarch tokenizer configured with keywords including:', 
+      ['select', 'from', 'where'].every(kw => 
+        monaco.languages.getLanguages().find(lang => lang.id === 'sql')
+      ) ? 'SQL language found' : 'SQL language not found'
+    );
+    
+    // Set the language explicitly for the current model
+    const model = editor.getModel();
+    if (model) {
+      monaco.editor.setModelLanguage(model, 'sql');
+      const actualLanguage = model.getLanguageId();
+      console.log('[DEBUG] Set model language to SQL, actual language:', actualLanguage);
+      
+      // Force tokenization update
+      setTimeout(() => {
+        monaco.editor.setModelLanguage(model, 'plaintext');
+        setTimeout(() => {
+          monaco.editor.setModelLanguage(model, 'sql');
+          console.log('[DEBUG] Forced re-tokenization complete');
+        }, 10);
+      }, 10);
+    }
+  }
 
     // Call custom onMount handler if provided
     if (onMount) {
@@ -158,11 +198,27 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     }
   };
 
+  // Watch for language changes and re-apply SQL configuration
+  useEffect(() => {
+    if (language === 'sql' && editorRef.current && monacoRef.current) {
+      const model = editorRef.current.getModel();
+      if (model) {
+        const currentLanguage = model.getLanguageId();
+        console.log('[DEBUG] Language prop changed to:', language, 'Current model language:', currentLanguage);
+        
+        if (currentLanguage !== 'sql') {
+          monacoRef.current.editor.setModelLanguage(model, 'sql');
+          console.log('[DEBUG] Forced language change to SQL');
+        }
+      }
+    }
+  }, [language]);
+
   return (
     <div className="h-full w-full">
       <Editor
         height={height}
-        defaultLanguage={language}
+        language={language}
         value={value}
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}

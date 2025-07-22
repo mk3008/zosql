@@ -3,7 +3,8 @@
 // Entity exports
 export { FilterConditionsEntity } from '@core/entities/filter-conditions';
 export { SqlFormatterEntity } from '@core/entities/sql-formatter';
-export { WorkspaceEntity, ModelFilterConditions } from '@core/entities/workspace';
+export { WorkspaceEntity } from '@core/entities/workspace';
+export type { ModelFilterConditions } from '@core/entities/workspace';
 
 // Domain Types
 export interface CTE {

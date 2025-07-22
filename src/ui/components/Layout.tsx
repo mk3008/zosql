@@ -5,7 +5,7 @@ import { MainContent, MainContentRef } from './MainContent';
 import { RightSidebar } from './RightSidebar';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
 import { useFileOpen } from '@ui/hooks/useFileOpen';
-import { SqlModelEntity } from '@shared/types';
+import { SqlModelEntity } from '@core/entities/sql-model';
 import { useToast } from '@ui/hooks/useToast';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
@@ -20,10 +20,10 @@ export const Layout: React.FC = () => {
   const mainContentRef = useRef<MainContentRef>(null);
   
   // SQL decomposer hook
-  const { models: sqlModels, decomposeSql, isDecomposing, error } = useSqlDecomposer();
+  const { decomposeSql, isDecomposing, error } = useSqlDecomposer();
   
   // File open hook  
-  const { openFile, isOpening } = useFileOpen();
+  const { openFile } = useFileOpen();
   
   // Toast notifications
   const { showSuccess, showError } = useToast();

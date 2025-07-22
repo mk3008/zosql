@@ -1,4 +1,5 @@
-import React, { useState, useImperativeHandle, forwardRef, useMemo } from 'react';
+import { useState, useImperativeHandle, forwardRef, useMemo } from 'react';
+import '../styles/tab-scrollbar.css';
 import { QueryExecutionResult } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
@@ -23,7 +24,7 @@ export interface MainContentRef {
   setCurrentModelEntity: (model: SqlModelEntity) => void;
 }
 
-export const MainContent = forwardRef<MainContentRef>((props, ref) => {
+export const MainContent = forwardRef<MainContentRef>((_props, ref) => {
   // Core Dependencies (Hexagonal Architecture)
   const sqlParser = useMemo(() => new RawsqlSqlParser(), []);
   const promptGenerator = useMemo(() => new PromptGenerator(sqlParser), [sqlParser]);
@@ -50,7 +51,7 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
     showSuccess,
     showError
   );
-  const { applyConfig, getCurrentConfigJson, isApplying } = useFormatterManager(
+  const { applyConfig, isApplying } = useFormatterManager(
     formatterManager,
     showSuccess,
     showError
@@ -61,14 +62,11 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
   const [queryResult, setQueryResult] = useState<QueryExecutionResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [useSchemaCollector, setUseSchemaCollector] = useState(true);
-  const [currentModelEntity, setCurrentModelEntity] = useState<SqlModelEntity | null>(null);
   const [tabModelMap, setTabModelMap] = useState<Map<string, SqlModelEntity>>(new Map());
   
   // Test Values Manager
   const { 
     testValuesModel, 
-    displayString: testValuesDisplayString, 
-    createFromString: createTestValuesFromString,
     updateFromString: updateTestValuesFromString
   } = useTestValuesManager();
 
@@ -81,15 +79,19 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
   
   // Open SQL model in new tab
   const openSqlModel = (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => {
+    console.log('[DEBUG] Opening SQL model:', { name, type, sqlLength: sql.length });
+    
     // Check if tab already exists
     const existingTab = tabs.find(tab => tab.title === name);
     if (existingTab) {
+      console.log('[DEBUG] Using existing tab:', existingTab.id, 'type:', existingTab.type);
       setActiveTabId(existingTab.id);
       if (modelEntity) {
         setTabModelMap(prev => new Map(prev.set(existingTab.id, modelEntity)));
       }
     } else {
       const newTab = addNewTab(type, name, sql);
+      console.log('[DEBUG] Created new tab:', newTab.id, 'type:', newTab.type);
       if (modelEntity) {
         setTabModelMap(prev => new Map(prev.set(newTab.id, modelEntity)));
       }
@@ -98,7 +100,6 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
   
   // Set current model entity for active tab
   const handleSetCurrentModelEntity = (model: SqlModelEntity) => {
-    setCurrentModelEntity(model);
     if (activeTab) {
       setTabModelMap(prev => new Map(prev.set(activeTab.id, model)));
     }
@@ -209,7 +210,14 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
   return (
     <main className="flex-1 flex flex-col overflow-hidden">
       {/* Tab Bar */}
-      <div className="bg-dark-secondary border-b border-dark-border-primary flex items-center overflow-x-auto relative">
+      <div 
+        className="bg-dark-secondary border-b border-dark-border-primary flex items-center overflow-x-auto relative tab-container"
+        onWheel={(e) => {
+          const container = e.currentTarget;
+          container.scrollLeft += e.deltaY;
+          e.preventDefault();
+        }}
+      >
         <div className="flex">
           {tabs.map(tab => (
             <div
@@ -361,9 +369,15 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
           {/* Monaco Editor */}
           <div className="flex-1 bg-dark-primary overflow-hidden">
             <MonacoEditor
+              key={activeTab?.id} // Force re-mount when tab changes
               value={activeTab?.content || ''}
               onChange={(value) => activeTab && updateTabContent(activeTab.id, value)}
-              language={activeTab?.type === 'formatter' ? 'json' : 'sql'}
+              language={(() => {
+                const lang = activeTab?.type === 'formatter' ? 'json' : 'sql';
+                console.log('[DEBUG] Monaco language for tab:', activeTab?.title, 'type:', activeTab?.type, 'language:', lang);
+                console.log('[DEBUG] Tab content preview:', activeTab?.content?.substring(0, 50));
+                return lang;
+              })()}
               height="100%"
               isMainEditor={true}
               options={activeTab?.type === 'values' ? {
@@ -376,7 +390,13 @@ export const MainContent = forwardRef<MainContentRef>((props, ref) => {
                 formatOnType: true,
                 formatOnPaste: true,
                 minimap: { enabled: false }
-              } : undefined}
+              } : {
+                // SQL-specific options for main and CTE tabs
+                wordWrap: 'off',
+                minimap: { enabled: false },
+                folding: true,
+                autoIndent: 'full'
+              }}
             />
           </div>
 
