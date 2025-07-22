@@ -12,6 +12,7 @@ interface MonacoEditorProps {
   onMount?: (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => void;
   isMainEditor?: boolean;
   options?: editor.IStandaloneEditorConstructionOptions;
+  onKeyDown?: (event: KeyboardEvent) => void;
 }
 
 export const MonacoEditor: React.FC<MonacoEditorProps> = ({
@@ -22,7 +23,8 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   height = '100%',
   onMount,
   isMainEditor = false,
-  options = {}
+  options = {},
+  onKeyDown
 }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -196,6 +198,20 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       }, 10);
     }
   }
+
+    // Add keyboard event listener for shortcuts
+    if (onKeyDown) {
+      editor.onKeyDown((e) => {
+        const event = new KeyboardEvent('keydown', {
+          ctrlKey: e.ctrlKey,
+          shiftKey: e.shiftKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey,
+          key: e.code === 'Enter' ? 'Enter' : e.browserEvent.key
+        });
+        onKeyDown(event);
+      });
+    }
 
     // Call custom onMount handler if provided
     if (onMount) {

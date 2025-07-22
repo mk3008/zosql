@@ -1,4 +1,4 @@
-import { useState, useImperativeHandle, forwardRef, useMemo, useEffect } from 'react';
+import { useState, useImperativeHandle, forwardRef, useMemo, useEffect, useCallback } from 'react';
 import '../styles/tab-scrollbar.css';
 import { QueryExecutionResult } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
@@ -168,8 +168,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
     }
   }, [activeTabId, tabModelMap]);
 
-
-  const executeQuery = async () => {
+  const executeQuery = useCallback(async () => {
     if (!activeTab?.content.trim()) return;
 
     setIsExecuting(true);
@@ -269,7 +268,16 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
     } finally {
       setIsExecuting(false);
     }
-  };
+  }, [activeTab, tabs, testValuesModel, updateTestValuesFromString, tabModelMap]);
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Ctrl+Enter for query execution
+    if (event.ctrlKey && event.key === 'Enter') {
+      event.preventDefault();
+      executeQuery();
+    }
+  }, [executeQuery]);
 
   const formatQuery = async () => {
     if (!activeTab?.content.trim()) return;
@@ -435,6 +443,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
                     onClick={executeQuery}
                     disabled={isExecuting || !activeTab?.content.trim()}
                     className="px-3 py-1 bg-success text-white rounded hover:bg-green-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Run Query (Ctrl+Enter)"
                   >
                     {isExecuting ? 'Running...' : 'Run'}
                   </button>
@@ -475,6 +484,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
               })()}
               height="100%"
               isMainEditor={true}
+              onKeyDown={handleKeyDown}
               options={activeTab?.type === 'values' ? {
                 wordWrap: 'off',
                 wrappingStrategy: 'simple',
