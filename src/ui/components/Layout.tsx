@@ -114,14 +114,28 @@ export const Layout: React.FC = () => {
     const loadSavedWorkspace = async () => {
       try {
         const saved = localStorage.getItem('zosql_workspace_v3');
+        console.log('[DEBUG] Loading saved workspace from localStorage:', saved ? 'found' : 'not found');
+        
         if (saved) {
           const workspaceData = JSON.parse(saved);
-          const workspace = WorkspaceEntity.fromJSON(workspaceData);
-          setCurrentWorkspace(workspace);
-        } else {
-          // Create initial workspace for main.sql if no saved workspace exists
-          // Default test values content for initial workspace
-          const defaultTestValues = `-- Define test data CTEs here
+          console.log('[DEBUG] Saved workspace data:', workspaceData);
+          
+          // Check if this is an old workspace that needs to be reset
+          if (workspaceData.name === 'syokiworkspace' || !workspaceData.testValues?.withClause) {
+            console.log('[DEBUG] Old workspace detected, creating new demoworkspace');
+            localStorage.removeItem('zosql_workspace_v3'); // Clear old data
+            // Force create new workspace below
+          } else {
+            const workspace = WorkspaceEntity.fromJSON(workspaceData);
+            console.log('[DEBUG] Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
+            setCurrentWorkspace(workspace);
+            return; // Exit early if we loaded successfully
+          }
+        }
+        
+        // Create initial workspace for main.sql if no saved workspace exists OR old workspace was cleared
+        console.log('[DEBUG] Creating new demoworkspace');
+        const defaultTestValues = `-- Define test data CTEs here
 -- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)
 -- Example:
 with users(user_id, name) as (
@@ -130,37 +144,38 @@ with users(user_id, name) as (
     (2::bigint, 'bob'::text)
 )`;
 
-          const initialWorkspace = new WorkspaceEntity(
-            WorkspaceEntity.generateId(),
-            'demoworkspace',
-            'main.sql',
-            [], // Will be populated when main.sql is decomposed
-            new TestValuesModel(defaultTestValues),
-            new SqlFormatterEntity(),
-            new FilterConditionsEntity(),
-            {}
-          );
-          
-          // Add a default main SQL model to the initial workspace
-          const defaultMainSql = '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;';
-          const defaultMainModel = new SqlModelEntity(
-            'main',
-            'main.sql',
-            defaultMainSql,
-            [],
-            undefined,
-            defaultMainSql
-          );
-          initialWorkspace.addSqlModel(defaultMainModel);
-          
-          setCurrentWorkspace(initialWorkspace);
-          
-          // Save initial workspace to localStorage
-          try {
-            localStorage.setItem('zosql_workspace_v3', JSON.stringify(initialWorkspace.toJSON()));
-          } catch (error) {
-            console.warn('Failed to save initial workspace to localStorage:', error);
-          }
+        const initialWorkspace = new WorkspaceEntity(
+          WorkspaceEntity.generateId(),
+          'demoworkspace',
+          'main.sql',
+          [], // Will be populated when main.sql is decomposed
+          new TestValuesModel(defaultTestValues),
+          new SqlFormatterEntity(),
+          new FilterConditionsEntity(),
+          {}
+        );
+        console.log('[DEBUG] Created workspace with testValues:', initialWorkspace.testValues.withClause);
+        
+        // Add a default main SQL model to the initial workspace
+        const defaultMainSql = '-- Welcome to zosql\n-- Start by pasting your SQL query here\n\nSELECT * FROM users;';
+        const defaultMainModel = new SqlModelEntity(
+          'main',
+          'main.sql',
+          defaultMainSql,
+          [],
+          undefined,
+          defaultMainSql
+        );
+        initialWorkspace.addSqlModel(defaultMainModel);
+        
+        setCurrentWorkspace(initialWorkspace);
+        
+        // Save initial workspace to localStorage
+        try {
+          localStorage.setItem('zosql_workspace_v3', JSON.stringify(initialWorkspace.toJSON()));
+          console.log('[DEBUG] Saved new workspace to localStorage');
+        } catch (error) {
+          console.warn('Failed to save initial workspace to localStorage:', error);
         }
       } catch (error) {
         console.warn('Failed to load saved workspace:', error);

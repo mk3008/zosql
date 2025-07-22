@@ -31,6 +31,9 @@ interface MainContentProps {
 }
 
 export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ workspace }, ref) => {
+  // Debug workspace
+  console.log('[DEBUG] MainContent received workspace:', !!workspace, workspace?.name);
+  
   // Core Dependencies (Hexagonal Architecture)
   const sqlParser = useMemo(() => new RawsqlSqlParser(), []);
   const promptGenerator = useMemo(() => new PromptGenerator(sqlParser), [sqlParser]);
@@ -126,6 +129,9 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
   // Open values tab with workspace content
   const openValuesTab = () => {
     const content = workspace?.testValues.toString() || '';
+    console.log('[DEBUG] Opening Values tab with workspace content:', content.substring(0, 100));
+    console.log('[DEBUG] Workspace testValues exists:', !!workspace?.testValues);
+    console.log('[DEBUG] Workspace testValues raw withClause:', workspace?.testValues.withClause);
     openValuesTabInternal(content);
   };
   
@@ -135,7 +141,9 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
     
     // If this is a values tab, update the workspace testValues
     if (tab?.type === 'values' && workspace) {
+      console.log('[DEBUG] Updating workspace testValues with:', content.substring(0, 100));
       workspace.updateTestValues(new TestValuesModel(content));
+      console.log('[DEBUG] Workspace testValues updated successfully');
     }
     
     updateTabContentInternal(tabId, content);
