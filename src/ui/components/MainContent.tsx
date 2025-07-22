@@ -13,7 +13,8 @@ import { FormatterManager } from '@core/usecases/formatter-manager';
 import { RawsqlSqlParser } from '@adapters/parsers/rawsql-sql-parser';
 import { FormatterConfigStorage } from '@adapters/storage/formatter-config-storage';
 
-import { SqlModelEntity, TestValuesModel } from '@shared/types';
+import { SqlModelEntity } from '@shared/types';
+import { TestValuesModel } from '@core/entities/test-values-model';
 import { useTestValuesManager } from '@ui/hooks/useTestValuesManager';
 
 export interface MainContentRef {
@@ -25,7 +26,11 @@ export interface MainContentRef {
   clearAllTabs: () => void;
 }
 
-export const MainContent = forwardRef<MainContentRef>((_props, ref) => {
+interface MainContentProps {
+  workspace?: import('@core/entities/workspace').WorkspaceEntity | null;
+}
+
+export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ workspace }, ref) => {
   // Core Dependencies (Hexagonal Architecture)
   const sqlParser = useMemo(() => new RawsqlSqlParser(), []);
   const promptGenerator = useMemo(() => new PromptGenerator(sqlParser), [sqlParser]);
@@ -38,10 +43,10 @@ export const MainContent = forwardRef<MainContentRef>((_props, ref) => {
     tabs,
     activeTabId,
     activeTab,
-    openValuesTab,
+    openValuesTab: openValuesTabInternal,
     openFormatterTab,
     closeTab,
-    updateTabContent,
+    updateTabContent: updateTabContentInternal,
     setActiveTabId,
     addNewTab,
     clearAllTabs: clearTabsFromManager
@@ -116,6 +121,24 @@ export const MainContent = forwardRef<MainContentRef>((_props, ref) => {
     setResultsVisible(false);
     // Clear tabs from tab manager
     clearTabsFromManager();
+  };
+  
+  // Open values tab with workspace content
+  const openValuesTab = () => {
+    const content = workspace?.testValues.toString() || '';
+    openValuesTabInternal(content);
+  };
+  
+  // Update tab content with workspace synchronization
+  const updateTabContent = (tabId: string, content: string) => {
+    const tab = tabs.find(t => t.id === tabId);
+    
+    // If this is a values tab, update the workspace testValues
+    if (tab?.type === 'values' && workspace) {
+      workspace.updateTestValues(new TestValuesModel(content));
+    }
+    
+    updateTabContentInternal(tabId, content);
   };
 
   // Expose methods to parent component

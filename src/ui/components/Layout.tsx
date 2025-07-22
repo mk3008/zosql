@@ -120,12 +120,22 @@ export const Layout: React.FC = () => {
           setCurrentWorkspace(workspace);
         } else {
           // Create initial workspace for main.sql if no saved workspace exists
+          // Default test values content for initial workspace
+          const defaultTestValues = `-- Define test data CTEs here
+-- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)
+-- Example:
+with users(user_id, name) as (
+  values
+    (1::bigint, 'alice'::text),
+    (2::bigint, 'bob'::text)
+)`;
+
           const initialWorkspace = new WorkspaceEntity(
             WorkspaceEntity.generateId(),
-            'syokiworkspace',
+            'demoworkspace',
             'main.sql',
             [], // Will be populated when main.sql is decomposed
-            new TestValuesModel(''),
+            new TestValuesModel(defaultTestValues),
             new SqlFormatterEntity(),
             new FilterConditionsEntity(),
             {}
@@ -154,13 +164,22 @@ export const Layout: React.FC = () => {
         }
       } catch (error) {
         console.warn('Failed to load saved workspace:', error);
-        // Create fallback initial workspace
+        // Create fallback initial workspace  
+        const defaultTestValues = `-- Define test data CTEs here
+-- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)
+-- Example:
+with users(user_id, name) as (
+  values
+    (1::bigint, 'alice'::text),
+    (2::bigint, 'bob'::text)
+)`;
+
         const initialWorkspace = new WorkspaceEntity(
           WorkspaceEntity.generateId(),
-          'syokiworkspace',
+          'demoworkspace',
           'main.sql',
           [],
-          new TestValuesModel(''),
+          new TestValuesModel(defaultTestValues),
           new SqlFormatterEntity(),
           new FilterConditionsEntity(),
           {}
@@ -220,7 +239,7 @@ export const Layout: React.FC = () => {
         )}
         
         {/* Main Content Area */}
-        <MainContent ref={mainContentRef} />
+        <MainContent ref={mainContentRef} workspace={currentWorkspace} />
         
         {/* Right Sidebar */}
         {rightSidebarVisible && (

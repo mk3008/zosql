@@ -11,7 +11,7 @@ interface UseTabManagerResult {
   activeTabId: string;
   activeTab: Tab | undefined;
   addNewTab: (type?: Tab['type'], title?: string, content?: string) => Tab;
-  openValuesTab: () => void;
+  openValuesTab: (content?: string) => void;
   openFormatterTab: () => void;
   closeTab: (tabId: string) => void;
   updateTabContent: (tabId: string, content: string) => void;
@@ -87,12 +87,20 @@ export const useTabManager = (): UseTabManagerResult => {
     return newTab;
   }, []);
 
-  const openValuesTab = useCallback(() => {
+  const openValuesTab = useCallback((content?: string) => {
     const existingTab = tabs.find(tab => tab.type === 'values');
     if (existingTab) {
       setActiveTabId(existingTab.id);
+      // Update content if provided
+      if (content !== undefined && existingTab.content !== content) {
+        setTabs(prev => prev.map(tab => 
+          tab.id === existingTab.id 
+            ? { ...tab, content, isDirty: false }
+            : tab
+        ));
+      }
     } else {
-      addNewTab('values');
+      addNewTab('values', undefined, content);
     }
   }, [tabs, addNewTab]);
 
