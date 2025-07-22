@@ -130,6 +130,19 @@ export const Layout: React.FC = () => {
             const workspace = WorkspaceEntity.fromJSON(workspaceData);
             console.log('[DEBUG] Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
             setCurrentWorkspace(workspace);
+            
+            // Open the main SQL model from loaded workspace
+            const mainModel = workspace.sqlModels.find(m => m.type === 'main');
+            if (mainModel) {
+              // Use processed sqlWithoutCte and pass the model entity for proper integration
+              mainContentRef.current?.openSqlModel(
+                mainModel.name, 
+                mainModel.sqlWithoutCte, 
+                'main',
+                mainModel  // Pass the model entity for CTE composition
+              );
+              console.log('[DEBUG] Opened loaded main model:', mainModel.name);
+            }
             return; // Exit early if we loaded successfully
           }
         }
@@ -144,6 +157,19 @@ export const Layout: React.FC = () => {
           console.log('[DEBUG] Initialized FilterConditions:', initialWorkspace.filterConditions.displayString);
           
           setCurrentWorkspace(initialWorkspace);
+          
+          // Open the main SQL model from workspace
+          const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
+          if (mainModel) {
+            // Use processed sqlWithoutCte and pass the model entity for proper integration
+            mainContentRef.current?.openSqlModel(
+              mainModel.name, 
+              mainModel.sqlWithoutCte, 
+              'main',
+              mainModel  // Pass the model entity for CTE composition
+            );
+            console.log('[DEBUG] Opened main model:', mainModel.name);
+          }
         } catch (error) {
           console.error('[ERROR] Failed to create demo workspace:', error);
           showError('Failed to create initial workspace');
@@ -165,6 +191,19 @@ export const Layout: React.FC = () => {
         console.log('[DEBUG] Fallback workspace created with FilterConditions:', initialWorkspace.filterConditions.displayString);
         
         setCurrentWorkspace(initialWorkspace);
+        
+        // Open the main SQL model from fallback workspace
+        const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
+        if (mainModel) {
+          // Use processed sqlWithoutCte and pass the model entity for proper integration
+          mainContentRef.current?.openSqlModel(
+            mainModel.name, 
+            mainModel.sqlWithoutCte, 
+            'main',
+            mainModel  // Pass the model entity for CTE composition
+          );
+          console.log('[DEBUG] Opened fallback main model:', mainModel.name);
+        }
       }
     };
 

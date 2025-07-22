@@ -81,12 +81,38 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   const renderError = () => {
     if (!result?.error) return null;
     
+    const handleCopyError = () => {
+      navigator.clipboard.writeText(result.error || '').then(() => {
+        // Could add a toast notification here
+        console.log('Error message copied to clipboard');
+      }).catch(err => {
+        console.error('Failed to copy error:', err);
+      });
+    };
+    
     return (
-      <div className="p-4 bg-error bg-opacity-10 border border-error border-opacity-30 rounded">
-        <h4 className="text-error font-medium mb-2">Query Error</h4>
-        <pre className="text-sm text-dark-text-primary font-mono whitespace-pre-wrap">
-          {result.error}
-        </pre>
+      <div className="p-4 bg-error bg-opacity-10 border border-error border-opacity-30 rounded m-4">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-error font-medium">Query Error</h4>
+          <button
+            onClick={handleCopyError}
+            className="text-xs px-2 py-1 bg-dark-tertiary hover:bg-dark-hover text-dark-text-primary rounded border border-dark-border-primary transition-colors"
+            title="Copy error message"
+          >
+            Copy Error
+          </button>
+        </div>
+        <textarea
+          readOnly
+          value={result.error}
+          className="w-full text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3 resize-none"
+          style={{ minHeight: '200px', height: 'auto' }}
+          rows={result.error.split('\n').length + 1}
+          onClick={(e) => {
+            // Select all text when clicked
+            e.currentTarget.select();
+          }}
+        />
       </div>
     );
   };

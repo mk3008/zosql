@@ -116,8 +116,23 @@ export class SqlModelEntity implements SqlModel {
       return this.sqlWithoutCte;
     }
 
+    // Remove any leading comments from main query
+    let cleanMainQuery = this.sqlWithoutCte;
+    const mainLines = cleanMainQuery.split('\n');
+    const nonCommentLines: string[] = [];
+    
+    for (const line of mainLines) {
+      const trimmed = line.trim();
+      // Keep lines that aren't just comments (but keep empty lines)
+      if (trimmed.length === 0 || !trimmed.startsWith('--')) {
+        nonCommentLines.push(line);
+      }
+    }
+    
+    cleanMainQuery = nonCommentLines.join('\n').trim();
+    
     // Combine WITH clause and main query
-    return `WITH ${allStatements.join(',\n')}\n${this.sqlWithoutCte}`;
+    return `WITH ${allStatements.join(',\n')}\n${cleanMainQuery}`;
   }
 
   /**
@@ -129,8 +144,39 @@ export class SqlModelEntity implements SqlModel {
     const statements: string[] = [];
     
     try {
+      // Split into lines to handle comments
+      const lines = testValues.split('\n');
+      const cleanLines: string[] = [];
+      let inBlockComment = false;
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Skip empty lines
+        if (!trimmedLine) continue;
+        
+        // Handle block comments
+        if (trimmedLine.startsWith('/*')) {
+          inBlockComment = true;
+        }
+        if (inBlockComment) {
+          if (trimmedLine.endsWith('*/')) {
+            inBlockComment = false;
+          }
+          continue;
+        }
+        
+        // Skip line comments
+        if (trimmedLine.startsWith('--')) continue;
+        
+        // Add non-comment lines
+        cleanLines.push(line);
+      }
+      
+      // Rejoin the clean lines
+      let cleanValues = cleanLines.join('\n').trim();
+      
       // Remove "WITH" keyword if present
-      let cleanValues = testValues.trim();
       if (cleanValues.toUpperCase().startsWith('WITH ')) {
         cleanValues = cleanValues.substring(5).trim();
       }
@@ -146,8 +192,14 @@ export class SqlModelEntity implements SqlModel {
       }
     } catch (error) {
       console.warn('Failed to parse test values:', error);
-      // Fallback: treat entire string as single CTE
-      statements.push(testValues.trim());
+      // Fallback: try to extract WITH clause using regex
+      const withMatch = testValues.match(/with\s+\w+.*?(?=\n\s*(?:with|select|$))/is);
+      if (withMatch) {
+        statements.push(withMatch[0].replace(/^with\s+/i, '').trim());
+      } else {
+        // Last resort: treat entire string as single CTE
+        statements.push(testValues.trim());
+      }
     }
     
     return statements;

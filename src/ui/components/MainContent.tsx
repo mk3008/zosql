@@ -202,9 +202,9 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
   useEffect(() => {
     if (activeTab) {
       const associatedModel = tabModelMap.get(activeTab.id);
-      if (associatedModel && associatedModel.hasQueryResult()) {
+      if (associatedModel && 'hasQueryResult' in associatedModel && (associatedModel as any).hasQueryResult()) {
         // Load cached query result for this model
-        setQueryResult(associatedModel.queryResult!);
+        setQueryResult((associatedModel as any).queryResult!);
         setResultsVisible(true);
         console.log('[DEBUG] Loaded cached query result for:', associatedModel.name);
       } else {
@@ -228,23 +228,51 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
       // If this tab has an associated model entity, use getFullSql() for execution
       const associatedModel = tabModelMap.get(activeTab.id);
       if (associatedModel) {
-        // Get test values - prefer TestValuesModel if available, otherwise use tab content
-        const valuesTab = tabs.find(tab => tab.type === 'values');
+        // Get test values - prefer workspace TestValuesModel first
         let testValues: TestValuesModel | string | undefined;
         
-        if (testValuesModel) {
-          // Use structured TestValuesModel for better formatting
+        if (workspace?.testValues) {
+          // Use TestValuesModel from workspace (structured and validated)
+          testValues = workspace.testValues;
+          console.log('[DEBUG] Using workspace testValues:', workspace.testValues.toString().substring(0, 100));
+        } else if (testValuesModel) {
+          // Fallback to hook-managed TestValuesModel
           testValues = testValuesModel;
-        } else if (valuesTab?.content?.trim()) {
-          // Fallback to string-based test values and try to create model
-          updateTestValuesFromString(valuesTab.content);
-          testValues = valuesTab.content;
+          console.log('[DEBUG] Using hook testValues:', testValuesModel.toString().substring(0, 100));
+        } else {
+          // Final fallback to tab content
+          const valuesTab = tabs.find(tab => tab.type === 'values');
+          if (valuesTab?.content?.trim()) {
+            testValues = valuesTab.content;
+            console.log('[DEBUG] Using tab content testValues:', valuesTab.content.substring(0, 100));
+          }
         }
         
         // Use getFullSql() with test values for database-independent execution
         sqlToExecute = associatedModel.getFullSql(testValues);
         
-        console.log('Executing SQL with test values:', sqlToExecute);
+        console.log('[DEBUG] Raw SQL from tab:', activeTab.content);
+        console.log('[DEBUG] Associated model found:', associatedModel.name, 'type:', associatedModel.type);
+        console.log('[DEBUG] Test values available:', !!testValues);
+        console.log('[DEBUG] Final composed SQL:', sqlToExecute);
+      } else {
+        // No associated model - check if this is main tab and workspace has main model
+        if (activeTab.type === 'main' && workspace) {
+          const mainModel = workspace.sqlModels.find(m => m.type === 'main');
+          if (mainModel) {
+            console.log('[DEBUG] Found main model in workspace, using for CTE composition');
+            const testValues = workspace.testValues;
+            sqlToExecute = mainModel.getFullSql(testValues);
+            console.log('[DEBUG] Composed SQL from workspace model:', sqlToExecute);
+            
+            // Update the tab model map for future executions
+            setTabModelMap(prev => new Map(prev.set(activeTab.id, mainModel)));
+          } else {
+            console.log('[DEBUG] No associated model and no main model in workspace - executing raw SQL');
+          }
+        } else {
+          console.log('[DEBUG] No associated model - executing raw SQL:', sqlToExecute);
+        }
       }
       
       // Execute query using PGlite (WASM Postgres engine only)
@@ -271,7 +299,7 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
           success: true,
           data: result.rows,
           executionTime,
-          rowCount: result.rowCount || result.rows?.length || 0,
+          rowCount: result.rows?.length || 0,
           executedSql: sqlToExecute
         };
         
@@ -280,9 +308,14 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
         
       } catch (dbError) {
         const executionTime = Math.round(performance.now() - startTime);
+        const errorMessage = dbError instanceof Error ? dbError.message : 'SQL execution failed';
+        
+        console.error('[ERROR] SQL execution failed with query:', sqlToExecute);
+        console.error('[ERROR] Database error:', errorMessage);
+        
         executedResult = {
           success: false,
-          error: dbError instanceof Error ? dbError.message : 'SQL execution failed',
+          error: `${errorMessage}\n\nExecuted SQL:\n${sqlToExecute}`,
           executionTime,
           executedSql: sqlToExecute
         };
@@ -291,15 +324,16 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
         setQueryResult(executedResult);
       }
       
-      // Save result to associated model entity
-      if (associatedModel) {
-        associatedModel.setQueryResult(executedResult);
-        console.log('[DEBUG] Saved query result to model:', associatedModel.name);
+      // Save result to associated model entity (if available)
+      const model = tabModelMap.get(activeTab.id);
+      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
+        (model as any).setQueryResult(executedResult);
+        console.log('[DEBUG] Saved query result to model:', model.name);
       }
         
     } catch (error) {
       // Handle non-SQL errors (e.g., import failures, network issues)
-      const executionTime = Math.round(performance.now() - startTime);
+      const executionTime = 0; // Cannot calculate precise time due to error location
       const errorResult: QueryExecutionResult = {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -307,15 +341,16 @@ export const MainContent = forwardRef<MainContentRef, MainContentProps>(({ works
       };
       setQueryResult(errorResult);
       
-      // Save error result to associated model entity
-      if (associatedModel) {
-        associatedModel.setQueryResult(errorResult);
-        console.log('[DEBUG] Saved error result to model:', associatedModel.name);
+      // Save error result to associated model entity (if available)
+      const model = tabModelMap.get(activeTab.id);
+      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
+        (model as any).setQueryResult(errorResult);
+        console.log('[DEBUG] Saved error result to model:', model.name);
       }
     } finally {
       setIsExecuting(false);
     }
-  }, [activeTab, tabs, testValuesModel, updateTestValuesFromString, tabModelMap]);
+  }, [activeTab, tabs, testValuesModel, updateTestValuesFromString, tabModelMap, workspace, setTabModelMap]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
