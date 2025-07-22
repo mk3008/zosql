@@ -6,6 +6,7 @@
 import { SqlFormatter } from 'rawsql-ts';
 import { TestValuesModel } from './test-values-model';
 import { QueryExecutionResult } from '@shared/types';
+import { CteComposer } from '@/utils/cte-composer';
 
 export interface SqlModel {
   /** Type of SQL model - main query or CTE */
@@ -81,182 +82,52 @@ export class SqlModelEntity implements SqlModel {
   getFullSql(testValues?: TestValuesModel | string, formatter?: SqlFormatter): string {
     // Use provided formatter or fall back to the instance formatter
     const activeFormatter = formatter || this._formatter;
+    
     // For main type with original SQL and no test values, return as-is
     if (this.type === 'main' && this.originalSql && !testValues) {
       return this.originalSql;
     }
 
-    // Collect all dependencies recursively
-    const allDependencies = this.collectAllDependencies();
-    const allStatements: string[] = [];
+    // Collect all CTEs to compose
+    const cteDefinitions: string[] = [];
     
     // Add test values first if provided
     if (testValues) {
       if (testValues instanceof TestValuesModel) {
         // Use TestValuesModel to get formatted string
         const testValueString = activeFormatter ? testValues.getString(activeFormatter) : testValues.toString();
-        const testCteStatements = this.parseTestValues(testValueString);
-        allStatements.push(...testCteStatements);
+        if (testValueString.trim()) {
+          cteDefinitions.push(testValueString.trim());
+        }
       } else if (typeof testValues === 'string' && testValues.trim()) {
         // Handle string testValues for backward compatibility
-        const testCteStatements = this.parseTestValues(testValues);
-        allStatements.push(...testCteStatements);
+        cteDefinitions.push(testValues.trim());
       }
     }
     
     // Add dependency CTEs
-    const cteStatements = allDependencies.map(dep => {
+    const allDependencies = this.collectAllDependencies();
+    for (const dep of allDependencies) {
       const columns = dep.columns?.length ? `(${dep.columns.join(', ')})` : '';
-      return `${dep.name}${columns} AS (\n${dep.sqlWithoutCte}\n)`;
-    });
-    allStatements.push(...cteStatements);
+      const cteDef = `${dep.name}${columns} AS (\n${dep.sqlWithoutCte}\n)`;
+      cteDefinitions.push(cteDef);
+    }
     
-    if (allStatements.length === 0) {
+    if (cteDefinitions.length === 0) {
       // No dependencies or test values, return query as-is
       return this.sqlWithoutCte;
     }
 
-    // Remove any leading comments from main query
-    let cleanMainQuery = this.sqlWithoutCte;
-    const mainLines = cleanMainQuery.split('\n');
-    const nonCommentLines: string[] = [];
+    // Use CteComposer for safe, rawsql-ts based composition
+    const composer = new CteComposer();
     
-    for (const line of mainLines) {
-      const trimmed = line.trim();
-      // Keep lines that aren't just comments (but keep empty lines)
-      if (trimmed.length === 0 || !trimmed.startsWith('--')) {
-        nonCommentLines.push(line);
-      }
-    }
+    // Join all CTE definitions (CteComposer will handle WITH keyword)
+    const allCtes = cteDefinitions.join(',\n');
     
-    cleanMainQuery = nonCommentLines.join('\n').trim();
-    
-    // Combine WITH clause and main query
-    return `WITH ${allStatements.join(',\n')}\n${cleanMainQuery}`;
+    // Compose using rawsql-ts AST manipulation
+    return composer.compose(this.sqlWithoutCte, allCtes);
   }
 
-  /**
-   * Parse test values string to extract CTE definitions
-   * @param testValues - WITH clause containing test data CTEs
-   * @returns Array of CTE statement strings
-   */
-  private parseTestValues(testValues: string): string[] {
-    const statements: string[] = [];
-    
-    try {
-      // Split into lines to handle comments
-      const lines = testValues.split('\n');
-      const cleanLines: string[] = [];
-      let inBlockComment = false;
-      
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        
-        // Skip empty lines
-        if (!trimmedLine) continue;
-        
-        // Handle block comments
-        if (trimmedLine.startsWith('/*')) {
-          inBlockComment = true;
-        }
-        if (inBlockComment) {
-          if (trimmedLine.endsWith('*/')) {
-            inBlockComment = false;
-          }
-          continue;
-        }
-        
-        // Skip line comments
-        if (trimmedLine.startsWith('--')) continue;
-        
-        // Add non-comment lines
-        cleanLines.push(line);
-      }
-      
-      // Rejoin the clean lines
-      let cleanValues = cleanLines.join('\n').trim();
-      
-      // Remove "WITH" keyword if present
-      if (cleanValues.toUpperCase().startsWith('WITH ')) {
-        cleanValues = cleanValues.substring(5).trim();
-      }
-      
-      // Split by comma at the top level (not within parentheses)
-      const cteDefinitions = this.splitCteDefinitions(cleanValues);
-      
-      for (const cteDef of cteDefinitions) {
-        const trimmed = cteDef.trim();
-        if (trimmed) {
-          statements.push(trimmed);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to parse test values:', error);
-      // Fallback: try to extract WITH clause using regex
-      const withMatch = testValues.match(/with\s+\w+.*?(?=\n\s*(?:with|select|$))/is);
-      if (withMatch) {
-        statements.push(withMatch[0].replace(/^with\s+/i, '').trim());
-      } else {
-        // Last resort: treat entire string as single CTE
-        statements.push(testValues.trim());
-      }
-    }
-    
-    return statements;
-  }
-  
-  /**
-   * Split CTE definitions at top-level commas (respecting parentheses)
-   * @param text - Text containing multiple CTE definitions
-   * @returns Array of individual CTE definition strings
-   */
-  private splitCteDefinitions(text: string): string[] {
-    const definitions: string[] = [];
-    let current = '';
-    let parenCount = 0;
-    let inString = false;
-    let stringChar = '';
-    
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      const prevChar = i > 0 ? text[i - 1] : '';
-      
-      // Handle string literals
-      if ((char === "'" || char === '"') && prevChar !== '\\') {
-        if (!inString) {
-          inString = true;
-          stringChar = char;
-        } else if (char === stringChar) {
-          inString = false;
-        }
-      }
-      
-      if (!inString) {
-        // Track parentheses
-        if (char === '(') {
-          parenCount++;
-        } else if (char === ')') {
-          parenCount--;
-        }
-        
-        // Split on comma only at top level
-        if (char === ',' && parenCount === 0) {
-          definitions.push(current.trim());
-          current = '';
-          continue;
-        }
-      }
-      
-      current += char;
-    }
-    
-    // Add the last definition
-    if (current.trim()) {
-      definitions.push(current.trim());
-    }
-    
-    return definitions;
-  }
 
   /**
    * Recursively collect all dependencies in proper execution order
