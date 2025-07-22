@@ -31,3 +31,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-dark-hover;
 }
+
+/* Hide scrollbar for tab container */
+.tab-container::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}

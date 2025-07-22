@@ -97,6 +97,15 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     });
 
     // Set SQL keywords for syntax highlighting
+    // NOTE: キーワードごとに異なる色を設定することが可能
+    // 実装方法:
+    // 1. tokenizer.rootで正規表現によりキーワード分類
+    //    例: [/\b(SELECT|FROM|WHERE)\b/i, 'keyword.dml'] // DML系
+    //        [/\b(ROW_NUMBER|CURRENT_DATE)\b/i, 'keyword.function'] // 関数系
+    // 2. defineThemeのrulesで各トークンタイプに色を割り当て
+    //    例: { token: 'keyword.dml', foreground: 'ff6b6b' } // 赤
+    //        { token: 'keyword.function', foreground: '51cf66' } // 緑
+    // 分類例: DML(赤), 関数(緑), 論理演算(黄), DDL(紫)
     monaco.languages.setMonarchTokensProvider('sql', {
       keywords: [
         // Uppercase keywords
@@ -106,13 +115,15 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         'TABLE', 'VIEW', 'INDEX', 'DATABASE', 'SCHEMA', 'AND', 'OR', 'NOT', 'IN',
         'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL', 'DISTINCT', 'COUNT', 'SUM',
         'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+        'ROW_NUMBER', 'PARTITION', 'CURRENT_DATE', 'CURRENT_TIMESTAMP', 'INTERVAL', 'OVER',
         // Lowercase keywords (for case-insensitive matching)
         'select', 'from', 'where', 'join', 'inner', 'left', 'right', 'full', 'outer',
         'on', 'as', 'with', 'cte', 'union', 'intersect', 'except', 'order', 'by',
         'group', 'having', 'insert', 'update', 'delete', 'create', 'drop', 'alter',
         'table', 'view', 'index', 'database', 'schema', 'and', 'or', 'not', 'in',
         'exists', 'between', 'like', 'is', 'null', 'distinct', 'count', 'sum',
-        'avg', 'min', 'max', 'case', 'when', 'then', 'else', 'end'
+        'avg', 'min', 'max', 'case', 'when', 'then', 'else', 'end',
+        'row_number', 'partition', 'current_date', 'current_timestamp', 'interval', 'over'
       ],
       operators: [
         '=', '>', '<', '!', '~', '?', ':', '==', '<=', '>=', '!=',

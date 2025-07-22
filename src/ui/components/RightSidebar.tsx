@@ -42,14 +42,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
             
             <div>
               <h4 className="text-sm font-medium text-dark-text-white mb-2">IntelliSense</h4>
-              <div className="text-sm text-dark-text-muted">
+              <div className="text-sm text-dark-text-primary opacity-75">
                 Start typing to see suggestions...
               </div>
             </div>
             
             <div>
               <h4 className="text-sm font-medium text-dark-text-white mb-2">Errors</h4>
-              <div className="text-sm text-dark-text-muted">
+              <div className="text-sm text-dark-text-primary opacity-75">
                 No syntax errors detected
               </div>
             </div>
@@ -79,7 +79,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
               </div>
             </div>
             
-            <div className="text-xs text-dark-text-muted mb-2">
+            <div className="text-xs text-dark-text-primary opacity-75 mb-2">
               rawsql-ts FilterConditions - Edit values only, structure is auto-generated from SQL
             </div>
             
@@ -147,7 +147,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
                   <span className="text-red-400">✗ Invalid</span>
                 }
               </div>
-              <div className="text-xs text-dark-text-muted">
+              <div className="text-xs text-dark-text-primary opacity-75">
                 💡 Generated from SQL columns. Edit values (undefined → actual values).
               </div>
             </div>
@@ -168,7 +168,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
               </button>
             </div>
             
-            <div className="text-xs text-dark-text-muted mb-2">
+            <div className="text-xs text-dark-text-primary opacity-75 mb-2">
               rawsql-ts SqlFormatter configuration - Adjust formatting preferences
             </div>
             
@@ -220,7 +220,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
                   <span className="text-red-400">✗ Invalid</span>
                 }
               </div>
-              <div className="text-xs text-dark-text-muted">
+              <div className="text-xs text-dark-text-primary opacity-75">
                 💡 Controls SQL formatting style (indentation, keywords, line breaks).
               </div>
             </div>

@@ -12,14 +12,18 @@ import { SqlModelEntity } from './sql-model';
  */
 export class FilterConditionsEntity {
   constructor(
-    public conditions: string = '{}'
+    public conditions: string = 'undefined'
   ) {}
 
   /**
    * Get parsed FilterConditions object from JSON string
-   * @returns Parsed FilterConditions object or empty object if parsing fails
+   * @returns Parsed FilterConditions object, undefined if not set, or empty object if parsing fails
    */
-  getFilterConditions(): FilterConditions {
+  getFilterConditions(): FilterConditions | undefined {
+    if (this.conditions === 'undefined') {
+      return undefined;
+    }
+    
     try {
       const parsed = JSON.parse(this.conditions);
       return parsed as FilterConditions;
@@ -31,14 +35,19 @@ export class FilterConditionsEntity {
 
   /**
    * Update conditions from FilterConditions object
-   * @param conditions - FilterConditions object to convert to string
+   * @param conditions - FilterConditions object to convert to string, or undefined to reset
    */
-  setFilterConditions(conditions: FilterConditions): void {
+  setFilterConditions(conditions: FilterConditions | undefined): void {
+    if (conditions === undefined) {
+      this.conditions = 'undefined';
+      return;
+    }
+    
     try {
       this.conditions = JSON.stringify(conditions, null, 2);
     } catch (error) {
       console.warn('Failed to stringify filter conditions:', error);
-      this.conditions = '{}';
+      this.conditions = 'undefined';
     }
   }
 
@@ -74,23 +83,8 @@ export class FilterConditionsEntity {
       
       for (const column of columns) {
         const columnName = column.name;
-        template[columnName] = {
-          '=': undefined,
-          '>': undefined,
-          '<': undefined,
-          '>=': undefined,
-          '<=': undefined,
-          '!=': undefined,
-          '<>': undefined,
-          like: undefined,
-          ilike: undefined,
-          in: undefined,
-          any: undefined,
-          min: undefined,
-          max: undefined,
-          or: undefined,
-          and: undefined
-        };
+        // Empty object - no conditions set (all undefined, but shows structure)
+        template[columnName] = {};
       }
 
       return JSON.stringify(template, null, 2);

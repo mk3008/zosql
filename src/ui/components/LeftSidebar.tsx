@@ -56,7 +56,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         )}
         
         {!isLoading && !workspace && sqlModels.length === 0 && (
-          <div className="text-sm text-dark-text-muted">No workspace loaded</div>
+          <div className="text-sm text-dark-text-primary opacity-75">No workspace loaded</div>
         )}
         
         {workspace && (
@@ -85,7 +85,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             <div className="text-dark-text-primary">
               <span className="text-dark-text-secondary">Models:</span> {sqlModels.length}
             </div>
-            <div className="text-dark-text-muted">
+            <div className="text-dark-text-primary opacity-75">
               File opened (no workspace saved)
             </div>
           </div>

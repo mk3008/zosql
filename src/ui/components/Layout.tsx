@@ -88,14 +88,15 @@ export const Layout: React.FC = () => {
         console.warn('Failed to save workspace to localStorage:', error);
       }
       
-      // Open the main SQL in editor
-      const mainModel = result.models.find(m => m.type === 'main');
+      // Open the main SQL model from workspace (processed data)
+      const mainModel = workspace.sqlModels.find(m => m.type === 'main');
       if (mainModel) {
-        const sql = mainModel.originalSql || mainModel.sqlWithoutCte;
+        // Use processed sqlWithoutCte instead of original file content
         mainContentRef.current?.openSqlModel(
           mainModel.name, 
-          sql, 
-          'main'
+          mainModel.sqlWithoutCte, 
+          'main',
+          mainModel  // Pass the model entity for proper integration
         );
       }
       

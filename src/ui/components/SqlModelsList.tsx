@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { SqlModelEntity } from '@shared/types';
+import { SqlModelEntity } from '@core/entities/sql-model';
 
 interface SqlModelsListProps {
   models: SqlModelEntity[];
@@ -19,7 +19,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
 }) => {
   if (!models || models.length === 0) {
     return (
-      <div className="text-sm text-dark-text-muted">
+      <div className="text-sm text-dark-text-primary opacity-75">
         No SQL models loaded
       </div>
     );
@@ -68,10 +68,10 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 {model.dependents.length > 0 && (
                   <div className={`text-xs mt-1 ${
                     selectedModelName === model.name 
-                      ? 'text-white opacity-80' 
-                      : 'text-dark-text-muted'
+                      ? 'text-white opacity-90' 
+                      : 'text-dark-text-primary opacity-75'
                   }`}>
-                    Uses: {model.dependents.join(', ')}
+                    Uses: {model.getDependentNames().join(', ')}
                   </div>
                 )}
               </div>
@@ -131,7 +131,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                   <div className={`text-xs mt-1 ${
                     selectedModelName === model.name 
                       ? 'text-white opacity-80' 
-                      : 'text-dark-text-muted'
+                      : 'text-dark-text-primary opacity-75'
                   }`}>
                     Columns: {model.columns.join(', ')}
                   </div>
@@ -141,10 +141,10 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 {model.dependents.length > 0 && (
                   <div className={`text-xs mt-1 ${
                     selectedModelName === model.name 
-                      ? 'text-white opacity-80' 
-                      : 'text-dark-text-muted'
+                      ? 'text-white opacity-90' 
+                      : 'text-dark-text-primary opacity-75'
                   }`}>
-                    Used by: {model.dependents.join(', ')}
+                    Used by: {model.getDependentNames().join(', ')}
                   </div>
                 )}
               </div>
@@ -159,7 +159,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
           <h4 className="text-xs font-medium text-dark-text-secondary uppercase mb-2">
             Dependency Summary
           </h4>
-          <div className="text-xs text-dark-text-muted space-y-1">
+          <div className="text-xs text-dark-text-primary opacity-75 space-y-1">
             <div>Total models: {models.length}</div>
             <div>Main query: {mainModels.length}</div>
             <div>CTEs: {cteModels.length}</div>
