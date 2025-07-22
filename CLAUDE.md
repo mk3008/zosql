@@ -14,6 +14,7 @@
 - **Test-Driven Development**: コアロジックの品質保証
 - **Component-Based UI**: React/TypeScriptによる宣言的UI構築
 - **Command Pattern**: UIイベントとビジネスロジックの分離によるテスタビリティ向上
+- **MVVM Pattern (Passive View)**: UIは表示とバインディングのみ、ロジックはViewModel/Modelに集約
 
 ### 技術要件
 - **GitHub Pages**: 静的サイトホスティング（バックエンドサーバー不要）
@@ -214,6 +215,88 @@ class CommandExecutor {
 - ✅ **再利用性**: 同じコマンドを異なるUIトリガーから実行可能
 - ✅ **保守性**: ビジネスロジックの変更がUI層に影響しない
 - ✅ **拡張性**: 新しいコマンドの追加が容易
+
+## 🎨 MVVM Pattern (Model-View-ViewModel)
+
+### **問題認識**
+- UIコンポーネントにビジネスロジックが混在
+- GUI結合テストが複雑で時間がかかる
+- UIの変更がロジックに影響を与える
+
+### **解決策: MVVM with Passive View**
+```typescript
+// ViewModel (Pure Logic)
+class SqlEditorViewModel {
+  private _sql = '';
+  private _isExecuting = false;
+  private _result: QueryResult | null = null;
+  
+  // Bindable properties
+  get sql() { return this._sql; }
+  set sql(value: string) { 
+    this._sql = value;
+    this.notifyChange('sql');
+  }
+  
+  get canExecute() { 
+    return this.sql.trim().length > 0 && !this._isExecuting;
+  }
+  
+  // Commands (using Command Pattern)
+  async executeQuery() {
+    const command = new ExecuteQueryCommand({ sql: this.sql });
+    this._result = await commandExecutor.execute(command);
+    this.notifyChange('result');
+  }
+}
+
+// View (React Component - Logic-free)
+function SqlEditor({ viewModel }: { viewModel: SqlEditorViewModel }) {
+  // Pure binding - no logic
+  return (
+    <div>
+      <MonacoEditor 
+        value={viewModel.sql}
+        onChange={(value) => viewModel.sql = value}
+      />
+      <button 
+        onClick={() => viewModel.executeQuery()}
+        disabled={!viewModel.canExecute}
+      >
+        Run
+      </button>
+      {viewModel.result && <QueryResults result={viewModel.result} />}
+    </div>
+  );
+}
+```
+
+### **テスト戦略**
+```typescript
+// ViewModelの単体テスト（UI不要）
+describe('SqlEditorViewModel', () => {
+  it('should enable execute when SQL is not empty', () => {
+    const vm = new SqlEditorViewModel();
+    vm.sql = 'SELECT * FROM users';
+    expect(vm.canExecute).toBe(true);
+  });
+});
+
+// Viewの最小限の結合テスト
+describe('SqlEditor View', () => {
+  it('should bind to ViewModel properties', () => {
+    const vm = new SqlEditorViewModel();
+    render(<SqlEditor viewModel={vm} />);
+    // バインディングの確認のみ
+  });
+});
+```
+
+### **メリット**
+- ✅ **テスト効率**: ViewModelの単体テストでロジックの品質保証
+- ✅ **GUI検証最小化**: Viewはバインディングのみ確認すればOK
+- ✅ **保守性向上**: UIとロジックの完全分離
+- ✅ **再利用性**: 同じViewModelを異なるUIフレームワークで使用可能
 
 ## 🔧 アーキテクチャ原則・制約事項
 
