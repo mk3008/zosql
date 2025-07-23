@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WorkspaceEntity } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
 import { useToast } from '@ui/hooks/useToast';
@@ -8,27 +8,39 @@ type RightSidebarTab = 'context' | 'condition' | 'formatter' | 'help';
 
 interface RightSidebarProps {
   workspace?: WorkspaceEntity | null;
-  onOpenFormatterTab?: () => void;
 }
 
-export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFormatterTab }) => {
+export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
   const [activeTab, setActiveTab] = useState<RightSidebarTab>('context');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [filterConditionsJson, setFilterConditionsJson] = useState('{}');
+  const [sqlFormatterJson, setSqlFormatterJson] = useState('{}');
   const { toast, showSuccess, showError, hideToast } = useToast();
 
-  // Get FilterConditions and SqlFormatter from workspace (re-evaluated on refreshTrigger change)
-  const filterConditionsJson = workspace?.filterConditions.displayString || '{}';
-  const sqlFormatterJson = workspace?.formatter.displayString || '{}';
+  // Update local state when workspace or refreshTrigger changes
+  useEffect(() => {
+    console.log('[DEBUG] RightSidebar useEffect triggered, refreshTrigger:', refreshTrigger);
+    if (workspace) {
+      const newFilterConditions = workspace.filterConditions.displayString || '{}';
+      const newFormatterConfig = workspace.formatter.displayString || '{}';
+      console.log('[DEBUG] Updating filterConditionsJson:', newFilterConditions);
+      console.log('[DEBUG] Updating sqlFormatterJson:', newFormatterConfig);
+      setFilterConditionsJson(newFilterConditions);
+      setSqlFormatterJson(newFormatterConfig);
+    }
+  }, [workspace, refreshTrigger]);
 
   const handleFilterConditionsChange = (value: string) => {
     if (workspace) {
       workspace.filterConditions.displayString = value;
+      setFilterConditionsJson(value);
     }
   };
 
   const handleFormatterChange = (value: string) => {
     if (workspace) {
       workspace.formatter.displayString = value;
+      setSqlFormatterJson(value);
     }
   };
 
@@ -186,16 +198,28 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFor
               <h4 className="text-sm font-medium text-dark-text-white">SQL Formatter Config</h4>
               <div className="flex gap-2">
                 <button
-                  onClick={onOpenFormatterTab}
+                  onClick={() => {
+                    console.log('[DEBUG] Reset Formatter button clicked!');
+                    if (!workspace) {
+                      console.log('[DEBUG] No workspace available');
+                      showError('No workspace available');
+                      return;
+                    }
+                    
+                    try {
+                      console.log('[DEBUG] Original formatter:', workspace.formatter.displayString);
+                      workspace.formatter.reset();
+                      console.log('[DEBUG] After reset:', workspace.formatter.displayString);
+                      // Force React re-render to refresh binding
+                      setRefreshTrigger(prev => prev + 1);
+                      showSuccess('Formatter configuration reset to default');
+                    } catch (error) {
+                      console.error('[DEBUG] Reset failed:', error);
+                      showError(`Reset failed: ${error.message}`);
+                    }
+                  }}
                   className="text-xs text-primary-400 hover:text-primary-300"
-                  title="Open in tab for editing"
-                >
-                  Open in Tab
-                </button>
-                <button
-                  onClick={() => workspace?.formatter.reset()}
-                  className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
-                  title="Reset to default"
+                  title="Reset formatter configuration to default values"
                 >
                   Reset
                 </button>
@@ -241,28 +265,31 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFor
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    if (workspace) {
-                      const formatted = workspace.formatter.getFormattedString();
+                    console.log('[DEBUG] Format JSON button clicked (Formatter tab)!');
+                    if (!workspace) {
+                      console.log('[DEBUG] No workspace available');
+                      showError('No workspace available');
+                      return;
+                    }
+                    
+                    try {
+                      console.log('[DEBUG] Format JSON clicked, original:', workspace.formatter.displayString);
+                      const parsed = JSON.parse(workspace.formatter.displayString);
+                      const formatted = JSON.stringify(parsed, null, 2);
                       workspace.formatter.displayString = formatted;
+                      console.log('[DEBUG] JSON formatted successfully');
+                      // Force React re-render to refresh binding
+                      setRefreshTrigger(prev => prev + 1);
+                      showSuccess('Formatter JSON formatted successfully');
+                    } catch (error) {
+                      console.error('[DEBUG] Format JSON failed:', error);
+                      showError(`Format JSON failed: ${error.message}`);
                     }
                   }}
                   className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs"
                   title="Format JSON"
                 >
-                  Format
-                </button>
-                
-                <button
-                  onClick={() => {
-                    if (workspace) {
-                      const formatter = workspace.formatter.getSqlFormatter();
-                      console.log('SqlFormatter instance:', formatter);
-                    }
-                  }}
-                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-xs"
-                  title="Test creating SqlFormatter"
-                >
-                  Test Create
+                  Format JSON
                 </button>
               </div>
               
