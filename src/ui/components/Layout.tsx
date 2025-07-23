@@ -128,27 +128,18 @@ export const Layout: React.FC = () => {
           console.log('[DEBUG] Saved workspace data:', workspaceData);
           
           // Check if this is an old workspace that needs to be reset
-          if (workspaceData.name === 'syokiworkspace' || !workspaceData.testValues?.withClause) {
-            console.log('[DEBUG] Old workspace detected, creating new demoworkspace');
+          if (workspaceData.name === 'syokiworkspace' || 
+              !workspaceData.testValues?.withClause ||
+              !workspaceData.openedObjects ||
+              !workspaceData.layoutState) {
+            console.log('[DEBUG] Old workspace detected (missing openedObjects/layoutState), creating new demoworkspace');
             localStorage.removeItem('zosql_workspace_v3'); // Clear old data
             // Force create new workspace below
           } else {
             const workspace = WorkspaceEntity.fromJSON(workspaceData);
             console.log('[DEBUG] Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
             setCurrentWorkspace(workspace);
-            
-            // Open the main SQL model from loaded workspace (only if not already opened)
-            const mainModel = workspace.sqlModels.find(m => m.type === 'main');
-            if (mainModel && mainContentRef.current) {
-              // Use processed sqlWithoutCte and pass the model entity for proper integration
-              mainContentRef.current.openSqlModel(
-                mainModel.name, 
-                mainModel.sqlWithoutCte, 
-                'main',
-                mainModel  // Pass the model entity for CTE composition
-              );
-              console.log('[DEBUG] Opened loaded main model:', mainModel.name);
-            }
+            console.log('[DEBUG] Loaded workspace with opened objects:', workspace.openedObjects.length);
             setIsWorkspaceLoading(false);
             return; // Exit early if we loaded successfully
           }
@@ -164,19 +155,7 @@ export const Layout: React.FC = () => {
           console.log('[DEBUG] Initialized FilterConditions:', initialWorkspace.filterConditions.displayString);
           
           setCurrentWorkspace(initialWorkspace);
-          
-          // Open the main SQL model from workspace
-          const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
-          if (mainModel) {
-            // Use processed sqlWithoutCte and pass the model entity for proper integration
-            mainContentRef.current?.openSqlModel(
-              mainModel.name, 
-              mainModel.sqlWithoutCte, 
-              'main',
-              mainModel  // Pass the model entity for CTE composition
-            );
-            console.log('[DEBUG] Opened main model:', mainModel.name);
-          }
+          console.log('[DEBUG] Created workspace with opened objects:', initialWorkspace.openedObjects.length);
         } catch (error) {
           console.error('[ERROR] Failed to create demo workspace:', error);
           showError('Failed to create initial workspace');
@@ -198,19 +177,7 @@ export const Layout: React.FC = () => {
         console.log('[DEBUG] Fallback workspace created with FilterConditions:', initialWorkspace.filterConditions.displayString);
         
         setCurrentWorkspace(initialWorkspace);
-        
-        // Open the main SQL model from fallback workspace
-        const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
-        if (mainModel) {
-          // Use processed sqlWithoutCte and pass the model entity for proper integration
-          mainContentRef.current?.openSqlModel(
-            mainModel.name, 
-            mainModel.sqlWithoutCte, 
-            'main',
-            mainModel  // Pass the model entity for CTE composition
-          );
-          console.log('[DEBUG] Opened fallback main model:', mainModel.name);
-        }
+        console.log('[DEBUG] Created fallback workspace with opened objects:', initialWorkspace.openedObjects.length);
       } finally {
         setIsWorkspaceLoading(false);
       }

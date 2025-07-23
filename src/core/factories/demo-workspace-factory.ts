@@ -70,6 +70,9 @@ with users(user_id, name) as (
   // Initialize filter conditions from SQL models
   workspace.filterConditions.initializeFromModels([mainModel]);
 
+  // Open main.sql tab by default in the workspace
+  workspace.openSqlModelTab(mainModel);
+
   return workspace;
 }
 

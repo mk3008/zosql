@@ -98,7 +98,7 @@ export class WorkspaceEntity {
       this._openedObjects.push(object);
     }
     this._activeObjectId = object.id;
-    this.updateLastModified();
+    this.updateModified();
   }
 
   closeObject(objectId: string): void {
@@ -110,13 +110,13 @@ export class WorkspaceEntity {
     } else if (this._openedObjects.length === 0) {
       this._activeObjectId = '';
     }
-    this.updateLastModified();
+    this.updateModified();
   }
 
   setActiveObject(objectId: string): void {
     if (this._openedObjects.find(obj => obj.id === objectId)) {
       this._activeObjectId = objectId;
-      this.updateLastModified();
+      this.updateModified();
     }
   }
 
@@ -125,14 +125,14 @@ export class WorkspaceEntity {
     if (object) {
       object.content = content;
       object.isDirty = true;
-      this.updateLastModified();
+      this.updateModified();
     }
   }
 
   clearAllObjects(): void {
     this._openedObjects = [];
     this._activeObjectId = '';
-    this.updateLastModified();
+    this.updateModified();
   }
 
   // Layout State Management
@@ -143,22 +143,68 @@ export class WorkspaceEntity {
 
   setLeftSidebarVisible(visible: boolean): void {
     this._layoutState.leftSidebarVisible = visible;
-    this.updateLastModified();
+    this.updateModified();
   }
 
   setRightSidebarVisible(visible: boolean): void {
     this._layoutState.rightSidebarVisible = visible;
-    this.updateLastModified();
+    this.updateModified();
   }
 
   setResultsVisible(visible: boolean): void {
     this._layoutState.resultsVisible = visible;
-    this.updateLastModified();
+    this.updateModified();
   }
 
   updateLayoutState(layoutState: Partial<WorkspaceLayoutState>): void {
     this._layoutState = { ...this._layoutState, ...layoutState };
-    this.updateLastModified();
+    this.updateModified();
+  }
+
+  // Special Tab Management (Values, Formatter, Condition)
+
+  openValuesTab(): void {
+    const content = this.testValues.toString();
+    this.openObject({
+      id: 'values',
+      title: 'Values & Test Data',
+      type: 'values',
+      content,
+      isDirty: false
+    });
+  }
+
+  openFormatterTab(): void {
+    const content = this.formatter.displayString;
+    this.openObject({
+      id: 'formatter',
+      title: 'SQL Formatter Config',
+      type: 'formatter',
+      content,
+      isDirty: false
+    });
+  }
+
+  openConditionTab(): void {
+    const content = this.filterConditions.displayString;
+    this.openObject({
+      id: 'condition',
+      title: 'Filter Conditions',
+      type: 'condition',
+      content,
+      isDirty: false
+    });
+  }
+
+  openSqlModelTab(model: SqlModelEntity): void {
+    this.openObject({
+      id: model.name,
+      title: model.name,
+      type: model.type as 'main' | 'cte',
+      content: model.sqlWithoutCte,
+      isDirty: false,
+      modelEntity: model
+    });
   }
 
   /**
@@ -416,6 +462,9 @@ export class WorkspaceEntity {
     formatter: ReturnType<SqlFormatterEntity['toJSON']>;
     filterConditions: ReturnType<FilterConditionsEntity['toJSON']>;
     modelFilterConditions: ModelFilterConditions;
+    openedObjects: OpenedObject[];
+    activeObjectId: string;
+    layoutState: WorkspaceLayoutState;
     created: string;
     lastModified: string;
   } {
@@ -428,6 +477,9 @@ export class WorkspaceEntity {
       formatter: this.formatter.toJSON(),
       filterConditions: this.filterConditions.toJSON(),
       modelFilterConditions: this.modelFilterConditions,
+      openedObjects: this._openedObjects,
+      activeObjectId: this._activeObjectId,
+      layoutState: this._layoutState,
       created: this.created,
       lastModified: this.lastModified
     };
@@ -473,6 +525,22 @@ export class WorkspaceEntity {
           model.setDependents(dependents);
         }
       }
+    }
+
+    // Restore opened objects and layout state
+    if (data.openedObjects && Array.isArray(data.openedObjects)) {
+      workspace._openedObjects = data.openedObjects.map(obj => ({
+        ...obj,
+        modelEntity: obj.modelEntity ? workspace.sqlModels.find(m => m.name === obj.modelEntity.name) : undefined
+      }));
+    }
+    
+    if (data.activeObjectId) {
+      workspace._activeObjectId = data.activeObjectId;
+    }
+    
+    if (data.layoutState) {
+      workspace._layoutState = { ...workspace._layoutState, ...data.layoutState };
     }
 
     return workspace;

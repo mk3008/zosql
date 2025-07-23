@@ -41,9 +41,44 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
   }
   const vm = useMvvmBinding(viewModelRef.current);
 
-  // Sync props to ViewModel
+  // Sync WorkspaceEntity state to ViewModel
+  const syncWorkspaceToViewModel = () => {
+    console.log('[DEBUG] syncWorkspaceToViewModel called, workspace:', !!workspace);
+    if (!workspace) return;
+    
+    console.log('[DEBUG] Workspace openedObjects:', workspace.openedObjects.length, workspace.openedObjects);
+    
+    // Convert WorkspaceEntity.openedObjects to ViewModel.tabs
+    const tabs = workspace.openedObjects.map(obj => ({
+      id: obj.id,
+      title: obj.title,
+      type: obj.type,
+      content: obj.content,
+      isDirty: obj.isDirty
+    }));
+    
+    console.log('[DEBUG] Converting to tabs:', tabs.length, tabs);
+    
+    vm.tabs = tabs;
+    vm.activeTabId = workspace.activeObjectId;
+    
+    console.log('[DEBUG] Set VM tabs:', vm.tabs.length, 'activeTabId:', vm.activeTabId);
+    
+    // Sync model mappings
+    workspace.openedObjects.forEach(obj => {
+      if (obj.modelEntity) {
+        vm.setTabModel(obj.id, obj.modelEntity);
+      }
+    });
+  };
+
+  // Sync props to ViewModel and workspace state
   useEffect(() => {
     vm.workspace = workspace;
+    // Sync workspace opened objects to ViewModel tabs
+    if (workspace) {
+      syncWorkspaceToViewModel();
+    }
   }, [workspace, vm]);
 
   // Initialize default tabs only once and only if no workspace is provided
@@ -73,46 +108,44 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
   // Imperative interface for parent components
   useImperativeHandle(ref, () => ({
     openValuesTab: () => {
-      const content = workspace?.testValues.toString() || '';
-      vm.addTab({
-        id: 'values',
-        title: 'Values & Test Data',
-        type: 'values',
-        content,
-        isDirty: false
-      });
+      if (workspace) {
+        workspace.openValuesTab();
+        // Sync workspace state to ViewModel
+        syncWorkspaceToViewModel();
+      }
     },
     openFormatterTab: () => {
-      const content = workspace?.formatter.displayString || '';
-      vm.addTab({
-        id: 'formatter',
-        title: 'SQL Formatter Config',
-        type: 'formatter',
-        content,
-        isDirty: false
-      });
+      if (workspace) {
+        workspace.openFormatterTab();
+        // Sync workspace state to ViewModel
+        syncWorkspaceToViewModel();
+      }
     },
     openConditionTab: () => {
-      const content = workspace?.filterConditions.displayString || '{}';
-      vm.addTab({
-        id: 'condition',
-        title: 'Filter Conditions',
-        type: 'condition',
-        content,
-        isDirty: false
-      });
+      if (workspace) {
+        workspace.openConditionTab();
+        // Sync workspace state to ViewModel
+        syncWorkspaceToViewModel();
+      }
     },
     getCurrentSql: () => vm.activeTab?.content || '',
     openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => {
-      vm.addTab({
-        id: name,
-        title: name,
-        type,
-        content: sql,
-        isDirty: false
-      });
-      if (modelEntity) {
-        vm.setTabModel(name, modelEntity);
+      if (workspace && modelEntity) {
+        workspace.openSqlModelTab(modelEntity);
+        // Sync workspace state to ViewModel
+        syncWorkspaceToViewModel();
+      } else {
+        // Fallback for direct calls without modelEntity
+        vm.addTab({
+          id: name,
+          title: name,
+          type,
+          content: sql,
+          isDirty: false
+        });
+        if (modelEntity) {
+          vm.setTabModel(name, modelEntity);
+        }
       }
     },
     setCurrentModelEntity: (model: SqlModelEntity) => {
@@ -121,11 +154,10 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
       }
     },
     clearAllTabs: () => {
-      // Keep only main tab
-      const mainTab = vm.tabs.find(tab => tab.type === 'main');
-      if (mainTab) {
-        vm.tabs = [mainTab];
-        vm.activeTabId = mainTab.id;
+      if (workspace) {
+        workspace.clearAllObjects();
+        // Sync workspace state to ViewModel
+        syncWorkspaceToViewModel();
       }
     }
   }), [vm, workspace]);
