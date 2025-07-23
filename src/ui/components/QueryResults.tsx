@@ -23,16 +23,16 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
     
     return (
       <div className="overflow-auto">
-        <table className="w-full text-sm">
+        <table className="text-sm table-auto">
           <thead className="bg-dark-tertiary sticky top-0">
             <tr>
-              <th className="w-12 px-2 py-2 text-left border-r border-dark-border-primary text-dark-text-secondary">
+              <th className="px-2 py-2 text-left border-r border-dark-border-primary text-dark-text-secondary whitespace-nowrap">
                 #
               </th>
               {columns.map((column, index) => (
                 <th 
                   key={column}
-                  className={`px-3 py-2 text-left text-dark-text-white font-medium ${
+                  className={`px-3 py-2 text-left text-dark-text-white font-medium whitespace-nowrap ${
                     index < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
                   }`}
                 >
@@ -49,7 +49,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                   rowIndex % 2 === 0 ? 'bg-dark-primary' : 'bg-dark-secondary'
                 }`}
               >
-                <td className="w-12 px-2 py-2 text-dark-text-secondary border-r border-dark-border-primary">
+                <td className="px-2 py-2 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap">
                   {rowIndex + 1}
                 </td>
                 {columns.map((column, colIndex) => (
@@ -59,7 +59,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                       colIndex < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
                     }`}
                   >
-                    <div className="max-w-xs truncate" title={String(row[column])}>
+                    <div className="min-w-0" title={String(row[column])}>
                       {row[column] === null ? (
                         <span className="text-dark-text-muted italic">NULL</span>
                       ) : row[column] === '' ? (
