@@ -69,7 +69,7 @@ export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter workspace name..."
-                className="w-full px-3 py-2 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary placeholder-dark-text-muted focus:outline-none focus:border-primary-600"
+                className="w-full px-3 py-2 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary placeholder-dark-text-muted focus:outline-none focus:border-primary-600 transition-colors duration-200 autofill-dark"
                 disabled={isLoading}
                 required
               />
@@ -85,7 +85,7 @@ export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, 
                 value={sql}
                 onChange={(e) => setSql(e.target.value)}
                 placeholder="Paste your SQL query with CTEs here..."
-                className="w-full h-64 px-3 py-2 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary placeholder-dark-text-muted font-mono text-sm resize-none focus:outline-none focus:border-primary-600"
+                className="w-full h-64 px-3 py-2 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary placeholder-dark-text-muted font-mono text-sm resize-none focus:outline-none focus:border-primary-600 transition-colors duration-200"
                 disabled={isLoading}
                 required
               />

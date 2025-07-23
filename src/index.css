@@ -41,3 +41,25 @@ body {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }
+
+/* AutoComplete/AutoFill dark mode support */
+.autofill-dark:-webkit-autofill,
+.autofill-dark:-webkit-autofill:hover,
+.autofill-dark:-webkit-autofill:focus,
+.autofill-dark:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #1e1e1e inset !important;
+  -webkit-text-fill-color: #cccccc !important;
+  border: 1px solid #454545 !important;
+  background-color: #1e1e1e !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* AutoComplete dropdown styling */
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 30px #1e1e1e inset !important;
+  -webkit-text-fill-color: #cccccc !important;
+  background-color: #1e1e1e !important;
+  border: 1px solid #454545 !important;
+}
