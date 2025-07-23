@@ -1,41 +1,48 @@
-import React, { useState } from 'react';
-import { useWorkspace } from '../context/WorkspaceContext';
+import React, { useRef, useEffect } from 'react';
+import { NewWorkspaceViewModel } from '@ui/viewmodels/new-workspace-viewmodel';
+import { WorkspaceEntity } from '@core/entities/workspace';
+import { useMvvmBinding } from '@ui/hooks/useMvvm';
 
 interface NewWorkspaceDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onWorkspaceCreated?: (workspace: WorkspaceEntity) => void;
 }
 
-export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, onClose }) => {
-  const [name, setName] = useState('');
-  const [sql, setSql] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { createWorkspace } = useWorkspace();
+export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ 
+  isOpen, 
+  onClose, 
+  onWorkspaceCreated 
+}) => {
+  // MVVM: ViewModelをシングルトンパターンで管理
+  const viewModelRef = useRef<NewWorkspaceViewModel | null>(null);
+  if (!viewModelRef.current) {
+    viewModelRef.current = new NewWorkspaceViewModel();
+  }
+  const vm = useMvvmBinding(viewModelRef.current);
+
+  // ViewModelイベントのバインディング
+  useEffect(() => {
+    if (vm) {
+      vm.onWorkspaceCreated = (workspace: WorkspaceEntity) => {
+        onWorkspaceCreated?.(workspace);
+        onClose(); // ダイアログを閉じる
+      };
+    }
+  }, [vm, onWorkspaceCreated, onClose]);
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (viewModelRef.current) {
+        viewModelRef.current.dispose();
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!name.trim() || !sql.trim()) {
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      await createWorkspace({
-        name: name.trim(),
-        sql: sql.trim()
-      });
-      
-      // Reset form and close dialog
-      setName('');
-      setSql('');
-      onClose();
-    } catch (error) {
-      console.error('Failed to create workspace:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    await vm.executeCreateWorkspace();
   };
 
   if (!isOpen) return null;
@@ -49,7 +56,7 @@ export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, 
           <button
             onClick={onClose}
             className="text-dark-text-secondary hover:text-dark-text-primary"
-            disabled={isLoading}
+            disabled={vm.isLoading}
           >
             ✕
           </button>
@@ -58,6 +65,19 @@ export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, 
         {/* Content */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="p-4 space-y-4">
+            {/* Error Display */}
+            {vm.error && (
+              <div className="bg-red-900/20 border border-red-500/50 rounded p-3 text-red-400 text-sm">
+                {vm.error}
+                <button
+                  onClick={() => vm.clearError()}
+                  className="ml-2 text-red-300 hover:text-red-200"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            
             {/* Workspace Name */}
             <div>
               <label htmlFor="workspace-name" className="block text-sm font-medium text-dark-text-white mb-2">
@@ -66,11 +86,11 @@ export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, 
               <input
                 id="workspace-name"
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={vm.name}
+                onChange={(e) => vm.name = e.target.value}
                 placeholder="Enter workspace name..."
                 className="w-full px-3 py-2 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary placeholder-dark-text-muted focus:outline-none focus:border-primary-600 transition-colors duration-200 autofill-dark"
-                disabled={isLoading}
+                disabled={vm.isLoading}
                 required
               />
             </div>
@@ -82,11 +102,11 @@ export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, 
               </label>
               <textarea
                 id="sql-query"
-                value={sql}
-                onChange={(e) => setSql(e.target.value)}
+                value={vm.sql}
+                onChange={(e) => vm.sql = e.target.value}
                 placeholder="Paste your SQL query with CTEs here..."
                 className="w-full h-64 px-3 py-2 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary placeholder-dark-text-muted font-mono text-sm resize-none focus:outline-none focus:border-primary-600 transition-colors duration-200"
-                disabled={isLoading}
+                disabled={vm.isLoading}
                 required
               />
             </div>
@@ -98,16 +118,16 @@ export const NewWorkspaceDialog: React.FC<NewWorkspaceDialogProps> = ({ isOpen, 
               type="button"
               onClick={onClose}
               className="px-4 py-2 text-dark-text-primary hover:bg-dark-hover rounded transition-colors"
-              disabled={isLoading}
+              disabled={vm.isLoading}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading || !name.trim() || !sql.trim()}
+              disabled={!vm.canExecute}
             >
-              {isLoading ? 'Creating...' : 'Create Workspace'}
+              {vm.isLoading ? 'Creating...' : 'Create Workspace'}
             </button>
           </div>
         </form>

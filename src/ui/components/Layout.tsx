@@ -202,6 +202,16 @@ export const Layout: React.FC = () => {
         leftSidebarVisible={leftSidebarVisible}
         rightSidebarVisible={rightSidebarVisible}
         onFileOpen={handleFileOpen}
+        onWorkspaceCreated={(workspace) => {
+          setCurrentWorkspace(workspace);
+          // Save to localStorage
+          try {
+            localStorage.setItem('zosql_workspace_v3', JSON.stringify(workspace.toJSON()));
+          } catch (error) {
+            console.warn('Failed to save workspace to localStorage:', error);
+          }
+        }}
+        workspaceName={currentWorkspace?.name}
       />
       
       {/* Main Container */}

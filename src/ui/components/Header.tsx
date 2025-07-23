@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useWorkspace } from '../context/WorkspaceContext';
 import { NewWorkspaceDialog } from './NewWorkspaceDialog';
 import { FileOpenDialog } from './FileOpenDialog';
+import { WorkspaceEntity } from '@core/entities/workspace';
 
 interface HeaderProps {
   onToggleLeftSidebar: () => void;
@@ -9,6 +9,8 @@ interface HeaderProps {
   leftSidebarVisible: boolean;
   rightSidebarVisible: boolean;
   onFileOpen?: (file: File) => Promise<void>;
+  onWorkspaceCreated?: (workspace: WorkspaceEntity) => void;
+  workspaceName?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,9 +18,10 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleRightSidebar,
   leftSidebarVisible,
   rightSidebarVisible,
-  onFileOpen
+  onFileOpen,
+  onWorkspaceCreated,
+  workspaceName
 }) => {
-  const { workspace, isLoading } = useWorkspace();
   const [showNewWorkspaceDialog, setShowNewWorkspaceDialog] = useState(false);
   const [showFileOpenDialog, setShowFileOpenDialog] = useState(false);
 
@@ -42,20 +45,10 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Center Section - Workspace Info */}
       <div className="flex items-center gap-4">
-        {isLoading && (
-          <div className="flex items-center gap-2 text-dark-text-secondary">
-            <div className="w-2 h-2 bg-info rounded-full animate-pulse"></div>
-            <span className="text-sm">Loading...</span>
-          </div>
-        )}
-        
-        {workspace && (
+        {workspaceName && (
           <div className="flex items-center gap-2 text-dark-text-primary">
             <span className="text-sm">Workspace:</span>
-            <span className="text-sm font-medium text-dark-text-white">{workspace.name}</span>
-            <span className="text-xs text-dark-text-secondary">
-              ({workspace.getCTECount ? workspace.getCTECount() : Object.keys(workspace.privateCtes).length} CTEs)
-            </span>
+            <span className="text-sm font-medium text-dark-text-white">{workspaceName}</span>
           </div>
         )}
       </div>
@@ -101,6 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
       <NewWorkspaceDialog
         isOpen={showNewWorkspaceDialog}
         onClose={() => setShowNewWorkspaceDialog(false)}
+        onWorkspaceCreated={onWorkspaceCreated}
       />
       
       <FileOpenDialog
