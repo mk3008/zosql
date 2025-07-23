@@ -3,7 +3,7 @@
  * UI Layer - Pure View component with ViewModel binding
  */
 
-import React, { forwardRef, useImperativeHandle, useEffect, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect, useRef, memo } from 'react';
 import '../styles/tab-scrollbar.css';
 import { WorkspaceEntity, SqlModelEntity } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
@@ -29,7 +29,7 @@ export interface MainContentProps {
 // Global ViewModel instance to prevent duplication in React StrictMode
 let globalViewModel: MainContentViewModel | null = null;
 
-export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange }, ref) => {
+const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange }, ref) => {
   // MVVM: Create and bind ViewModel (singleton pattern)
   const viewModelRef = useRef<MainContentViewModel | null>(null);
   if (!viewModelRef.current) {
@@ -324,5 +324,27 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
         </div>
       </div>
     </main>
+  );
+});
+
+// Memoize to prevent unnecessary re-renders when workspace object reference changes
+// but actual content hasn't changed
+export const MainContentMvvm = memo(MainContentMvvmComponent, (prevProps, nextProps) => {
+  // Custom comparison function - only re-render if workspace content actually changed
+  if (prevProps.workspace === nextProps.workspace) {
+    return true; // Props are equal, skip render
+  }
+  
+  // If one is null and the other isn't, they're different
+  if (!prevProps.workspace || !nextProps.workspace) {
+    return false; // Props are different, re-render
+  }
+  
+  // Deep comparison for workspace changes that actually matter
+  // (You can add more specific checks here if needed)
+  return (
+    prevProps.workspace.name === nextProps.workspace.name &&
+    prevProps.workspace.activeObjectId === nextProps.workspace.activeObjectId &&
+    prevProps.workspace.openedObjects.length === nextProps.workspace.openedObjects.length
   );
 });
