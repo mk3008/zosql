@@ -259,6 +259,7 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
                     height="100%"
                     isMainEditor={true}
                     onKeyDown={handleKeyDown}
+                    workspace={workspace}
                     options={vm.activeTab.type === 'values' ? {
                       wordWrap: 'off',
                       wrappingStrategy: 'simple',
@@ -300,6 +301,7 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
                   height="100%"
                   isMainEditor={true}
                   onKeyDown={handleKeyDown}
+                  workspace={workspace}
                   options={vm.activeTab.type === 'values' ? {
                     wordWrap: 'off',
                     wrappingStrategy: 'simple',

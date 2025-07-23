@@ -130,6 +130,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
                 language="json"
                 height="100%"
                 readOnly={false}
+                workspace={workspace}
+                refreshTrigger={refreshTrigger}
                 onKeyDown={(event) => {
                   if (event.ctrlKey && event.key === 'Enter') {
                     event.preventDefault();
@@ -237,6 +239,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
                 language="json"
                 height="100%"
                 readOnly={false}
+                workspace={workspace}
+                refreshTrigger={refreshTrigger}
                 onKeyDown={(event) => {
                   if (event.ctrlKey && event.shiftKey && event.key === 'F') {
                     event.preventDefault();

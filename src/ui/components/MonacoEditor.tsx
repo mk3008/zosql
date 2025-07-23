@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
 import { editor } from 'monaco-editor';
 import { useEditor } from '../context/EditorContext';
+import { WorkspaceEntity } from '@shared/types';
 
 interface MonacoEditorProps {
   value: string;
@@ -13,6 +14,8 @@ interface MonacoEditorProps {
   isMainEditor?: boolean;
   options?: editor.IStandaloneEditorConstructionOptions;
   onKeyDown?: (event: KeyboardEvent) => void;
+  workspace?: WorkspaceEntity | null;
+  refreshTrigger?: number;
 }
 
 export const MonacoEditor: React.FC<MonacoEditorProps> = ({
@@ -24,11 +27,35 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   onMount,
   isMainEditor = false,
   options = {},
-  onKeyDown
+  onKeyDown,
+  workspace,
+  refreshTrigger = 0
 }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const { setEditorRef } = useEditor();
+
+  // Get indent size from workspace formatter configuration
+  const getIndentSize = (): number => {
+    if (!workspace) return 2; // default
+    
+    try {
+      console.log('[DEBUG] Getting indent size from workspace formatter');
+      // ✅ CORRECT: Parse the JSON config directly
+      const formatterConfig = JSON.parse(workspace.formatter.config);
+      console.log('[DEBUG] Formatter config:', formatterConfig);
+      
+      // The correct property name is 'indentSize'
+      const indentSize = formatterConfig?.indentSize || 2; // default
+      
+      console.log('[DEBUG] Resolved indent size:', indentSize);
+      return typeof indentSize === 'number' ? indentSize : 2;
+    } catch (error) {
+      console.warn('[DEBUG] Failed to get indent size from formatter:', error);
+      console.log('[DEBUG] Formatter config string:', workspace.formatter.config);
+      return 2; // default
+    }
+  };
 
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor;
@@ -301,6 +328,71 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     }
   }, [language]);
 
+  // Watch for workspace formatter changes and update indent settings
+  useEffect(() => {
+    if (editorRef.current && language === 'sql') {
+      const indentSize = getIndentSize();
+      console.log('[DEBUG] Updating Monaco editor indent settings, indentSize:', indentSize);
+      
+      // Update editor options for indent
+      editorRef.current.updateOptions({
+        tabSize: indentSize,
+        insertSpaces: true
+        // rulers: 無効化（過剰表示で見づらいため）
+      });
+      
+      console.log('[DEBUG] Updated Monaco editor with tabSize:', indentSize);
+    }
+  }, [workspace?.formatter.config, workspace?.formatter.displayString, language, refreshTrigger]);
+
+  // Get dynamic options based on formatter configuration
+  const indentSize = getIndentSize();
+  const dynamicOptions = {
+    theme: 'zosql-dark',
+    fontSize: 14,
+    fontFamily: 'Consolas, Monaco, Courier New, monospace',
+    lineNumbers: 'on',
+    roundedSelection: false,
+    scrollBeyondLastLine: false,
+    readOnly,
+    minimap: { enabled: false },
+    folding: true,
+    lineDecorationsWidth: 10,
+    lineNumbersMinChars: 3,
+    glyphMargin: false,
+    automaticLayout: true,
+    tabSize: indentSize,
+    insertSpaces: true,
+    // rulers: インデント縦線は無効化（過剰表示で見づらいため）
+    // rulers: language === 'sql' ? [indentSize * 4, indentSize * 8, indentSize * 12] : undefined,
+    wordWrap: 'off',
+    contextmenu: true,
+    mouseWheelZoom: true,
+    smoothScrolling: true,
+    cursorSmoothCaretAnimation: 'on',
+    renderLineHighlight: 'line',
+    selectionHighlight: true,
+    occurrencesHighlight: 'singleFile',
+    suggest: {
+      showKeywords: true,
+      showSnippets: true,
+      showFunctions: true
+    },
+    quickSuggestions: {
+      other: true,
+      comments: false,
+      strings: false
+    },
+    parameterHints: {
+      enabled: true
+    },
+    acceptSuggestionOnCommitCharacter: true,
+    acceptSuggestionOnEnter: 'on',
+    accessibilitySupport: 'auto',
+    // Merge custom options, allowing override of defaults
+    ...options
+  };
+
   return (
     <div className="h-full w-full">
       <Editor
@@ -309,49 +401,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         value={value}
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}
-        options={{
-          theme: 'zosql-dark',
-          fontSize: 14,
-          fontFamily: 'Consolas, Monaco, Courier New, monospace',
-          lineNumbers: 'on',
-          roundedSelection: false,
-          scrollBeyondLastLine: false,
-          readOnly,
-          minimap: { enabled: false },
-          folding: true,
-          lineDecorationsWidth: 10,
-          lineNumbersMinChars: 3,
-          glyphMargin: false,
-          automaticLayout: true,
-          tabSize: 2,
-          insertSpaces: true,
-          wordWrap: 'off',
-          contextmenu: true,
-          mouseWheelZoom: true,
-          smoothScrolling: true,
-          cursorSmoothCaretAnimation: 'on',
-          renderLineHighlight: 'line',
-          selectionHighlight: true,
-          occurrencesHighlight: 'singleFile',
-          suggest: {
-            showKeywords: true,
-            showSnippets: true,
-            showFunctions: true
-          },
-          quickSuggestions: {
-            other: true,
-            comments: false,
-            strings: false
-          },
-          parameterHints: {
-            enabled: true
-          },
-          acceptSuggestionOnCommitCharacter: true,
-          acceptSuggestionOnEnter: 'on',
-          accessibilitySupport: 'auto',
-          // Merge custom options, allowing override of defaults
-          ...options
-        }}
+        options={dynamicOptions}
       />
     </div>
   );
