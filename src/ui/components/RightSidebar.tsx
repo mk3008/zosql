@@ -209,14 +209,32 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFor
             </div>
             
             <div className="flex-1 min-h-0">
-              <textarea
+              <MonacoEditor
                 value={sqlFormatterJson}
-                onChange={(e) => handleFormatterChange(e.target.value)}
-                className="w-full h-full p-3 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary font-mono text-xs resize-none focus:outline-none focus:border-primary-600"
-                placeholder="SQL formatter configuration..."
-                style={{ 
-                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                  lineHeight: '1.4'
+                onChange={handleFormatterChange}
+                language="json"
+                height="100%"
+                readOnly={false}
+                onKeyDown={(event) => {
+                  if (event.ctrlKey && event.shiftKey && event.key === 'F') {
+                    event.preventDefault();
+                    // Find and click the Format button in MainContent
+                    const buttons = Array.from(document.querySelectorAll('button'));
+                    const formatButton = buttons.find(btn => btn.textContent?.trim() === 'Format') as HTMLButtonElement;
+                    if (formatButton && !formatButton.disabled) {
+                      console.log('[DEBUG] Executing format from Formatter tab via Ctrl+Shift+F');
+                      formatButton.click();
+                    }
+                  }
+                }}
+                options={{
+                  fontSize: 12,
+                  wordWrap: 'off',
+                  formatOnType: true,
+                  formatOnPaste: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  readOnly: false
                 }}
               />
             </div>

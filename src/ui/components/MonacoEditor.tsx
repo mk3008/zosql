@@ -225,11 +225,40 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
           }
         }
       });
+
+      // Add a custom keybinding command for Ctrl+Shift+F (Format)
+      editor.addAction({
+        id: 'format-sql',
+        label: 'Format SQL',
+        keybindings: [
+          monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF
+        ],
+        run: () => {
+          // Find and click the Format button
+          const buttons = Array.from(document.querySelectorAll('button'));
+          const formatButton = buttons.find(btn => btn.textContent?.trim() === 'Format') as HTMLButtonElement;
+          if (formatButton && !formatButton.disabled) {
+            console.log('[DEBUG] Executing format via Ctrl+Shift+F Monaco action');
+            formatButton.click();
+          } else {
+            // Fallback to the original event dispatch
+            const event = new KeyboardEvent('keydown', {
+              ctrlKey: true,
+              shiftKey: true,
+              key: 'F'
+            });
+            onKeyDown(event);
+          }
+        }
+      });
       
       // Also handle other key events
       editor.onKeyDown((e) => {
-        // Skip Ctrl+Enter since it's handled by the action above
+        // Skip Ctrl+Enter and Ctrl+Shift+F since they're handled by actions above
         if (e.ctrlKey && e.code === 'Enter') {
+          return;
+        }
+        if (e.ctrlKey && e.shiftKey && e.code === 'KeyF') {
           return;
         }
         
