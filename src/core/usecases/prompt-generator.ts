@@ -34,8 +34,19 @@ export class PromptGenerator {
     try {
       return await this.generateSchemaAwarePrompt(sql);
     } catch (error) {
-      // Schema解析失敗時はbasicモードにフォールバック
-      return this.generateBasicPrompt(sql);
+      // Schema解析失敗時はエラーをスロー
+      console.error('Schema analysis failed:', error);
+      
+      let errorMessage = 'Failed to analyze SQL schema. Schema collector is enabled but analysis failed';
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      const enhancedError = new Error(errorMessage);
+      if (error instanceof Error) {
+        enhancedError.stack = error.stack;
+      }
+      throw enhancedError;
     }
   }
 
@@ -43,10 +54,11 @@ export class PromptGenerator {
    * 基本的なプロンプト生成（AI支援モード）
    */
   private generateBasicPrompt(sql: string): string {
-    return `このSQLをDB環境依存なしで動かしたいので、
-元のSQLは変更せずに、必要なテーブルを VALUES 文で定義したモックテーブルとして
-WITH句のみ を作成してください。
-SELECT文などは不要で、WITH句だけ回答してください。
+    return `I want to run this SQL without database dependencies.
+Please provide only WITH clauses that define the required tables as mock tables using VALUES statements.
+
+Example response:
+with users(user_id, user_name) as (values (1, 'alice'), (2, 'bob'))
 
 \`\`\`sql
 ${sql}
@@ -61,18 +73,24 @@ ${sql}
       throw new Error('SQL parser not available for schema analysis');
     }
 
-    const tables = await this.sqlParser.extractSchema(sql);
+    const schemaInfo = await this.sqlParser.extractSchema(sql);
     
-    if (tables.length === 0) {
+    if (schemaInfo.length === 0) {
       return this.generateBasicPrompt(sql);
     }
 
-    const tableDescriptions = tables.join(', ');
+    // Schema情報をJSON形式で整形
+    const schemaJson = JSON.stringify(schemaInfo, null, 2);
 
-    return `このSQLをDB環境依存なしで動かしたいので、
-元のSQLは変更せずに、必要なテーブル ${tableDescriptions} を VALUES 文で定義したモックテーブルとして
-WITH句のみ を作成してください。
-SELECT文などは不要で、WITH句だけ回答してください。
+    return `I want to run this SQL without database dependencies.
+Please provide only WITH clauses that define the required tables as mock tables using VALUES statements.
+The schema information being used is as follows:
+\`\`\`schema
+${schemaJson}
+\`\`\`
+
+Example response:
+with users(user_id, user_name) as (values (1, 'alice'), (2, 'bob'))
 
 \`\`\`sql
 ${sql}

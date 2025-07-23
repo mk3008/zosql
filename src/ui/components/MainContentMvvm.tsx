@@ -10,6 +10,7 @@ import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
 import { useMvvmBinding } from '@ui/hooks/useMvvm';
+import { useToast } from '@ui/hooks/useToast';
 
 export interface MainContentRef {
   openValuesTab: () => void;
@@ -25,12 +26,15 @@ export interface MainContentProps {
   workspace: WorkspaceEntity | null;
   onWorkspaceChange?: (workspace: WorkspaceEntity) => void;
   onActiveTabChange?: (tabId: string | null) => void;
+  showSuccess?: (message: string) => void;
+  showError?: (message: string) => void;
+  showErrorWithDetails?: (message: string, details?: string, stack?: string) => void;
 }
 
 // Global ViewModel instance to prevent duplication in React StrictMode
 let globalViewModel: MainContentViewModel | null = null;
 
-const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange }, ref) => {
+const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange, showSuccess, showError, showErrorWithDetails }, ref) => {
   // MVVM: Create and bind ViewModel (singleton pattern)
   const viewModelRef = useRef<MainContentViewModel | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);
@@ -110,6 +114,31 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       }
     }
   }, [vm.activeTabId, onActiveTabChange]);
+
+  // Handle Copy Prompt notifications
+  useEffect(() => {
+    const handlePropertyChange = (propertyName: string, value: any) => {
+      console.log('[DEBUG] Property change received:', propertyName, value);
+      if (propertyName === 'copyPromptSuccess') {
+        console.log('[DEBUG] Showing success toast:', value);
+        showSuccess?.(value);
+      } else if (propertyName === 'copyPromptError') {
+        console.log('[DEBUG] Showing error toast:', value);
+        showError?.(value);
+      } else if (propertyName === 'errorWithDetails') {
+        console.log('[DEBUG] Showing error with details:', value);
+        if (showErrorWithDetails && value) {
+          showErrorWithDetails(value.message, value.details, value.stack);
+        }
+      }
+    };
+
+    if (viewModelRef.current && (showSuccess || showError || showErrorWithDetails)) {
+      console.log('[DEBUG] Subscribing to ViewModel property changes');
+      const unsubscribe = viewModelRef.current.subscribe(handlePropertyChange);
+      return unsubscribe;
+    }
+  }, [showSuccess, showError, showErrorWithDetails]);
 
   // Cleanup ViewModel on unmount
   useEffect(() => {
@@ -313,42 +342,112 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Toolbar */}
-        <div className="bg-dark-secondary border-b border-dark-border-primary px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div /> {/* Spacer */}
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => vm.executeQuery()}
-                disabled={!vm.canExecute}
-                className="px-3 py-1 bg-success text-white rounded hover:bg-green-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Run Query (Ctrl+Enter)"
-              >
-                {vm.isExecuting ? 'Running...' : 'Run'}
-              </button>
-              
-              <button 
-                onClick={() => vm.formatQuery()}
-                disabled={!vm.canFormat}
-                className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Format
-              </button>
-              
-              <button
-                onClick={() => vm.toggleResultsVisibility()}
-                className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm"
-              >
-                {vm.resultsVisible ? 'Hide Results' : 'Show Results'}
-              </button>
+        {/* Dynamic Toolbar based on tab type */}
+        {vm.activeTab && vm.activeTab.type === 'values' ? (
+          /* Data Tab Toolbar */
+          <div className="bg-dark-secondary border-b border-dark-border-primary px-4 py-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {/* Copy Prompt Settings */}
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-dark-text-primary cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={vm.useSchemaCollector}
+                      onChange={(e) => vm.useSchemaCollector = e.target.checked}
+                      className="w-4 h-4 text-primary-600 bg-dark-primary border-dark-border-primary rounded focus:ring-primary-500 focus:ring-2"
+                    />
+                    use schema collector
+                  </label>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => vm.copyPrompt()}
+                  className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm"
+                  title="Copy AI prompt to clipboard for generating test data"
+                >
+                  Copy Prompt
+                </button>
+                
+                <button 
+                  onClick={() => vm.formatQuery()}
+                  disabled={!vm.canFormat}
+                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Format
+                </button>
+              </div>
+            </div>
+            
+            {/* Description */}
+            <div className="mt-2 text-xs text-dark-text-secondary">
+              Generate AI prompts to create WITH clauses with mock data for your SQL queries. 
+              Enable "use schema collector" for table structure analysis.
             </div>
           </div>
-        </div>
+        ) : (
+          /* Default Toolbar for root/CTE tabs */
+          <div className="bg-dark-secondary border-b border-dark-border-primary px-4 py-2">
+            <div className="flex items-center justify-between">
+              <div /> {/* Spacer */}
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => vm.executeQuery()}
+                  disabled={!vm.canExecute}
+                  className="px-3 py-1 bg-success text-white rounded hover:bg-green-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Run Query (Ctrl+Enter)"
+                >
+                  {vm.isExecuting ? 'Running...' : 'Run'}
+                </button>
+                
+                <button 
+                  onClick={() => vm.formatQuery()}
+                  disabled={!vm.canFormat}
+                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Format
+                </button>
+                
+                <button
+                  onClick={() => vm.toggleResultsVisibility()}
+                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm"
+                >
+                  {vm.resultsVisible ? 'Hide Results' : 'Show Results'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* Editor and Results Container */}
+        {/* Dynamic Content Area based on tab type */}
         <div className="flex-1 overflow-hidden">
-          {vm.resultsVisible && vm.queryResult ? (
-            /* Split view: Editor + Results */
+          {vm.activeTab && vm.activeTab.type === 'values' ? (
+            /* Data Tab Layout - Simple editor only */
+            <div className="h-full bg-dark-primary overflow-hidden">
+              <MonacoEditor
+                key={vm.activeTab.id}
+                value={vm.activeTab.content}
+                onChange={(value) => {
+                  console.log('[DEBUG] Monaco onChange for data tab:', vm.activeTab!.id);
+                  vm.updateTabContent(vm.activeTab!.id, value);
+                }}
+                language="sql"
+                height="100%"
+                isMainEditor={true}
+                onKeyDown={handleKeyDown}
+                workspace={workspace}
+                options={{
+                  wordWrap: 'off',
+                  wrappingStrategy: 'simple',
+                  scrollBeyondLastLine: false,
+                  minimap: { enabled: false },
+                  folding: true,
+                }}
+              />
+            </div>
+          ) : vm.resultsVisible && vm.queryResult ? (
+            /* Default tabs: Split view with Editor + Results */
             <div className="h-full flex flex-col">
               {/* Monaco Editor - takes remaining space */}
               <div className="flex-1 bg-dark-primary overflow-hidden" style={{ minHeight: '200px' }}>
@@ -365,12 +464,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                     isMainEditor={true}
                     onKeyDown={handleKeyDown}
                     workspace={workspace}
-                    options={vm.activeTab.type === 'values' ? {
-                      wordWrap: 'off',
-                      wrappingStrategy: 'simple',
-                      scrollBeyondLastLine: false,
-                      minimap: { enabled: false }
-                    } : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
+                    options={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
                       wordWrap: 'off',
                       formatOnType: true,
                       formatOnPaste: true,
@@ -395,7 +489,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
               </div>
             </div>
           ) : (
-            /* Full editor view */
+            /* Default tabs: Full editor view */
             <div className="h-full bg-dark-primary overflow-hidden">
               {vm.activeTab && (
                 <MonacoEditor
@@ -407,12 +501,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   isMainEditor={true}
                   onKeyDown={handleKeyDown}
                   workspace={workspace}
-                  options={vm.activeTab.type === 'values' ? {
-                    wordWrap: 'off',
-                    wrappingStrategy: 'simple',
-                    scrollBeyondLastLine: false,
-                    minimap: { enabled: false }
-                  } : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
+                  options={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
                     wordWrap: 'off',
                     formatOnType: true,
                     formatOnPaste: true,

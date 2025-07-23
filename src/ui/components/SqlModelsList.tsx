@@ -67,15 +67,6 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                     </span>
                   )}
                 </div>
-                {model.dependents.length > 0 && (
-                  <div className={`text-xs mt-1 ${
-                    selectedModelName === model.name 
-                      ? 'text-dark-text-primary opacity-90' 
-                      : 'text-dark-text-primary opacity-75'
-                  }`}>
-                    Uses: {model.getDependentNames().join(', ')}
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -152,16 +143,6 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                   </div>
                 )}
                 
-                {/* Show dependents */}
-                {model.dependents.length > 0 && (
-                  <div className={`text-xs mt-1 ${
-                    selectedModelName === model.name 
-                      ? 'text-dark-text-primary opacity-90' 
-                      : 'text-dark-text-primary opacity-75'
-                  }`}>
-                    Used by: {model.getDependentNames().join(', ')}
-                  </div>
-                )}
               </div>
             ))}
           </div>

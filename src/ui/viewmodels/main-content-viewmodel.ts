@@ -9,6 +9,8 @@ import { TestValuesModel } from '@core/entities/test-values-model';
 import { ExecuteQueryCommand } from '@core/commands/execute-query-command';
 import { FormatQueryCommand } from '@core/commands/format-query-command';
 import { commandExecutor } from '@core/services/command-executor';
+import { PromptGenerator } from '@core/usecases/prompt-generator';
+import { SchemaExtractor } from '@adapters/parsers/schema-extractor';
 
 export class MainContentViewModel extends BaseViewModel {
   // Private state
@@ -19,6 +21,7 @@ export class MainContentViewModel extends BaseViewModel {
   private _resultsVisible: boolean = false;
   private _workspace: WorkspaceEntity | null = null;
   private _tabModelMap: Map<string, SqlModelEntity> = new Map();
+  private _useSchemaCollector: boolean = true;
 
   // Bindable Properties
 
@@ -111,6 +114,17 @@ export class MainContentViewModel extends BaseViewModel {
            this.activeTab.content.trim().length > 0;
   }
 
+  get useSchemaCollector(): boolean {
+    return this._useSchemaCollector;
+  }
+
+  set useSchemaCollector(value: boolean) {
+    if (this._useSchemaCollector !== value) {
+      this._useSchemaCollector = value;
+      this.notifyChange('useSchemaCollector', value);
+    }
+  }
+
 
   // Commands
 
@@ -131,6 +145,15 @@ export class MainContentViewModel extends BaseViewModel {
         tabType: this.activeTab.type
       };
 
+      console.log('[DEBUG] Execute query context:', {
+        hasWorkspace: !!context.workspace,
+        hasSqlModel: !!context.sqlModel,
+        sqlModelName: context.sqlModel?.name,
+        tabType: context.tabType,
+        tabId: this.activeTab.id,
+        tabContent: context.tabContent.substring(0, 100) + '...'
+      });
+
       // Execute command
       const command = new ExecuteQueryCommand(context);
       const result = await commandExecutor.execute(command);
@@ -144,11 +167,19 @@ export class MainContentViewModel extends BaseViewModel {
       }
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       this.queryResult = {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: errorMessage,
         executionTime: 0
       };
+      
+      // Send error to error panel
+      this.notifyChange('errorWithDetails', {
+        message: 'Run failed',
+        details: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
     } finally {
       this.isExecuting = false;
     }
@@ -172,6 +203,13 @@ export class MainContentViewModel extends BaseViewModel {
 
     } catch (error) {
       console.error('Failed to format SQL:', error);
+      
+      // Send error to error panel
+      this.notifyChange('errorWithDetails', {
+        message: 'Format failed',
+        details: error instanceof Error ? error.message : 'Unknown formatting error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
     }
   }
 
@@ -182,6 +220,84 @@ export class MainContentViewModel extends BaseViewModel {
 
   closeResults(): void {
     this.resultsVisible = false;
+  }
+
+  async copyPrompt(): Promise<void> {
+    if (!this.activeTab || this.activeTab.type !== 'values' || !this.workspace) {
+      return;
+    }
+
+    try {
+      // Get the main SQL query from workspace for prompt generation
+      const mainModel = this.workspace.sqlModels.find(m => m.type === 'main');
+      if (!mainModel) {
+        console.error('No main SQL model found for prompt generation');
+        // Send simple toast for error
+        this.notifyChange('copyPromptError', 'Copy Prompt failed');
+        
+        // Send detailed error to error panel
+        this.notifyChange('errorWithDetails', {
+          message: 'Copy Prompt failed',
+          details: 'No main SQL model found. Please ensure a workspace is loaded with a main query.',
+          stack: undefined
+        });
+        return;
+      }
+
+      console.log('[DEBUG] Creating PromptGenerator and generating prompt');
+      
+      // Get full SQL from root model using getFullSql with specified parameters
+      const fullSql = await mainModel.getFullSql(
+        null,        // testValues: NULL
+        null,        // filterConditions: NULL
+        false        // forExecution: false
+      );
+      console.log('[DEBUG] Got full SQL from root model:', fullSql.length, 'characters');
+      
+      const schemaExtractor = new SchemaExtractor();
+      const promptGenerator = new PromptGenerator(schemaExtractor);
+      const prompt = await promptGenerator.generatePrompt(fullSql, {
+        useSchemaCollector: this._useSchemaCollector
+      });
+      console.log('[DEBUG] Generated prompt length:', prompt.length);
+
+      // Copy the generated prompt to clipboard
+      await navigator.clipboard.writeText(prompt);
+      console.log('[DEBUG] AI prompt copied to clipboard');
+      
+      // Notify success via property change for UI to handle
+      console.log('[DEBUG] Notifying copyPromptSuccess');
+      this.notifyChange('copyPromptSuccess', 'Copy Prompt succeeded');
+    } catch (error) {
+      console.error('Failed to copy prompt - full error:', error);
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to copy prompt';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Log stack trace for debugging
+        console.error('Error stack:', error.stack);
+        
+        // If there's a cause, include it
+        if ('cause' in error && error.cause) {
+          errorMessage += ` (Caused by: ${error.cause})`;
+        }
+      } else {
+        errorMessage = `Failed to copy prompt: ${String(error)}`;
+      }
+      
+      // Send simple toast for error
+      this.notifyChange('copyPromptError', 'Copy Prompt failed');
+      
+      // Send detailed error to error panel
+      console.log('[DEBUG] Sending error to error panel:', errorMessage);
+      this.notifyChange('errorWithDetails', {
+        message: 'Copy Prompt failed',
+        details: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
   }
 
   // Tab Management

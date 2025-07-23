@@ -3,10 +3,13 @@ import { Header } from './Header';
 import { LeftSidebar } from './LeftSidebar';
 import { MainContentMvvm as MainContent, MainContentRef } from './MainContentMvvm';
 import { RightSidebar } from './RightSidebar';
+import { Toast } from './Toast';
+import { ErrorPanel } from './ErrorPanel';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
 import { useFileOpen } from '@ui/hooks/useFileOpen';
 import { SqlModelEntity } from '@core/entities/sql-model';
 import { useToast } from '@ui/hooks/useToast';
+import { useErrorPanel } from '@ui/hooks/useErrorPanel';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';
@@ -29,7 +32,10 @@ export const Layout: React.FC = () => {
   const { openFile } = useFileOpen();
   
   // Toast notifications
-  const { showSuccess, showError } = useToast();
+  const { toast, showSuccess, showError, hideToast } = useToast();
+  
+  // Error panel
+  const { errors, addError, clearError, clearAllErrors } = useErrorPanel();
   
   const handleModelClick = (model: SqlModelEntity) => {
     setSelectedModelName(model.name);
@@ -233,6 +239,9 @@ export const Layout: React.FC = () => {
         <MainContent 
           ref={mainContentRef} 
           workspace={currentWorkspace}
+          showSuccess={showSuccess}
+          showError={showError}
+          showErrorWithDetails={addError}
           onActiveTabChange={(tabId) => {
             // Sync left sidebar selection with active tab
             if (tabId && currentWorkspace) {
@@ -257,6 +266,22 @@ export const Layout: React.FC = () => {
           />
         )}
       </div>
+      
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
+      
+      {/* Error Panel */}
+      <ErrorPanel
+        errors={errors}
+        onClearError={clearError}
+        onClearAll={clearAllErrors}
+      />
     </div>
   );
 };

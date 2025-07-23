@@ -175,15 +175,13 @@ export class SqlModelEntity implements SqlModel {
       };
 
     } catch (error) {
-      console.warn('Error in getDynamicSql, falling back to simple string:', error);
+      console.error('Error in getDynamicSql:', error);
       
-      // Fallback: return original SQL as-is
-      const fallbackSql = this.sqlWithoutCte || this.originalSql || '';
-      return {
-        query: null as any, // Type assertion for fallback
-        formattedSql: fallbackSql,
-        params: []
-      };
+      // Re-throw the error with more context
+      if (error instanceof Error) {
+        throw new Error(`Failed to generate dynamic SQL: ${error.message}`);
+      }
+      throw new Error('Failed to generate dynamic SQL');
     }
   }
 

@@ -35,8 +35,17 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
     let dynamicResult: DynamicSqlResult | null = null;
     
     try {
+      console.log('[DEBUG] ExecuteQueryCommand context:', {
+        hasSqlModel: !!this.context.sqlModel,
+        sqlModelName: this.context.sqlModel?.name,
+        sqlModelType: this.context.sqlModel?.type,
+        tabType: this.context.tabType,
+        hasWorkspace: !!this.context.workspace
+      });
+
       // If we have a model, use dynamic SQL generation
       if (this.context.sqlModel) {
+        console.log('[DEBUG] Using sqlModel path for execution');
         // Update model's SQL with current tab content
         this.context.sqlModel.sqlWithoutCte = this.context.tabContent;
         
@@ -44,30 +53,42 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
         const testValues = this.getTestValues();
         const filterConditions = this.context.workspace?.filterConditions;
         
+        console.log('[DEBUG] Test values:', !!testValues, 'Filter conditions:', !!filterConditions);
+        
         // Generate dynamic SQL with parameterization for execution
         dynamicResult = await this.context.sqlModel.getDynamicSql(testValues, filterConditions, true);
+        console.log('[DEBUG] Generated dynamic SQL length:', dynamicResult.formattedSql.length);
         
       } else if (this.context.tabType === 'main' && this.context.workspace) {
+        console.log('[DEBUG] Using fallback main model path for execution');
         // Fallback: find main model in workspace
         const mainModel = this.context.workspace.sqlModels.find(m => m.type === 'main');
         if (mainModel) {
+          console.log('[DEBUG] Found main model:', mainModel.name);
           mainModel.sqlWithoutCte = this.context.tabContent;
           const testValues = this.context.workspace.testValues;
           const filterConditions = this.context.workspace.filterConditions;
           
+          console.log('[DEBUG] Fallback - Test values:', !!testValues, 'Filter conditions:', !!filterConditions);
+          
           // Generate dynamic SQL with parameterization for execution
           dynamicResult = await mainModel.getDynamicSql(testValues, filterConditions, true);
+          console.log('[DEBUG] Fallback generated dynamic SQL length:', dynamicResult.formattedSql.length);
+        } else {
+          console.log('[DEBUG] No main model found in workspace');
         }
+      } else {
+        console.log('[DEBUG] No SQL model or workspace available, using plain SQL');
       }
       
-      // If we don't have dynamic result, fall back to plain SQL
+      // If we don't have dynamic result, throw error
       if (!dynamicResult) {
-        dynamicResult = {
-          query: null as any,
-          formattedSql: this.context.tabContent,
-          params: []
-        };
+        throw new Error('Unable to generate SQL with proper CTE composition. Please ensure all dependencies are available.');
       }
+      
+      // Log final SQL before execution
+      console.log('[DEBUG] Final SQL to execute:', dynamicResult.formattedSql.substring(0, 200) + '...');
+      console.log('[DEBUG] SQL includes WITH clause?', dynamicResult.formattedSql.toLowerCase().includes('with'));
       
       // Execute SQL using PGlite with parameters
       const result = await this.executeSqlWithPGlite(dynamicResult.formattedSql, dynamicResult.params);
@@ -104,8 +125,10 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
   
   private getTestValues(): TestValuesModel | string | undefined {
     if (this.context.workspace?.testValues) {
+      console.log('[DEBUG] getTestValues - Found test values:', this.context.workspace.testValues.withClause);
       return this.context.workspace.testValues;
     }
+    console.log('[DEBUG] getTestValues - No test values found');
     return undefined;
   }
   
