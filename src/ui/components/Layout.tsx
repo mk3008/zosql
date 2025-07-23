@@ -230,7 +230,23 @@ export const Layout: React.FC = () => {
         )}
         
         {/* Main Content Area */}
-        <MainContent ref={mainContentRef} workspace={currentWorkspace} />
+        <MainContent 
+          ref={mainContentRef} 
+          workspace={currentWorkspace}
+          onActiveTabChange={(tabId) => {
+            // Sync left sidebar selection with active tab
+            if (tabId && currentWorkspace) {
+              const model = currentWorkspace.sqlModels.find(m => m.name === tabId);
+              if (model) {
+                setSelectedModelName(model.name);
+              } else {
+                setSelectedModelName(undefined);
+              }
+            } else {
+              setSelectedModelName(undefined);
+            }
+          }}
+        />
         
         {/* Right Sidebar */}
         {rightSidebarVisible && (

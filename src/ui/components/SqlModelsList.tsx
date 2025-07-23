@@ -43,9 +43,9 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 key={model.name}
                 onClick={() => onModelClick?.(model)}
                 className={`
-                  p-2 rounded cursor-pointer transition-all
+                  p-2 cursor-pointer transition-all relative
                   ${selectedModelName === model.name 
-                    ? 'bg-primary-600 text-white' 
+                    ? 'bg-dark-hover text-dark-text-white border-l-2 border-primary-600' 
                     : 'hover:bg-dark-hover text-dark-text-primary'
                   }
                 `}
@@ -58,7 +58,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                   {model.dependents.length > 0 && (
                     <span className={`text-xs ${
                       selectedModelName === model.name 
-                        ? 'text-white opacity-80' 
+                        ? 'text-primary-400' 
                         : 'text-dark-text-secondary'
                     }`}>
                       {model.dependents.length} deps
@@ -68,7 +68,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 {model.dependents.length > 0 && (
                   <div className={`text-xs mt-1 ${
                     selectedModelName === model.name 
-                      ? 'text-white opacity-90' 
+                      ? 'text-dark-text-primary opacity-90' 
                       : 'text-dark-text-primary opacity-75'
                   }`}>
                     Uses: {model.getDependentNames().join(', ')}
@@ -92,9 +92,9 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 key={model.name}
                 onClick={() => onModelClick?.(model)}
                 className={`
-                  p-2 rounded cursor-pointer transition-all
+                  p-2 cursor-pointer transition-all relative
                   ${selectedModelName === model.name 
-                    ? 'bg-primary-600 text-white' 
+                    ? 'bg-dark-hover text-dark-text-white border-l-2 border-primary-600' 
                     : 'hover:bg-dark-hover text-dark-text-primary'
                   }
                 `}
@@ -108,7 +108,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                     {model.columns && model.columns.length > 0 && (
                       <span className={`text-xs ${
                         selectedModelName === model.name 
-                          ? 'text-white opacity-80' 
+                          ? 'text-primary-400' 
                           : 'text-dark-text-secondary'
                       }`}>
                         {model.columns.length} cols
@@ -117,7 +117,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                     {model.dependents.length > 0 && (
                       <span className={`text-xs ${
                         selectedModelName === model.name 
-                          ? 'text-white opacity-80' 
+                          ? 'text-primary-400' 
                           : 'text-dark-text-secondary'
                       }`}>
                         {model.dependents.length} deps
@@ -130,7 +130,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 {model.columns && model.columns.length > 0 && (
                   <div className={`text-xs mt-1 ${
                     selectedModelName === model.name 
-                      ? 'text-white opacity-80' 
+                      ? 'text-dark-text-primary opacity-90' 
                       : 'text-dark-text-primary opacity-75'
                   }`}>
                     Columns: {model.columns.join(', ')}
@@ -141,7 +141,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 {model.dependents.length > 0 && (
                   <div className={`text-xs mt-1 ${
                     selectedModelName === model.name 
-                      ? 'text-white opacity-90' 
+                      ? 'text-dark-text-primary opacity-90' 
                       : 'text-dark-text-primary opacity-75'
                   }`}>
                     Used by: {model.getDependentNames().join(', ')}

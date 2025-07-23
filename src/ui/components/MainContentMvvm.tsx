@@ -24,14 +24,17 @@ export interface MainContentRef {
 export interface MainContentProps {
   workspace: WorkspaceEntity | null;
   onWorkspaceChange?: (workspace: WorkspaceEntity) => void;
+  onActiveTabChange?: (tabId: string | null) => void;
 }
 
 // Global ViewModel instance to prevent duplication in React StrictMode
 let globalViewModel: MainContentViewModel | null = null;
 
-const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange }, ref) => {
+const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange }, ref) => {
   // MVVM: Create and bind ViewModel (singleton pattern)
   const viewModelRef = useRef<MainContentViewModel | null>(null);
+  const tabContainerRef = useRef<HTMLDivElement>(null);
+  
   if (!viewModelRef.current) {
     if (!globalViewModel) {
       console.log('[DEBUG] Creating new MainContentViewModel instance');
@@ -95,6 +98,32 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       });
     }
   }, [workspace]); // Depend on workspace to prevent default when workspace exists
+
+  // Notify parent of active tab changes and scroll to active tab
+  useEffect(() => {
+    onActiveTabChange?.(vm.activeTabId);
+    
+    // Auto-scroll to active tab
+    if (vm.activeTabId && tabContainerRef.current) {
+      const tabContainer = tabContainerRef.current;
+      const activeTab = tabContainer.querySelector(`[data-tab-id="${vm.activeTabId}"]`) as HTMLElement;
+      
+      if (activeTab) {
+        const containerRect = tabContainer.getBoundingClientRect();
+        const tabRect = activeTab.getBoundingClientRect();
+        
+        // Check if tab is outside visible area
+        if (tabRect.left < containerRect.left || tabRect.right > containerRect.right) {
+          // Scroll to center the active tab
+          const scrollLeft = activeTab.offsetLeft - (tabContainer.clientWidth / 2) + (activeTab.clientWidth / 2);
+          tabContainer.scrollTo({
+            left: Math.max(0, scrollLeft),
+            behavior: 'smooth'
+          });
+        }
+      }
+    }
+  }, [vm.activeTabId, onActiveTabChange]);
 
   // Cleanup ViewModel on unmount
   useEffect(() => {
@@ -170,17 +199,31 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     }
   };
 
+  // Handle horizontal wheel scroll for tabs
+  const handleTabWheel = (event: React.WheelEvent) => {
+    const container = event.currentTarget;
+    if (event.deltaY !== 0) {
+      event.preventDefault();
+      container.scrollLeft += event.deltaY;
+    }
+  };
+
   // Pure View - No business logic, only bindings
   return (
     <main className="flex-1 flex flex-col overflow-hidden">
       {/* Tab Bar - Fixed at top */}
-      <div className="bg-dark-secondary border-b border-dark-border-primary flex items-center overflow-x-auto relative tab-container flex-shrink-0">
-        <div className="flex">
+      <div 
+        ref={tabContainerRef}
+        className="bg-dark-secondary border-b border-dark-border-primary flex items-center overflow-x-auto relative tab-container flex-shrink-0"
+        onWheel={handleTabWheel}
+      >
+        <div className="flex min-w-max">
           {vm.tabs.map(tab => (
             <div
               key={tab.id}
+              data-tab-id={tab.id}
               className={`
-                flex items-center gap-2 px-4 py-2 cursor-pointer relative
+                flex items-center gap-2 px-4 py-2 cursor-pointer relative flex-shrink-0
                 ${vm.activeTabId === tab.id 
                   ? 'bg-dark-primary text-dark-text-white border-r border-dark-border-primary z-10' 
                   : 'bg-dark-secondary text-dark-text-primary hover:bg-dark-hover border-r border-dark-border-primary'
@@ -188,6 +231,10 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
               `}
               onClick={() => vm.activeTabId = tab.id}
             >
+              {/* Active tab bottom accent */}
+              {vm.activeTabId === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600"></div>
+              )}
               <span className="text-sm">{tab.title}</span>
               {tab.isDirty && <span className="text-xs text-primary-400">●</span>}
               {vm.tabs.length > 1 && (

@@ -113,43 +113,22 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         <div className="space-y-2">
           <button 
             onClick={onDecomposeQuery}
-            className="w-full px-3 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!onDecomposeQuery || isDecomposing}
-            title={onDecomposeQuery ? "Decompose current query into CTEs" : "No query to decompose"}
+            className="w-full px-3 py-2 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={true}
+            title="Decompose current query into CTEs (temporarily disabled)"
           >
             <span>📄</span>
-            {isDecomposing ? 'Decomposing...' : 'Decompose Query'}
+            Decompose
           </button>
           
           <button 
             onClick={handleValidateWorkspace}
             className="w-full px-3 py-2 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!workspace || isValidating}
-            title={workspace ? "Validate all CTEs for syntax and dependencies" : "No workspace loaded"}
+            disabled={true}
+            title="Validate schema and dependencies (temporarily disabled)"
           >
             <span>🔧</span>
-            {isValidating ? 'Validating...' : 'Validate CTEs'}
-          </button>
-          
-          <button 
-            className="w-full px-3 py-2 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!workspace}
-            title={workspace ? "View CTE dependency graph" : "No workspace loaded"}
-          >
-            <span>📊</span>
-            View Dependencies
-          </button>
-          
-          <button 
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-            className="w-full px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
-            title="Clear all cached data and reload page"
-          >
-            <span>🗑️</span>
-            Clear Cache
+            Validate Schema
           </button>
         </div>
       </div>
