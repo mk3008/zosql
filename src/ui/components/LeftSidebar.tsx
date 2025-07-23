@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useWorkspace } from '../context/WorkspaceContext';
-import { ValuesSection } from './ValuesSection';
 import { SqlModelsList } from './SqlModelsList';
 import { SqlModelEntity, WorkspaceEntity } from '@shared/types';
 
@@ -100,6 +99,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           models={sqlModels}
           onModelClick={onModelClick}
           selectedModelName={selectedModelName}
+          onOpenValuesTab={onOpenValuesTab}
         />
       </div>
 
@@ -133,8 +133,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         </div>
       </div>
 
-      {/* Values Section */}
-      <ValuesSection onOpenTab={onOpenValuesTab} />
 
       {/* System Status */}
       <div>

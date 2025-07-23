@@ -10,12 +10,14 @@ interface SqlModelsListProps {
   models: SqlModelEntity[];
   onModelClick?: (model: SqlModelEntity) => void;
   selectedModelName?: string;
+  onOpenValuesTab?: () => void;
 }
 
 export const SqlModelsList: React.FC<SqlModelsListProps> = ({ 
   models, 
   onModelClick,
-  selectedModelName 
+  selectedModelName,
+  onOpenValuesTab
 }) => {
   if (!models || models.length === 0) {
     return (
@@ -53,7 +55,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs">📄</span>
-                    <span className="text-sm font-medium">{model.name}</span>
+                    <span className="text-sm font-medium">*root</span>
                   </div>
                   {model.dependents.length > 0 && (
                     <span className={`text-xs ${
@@ -76,6 +78,19 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
                 )}
               </div>
             ))}
+          </div>
+          
+          {/* Values Test Data - under Main Query */}
+          <div className="mt-2">
+            <div
+              onClick={() => onOpenValuesTab?.()}
+              className="p-2 cursor-pointer transition-all relative hover:bg-dark-hover text-dark-text-primary"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs">📊</span>
+                <span className="text-sm font-medium">*data</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

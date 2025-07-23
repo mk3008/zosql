@@ -44,50 +44,36 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   }
   const vm = useMvvmBinding(viewModelRef.current);
 
-  // Sync WorkspaceEntity state to ViewModel
-  const syncWorkspaceToViewModel = () => {
-    console.log('[DEBUG] syncWorkspaceToViewModel called, workspace:', !!workspace);
-    if (!workspace) return;
-    
-    console.log('[DEBUG] Workspace openedObjects:', workspace.openedObjects.length, workspace.openedObjects);
-    
-    // Convert WorkspaceEntity.openedObjects to ViewModel.tabs
-    const tabs = workspace.openedObjects.map(obj => ({
-      id: obj.id,
-      title: obj.title,
-      type: obj.type,
-      content: obj.content,
-      isDirty: obj.isDirty
-    }));
-    
-    console.log('[DEBUG] Converting to tabs:', tabs.length, tabs);
-    
-    vm.tabs = tabs;
-    vm.activeTabId = workspace.activeObjectId;
-    
-    console.log('[DEBUG] Set VM tabs:', vm.tabs.length, 'activeTabId:', vm.activeTabId);
-    
-    // Sync model mappings
-    workspace.openedObjects.forEach(obj => {
-      if (obj.modelEntity) {
-        vm.setTabModel(obj.id, obj.modelEntity);
-      }
-    });
+  // Keep workspace reference updated but don't sync tab state
+  const updateWorkspaceReference = () => {
+    if (workspace) {
+      vm.workspace = workspace;
+    }
   };
 
-  // Sync props to ViewModel and workspace state
+  // Update workspace reference only
   useEffect(() => {
-    vm.workspace = workspace;
-    // Sync workspace opened objects to ViewModel tabs
-    if (workspace) {
-      syncWorkspaceToViewModel();
-    }
+    updateWorkspaceReference();
   }, [workspace, vm]);
 
-  // Initialize default tabs only once and only if no workspace is provided
+  // Initialize default tabs only once when no workspace and no tabs
   useEffect(() => {
     console.log('[DEBUG] MainContentMvvm useEffect: tabs.length=', vm.tabs.length, 'workspace=', !!workspace);
-    if (vm.tabs.length === 0 && !workspace) {
+    if (vm.tabs.length === 0 && workspace) {
+      // When workspace is loaded, open the main model
+      const mainModel = workspace.sqlModels.find(m => m.type === 'main');
+      if (mainModel) {
+        console.log('[DEBUG] Opening main model from workspace:', mainModel.name);
+        vm.addTab({
+          id: mainModel.name,
+          title: mainModel.name,
+          type: 'main',
+          content: mainModel.sqlWithoutCte,
+          isDirty: false
+        });
+        vm.setTabModel(mainModel.name, mainModel);
+      }
+    } else if (vm.tabs.length === 0 && !workspace) {
       console.log('[DEBUG] Adding default main tab');
       vm.addTab({
         id: 'main.sql',
@@ -97,7 +83,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
         isDirty: false
       });
     }
-  }, [workspace]); // Depend on workspace to prevent default when workspace exists
+  }, [workspace]); // Depend on workspace to initialize when workspace loads
 
   // Notify parent of active tab changes and scroll to active tab
   useEffect(() => {
@@ -138,44 +124,85 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   useImperativeHandle(ref, () => ({
     openValuesTab: () => {
       if (workspace) {
-        workspace.openValuesTab();
-        // Sync workspace state to ViewModel
-        syncWorkspaceToViewModel();
+        // Check if tab already exists
+        const existingTab = vm.tabs.find(tab => tab.type === 'values');
+        if (existingTab) {
+          vm.activeTabId = existingTab.id;
+          return;
+        }
+        
+        // Add values tab directly to ViewModel
+        vm.addTab({
+          id: 'values',
+          title: 'values',
+          type: 'values',
+          content: workspace.testValues.withClause,
+          isDirty: false
+        });
       }
     },
     openFormatterTab: () => {
       if (workspace) {
-        workspace.openFormatterTab();
-        // Sync workspace state to ViewModel
-        syncWorkspaceToViewModel();
+        // Check if tab already exists
+        const existingTab = vm.tabs.find(tab => tab.type === 'formatter');
+        if (existingTab) {
+          vm.activeTabId = existingTab.id;
+          return;
+        }
+        
+        // Add formatter tab directly to ViewModel
+        vm.addTab({
+          id: 'formatter',
+          title: 'formatter',
+          type: 'formatter',
+          content: JSON.stringify(workspace.formatter.toJSON(), null, 2),
+          isDirty: false
+        });
       }
     },
     openConditionTab: () => {
       if (workspace) {
-        workspace.openConditionTab();
-        // Sync workspace state to ViewModel
-        syncWorkspaceToViewModel();
+        // Check if tab already exists
+        const existingTab = vm.tabs.find(tab => tab.type === 'condition');
+        if (existingTab) {
+          vm.activeTabId = existingTab.id;
+          return;
+        }
+        
+        // Add condition tab directly to ViewModel
+        vm.addTab({
+          id: 'condition',
+          title: 'condition',
+          type: 'condition',
+          content: JSON.stringify(workspace.filterConditions.toJSON(), null, 2),
+          isDirty: false
+        });
       }
     },
     getCurrentSql: () => vm.activeTab?.content || '',
     openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => {
-      if (workspace && modelEntity) {
-        workspace.openSqlModelTab(modelEntity);
-        // Sync workspace state to ViewModel
-        syncWorkspaceToViewModel();
-      } else {
-        // Fallback for direct calls without modelEntity
-        vm.addTab({
-          id: name,
-          title: name,
-          type,
-          content: sql,
-          isDirty: false
-        });
-        if (modelEntity) {
-          vm.setTabModel(name, modelEntity);
-        }
+      // Check if tab already exists
+      const existingTab = vm.tabs.find(tab => tab.id === name);
+      if (existingTab) {
+        // Just activate the existing tab
+        vm.activeTabId = existingTab.id;
+        return;
       }
+
+      // Add new tab directly to ViewModel without syncing entire workspace
+      vm.addTab({
+        id: name,
+        title: name,
+        type,
+        content: sql,
+        isDirty: false
+      });
+      
+      if (modelEntity) {
+        vm.setTabModel(name, modelEntity);
+      }
+      
+      // No workspace sync needed - ViewModel manages tabs independently
     },
     setCurrentModelEntity: (model: SqlModelEntity) => {
       if (vm.activeTab) {
@@ -183,11 +210,9 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       }
     },
     clearAllTabs: () => {
-      if (workspace) {
-        workspace.clearAllObjects();
-        // Sync workspace state to ViewModel
-        syncWorkspaceToViewModel();
-      }
+      // Clear tabs directly from ViewModel
+      vm.tabs = [];
+      vm.activeTabId = '';
     }
   }), [vm, workspace]);
 
@@ -205,6 +230,36 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     if (event.deltaY !== 0) {
       event.preventDefault();
       container.scrollLeft += event.deltaY;
+    }
+  };
+
+  // Get emoji icon for tab type
+  const getTabIcon = (tabType: string): string => {
+    switch (tabType) {
+      case 'main':
+        return '📄'; // Main SQL file
+      case 'cte':
+        return '🔗'; // CTE (linked/chained)
+      case 'values':
+        return '📊'; // Test values/data
+      case 'formatter':
+        return '🔧'; // Formatter settings
+      case 'condition':
+        return '⚙️'; // Filter conditions
+      default:
+        return '📝'; // Default document
+    }
+  };
+
+  // Get display title for tab
+  const getTabTitle = (tab: { title: string; type: string }): string => {
+    switch (tab.type) {
+      case 'main':
+        return '*root';
+      case 'values':
+        return '*data';
+      default:
+        return tab.title;
     }
   };
 
@@ -235,7 +290,10 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
               {vm.activeTabId === tab.id && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600"></div>
               )}
-              <span className="text-sm">{tab.title}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs">{getTabIcon(tab.type)}</span>
+                <span className="text-sm">{getTabTitle(tab)}</span>
+              </div>
               {tab.isDirty && <span className="text-xs text-primary-400">●</span>}
               {vm.tabs.length > 1 && (
                 <button
