@@ -111,6 +111,7 @@ export class MainContentViewModel extends BaseViewModel {
            this.activeTab.content.trim().length > 0;
   }
 
+
   // Commands
 
   async executeQuery(): Promise<void> {
@@ -173,6 +174,7 @@ export class MainContentViewModel extends BaseViewModel {
       console.error('Failed to format SQL:', error);
     }
   }
+
 
   toggleResultsVisibility(): void {
     this.resultsVisible = !this.resultsVisible;

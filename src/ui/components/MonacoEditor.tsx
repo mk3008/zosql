@@ -40,6 +40,8 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     }
     
     console.log('[DEBUG] Monaco Editor mounted with language:', language);
+    console.log('[DEBUG] Monaco Editor readOnly prop:', readOnly);
+    console.log('[DEBUG] Monaco Editor options:', options);
     
     // Define custom dark theme to match our VS Code Dark style
     monaco.editor.defineTheme('zosql-dark', {

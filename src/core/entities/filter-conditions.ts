@@ -87,48 +87,18 @@ export class FilterConditionsEntity {
         // Generate appropriate conditions based on likely column type
         if (columnName.includes('id') || columnName.includes('Id')) {
           console.log('[DEBUG] ID column detected:', columnName);
-          // Numeric ID columns
-          const idConditions = {
-            '=': null,
-            '>': null,
-            '<': null,
-            '>=': null,
-            '<=': null,
-            '!=': null,
-            in: null,
-            min: null,
-            max: null
-          };
-          template[columnName] = idConditions;
-          console.log('[DEBUG] Set ID conditions for', columnName, ':', Object.keys(idConditions));
+          // Numeric ID columns - use empty string instead of undefined
+          template[columnName] = {};
+          console.log('[DEBUG] Set ID conditions for', columnName);
         } else if (columnName.includes('name') || columnName.includes('title') || columnName.includes('description')) {
-          // Text columns
-          template[columnName] = {
-            '=': null,
-            like: null,
-            ilike: null,
-            '!=': null
-          };
+          // Text columns - use empty object
+          template[columnName] = {};
         } else if (columnName.includes('date') || columnName.includes('time') || columnName.includes('created') || columnName.includes('updated')) {
-          // Date/time columns
-          template[columnName] = {
-            '>=': null,
-            '<=': null,
-            '=': null,
-            '!=': null,
-            min: null,
-            max: null
-          };
+          // Date/time columns - use empty object
+          template[columnName] = {};
         } else {
-          // Default mixed conditions
-          template[columnName] = {
-            '=': null,
-            '!=': null,
-            like: null,
-            '>': null,
-            '<': null,
-            in: null
-          };
+          // Default mixed conditions - use empty object
+          template[columnName] = {};
         }
       }
 
@@ -144,32 +114,10 @@ export class FilterConditionsEntity {
    */
   private static getDefaultTemplate(): string {
     const defaultTemplate: FilterConditions = {
-      id: {
-        '=': null,
-        '>': null,
-        '<': null,
-        '>=': null,
-        '<=': null,
-        '!=': null,
-        in: null,
-        min: null,
-        max: null
-      },
-      name: {
-        '=': null,
-        like: null,
-        ilike: null
-      },
-      created_at: {
-        '>=': null,
-        '<=': null,
-        min: null,
-        max: null
-      },
-      status: {
-        '=': null,
-        in: null
-      }
+      id: {},
+      name: {},
+      created_at: {},
+      status: {}
     };
 
     return JSON.stringify(defaultTemplate, null, 2);

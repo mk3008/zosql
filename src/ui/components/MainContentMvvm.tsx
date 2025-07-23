@@ -251,7 +251,10 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
                   <MonacoEditor
                     key={vm.activeTab.id}
                     value={vm.activeTab.content}
-                    onChange={(value) => vm.updateTabContent(vm.activeTab!.id, value)}
+                    onChange={(value) => {
+                      console.log('[DEBUG] Monaco onChange for tab:', vm.activeTab!.id, 'type:', vm.activeTab!.type);
+                      vm.updateTabContent(vm.activeTab!.id, value);
+                    }}
                     language={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
                     height="100%"
                     isMainEditor={true}
@@ -265,7 +268,8 @@ export const MainContentMvvm = forwardRef<MainContentRef, MainContentProps>(({ w
                       wordWrap: 'off',
                       formatOnType: true,
                       formatOnPaste: true,
-                      minimap: { enabled: false }
+                      minimap: { enabled: false },
+                      readOnly: false  // 明示的に編集可能に設定
                     } : {
                       wordWrap: 'off',
                       minimap: { enabled: false },

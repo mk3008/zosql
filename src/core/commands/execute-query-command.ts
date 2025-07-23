@@ -5,7 +5,7 @@
 
 import { BaseCommand, CommandResult } from './base';
 import { WorkspaceEntity } from '@core/entities/workspace';
-import { SqlModelEntity } from '@core/entities/sql-model';
+import { SqlModelEntity, DynamicSqlResult } from '@core/entities/sql-model';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { QueryExecutionResult } from '@shared/types';
 
@@ -32,33 +32,45 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
   
   async execute(): Promise<QueryExecutionResult> {
     const startTime = performance.now();
+    let dynamicResult: DynamicSqlResult | null = null;
     
     try {
-      // Get the SQL to execute
-      let sqlToExecute = this.context.tabContent;
-      
-      // If we have a model, use it for CTE composition
+      // If we have a model, use dynamic SQL generation
       if (this.context.sqlModel) {
         // Update model's SQL with current tab content
         this.context.sqlModel.sqlWithoutCte = this.context.tabContent;
         
-        // Get test values from workspace
+        // Get test values and filter conditions from workspace
         const testValues = this.getTestValues();
+        const filterConditions = this.context.workspace?.filterConditions;
         
-        // Use getFullSql() for CTE composition
-        sqlToExecute = this.context.sqlModel.getFullSql(testValues);
+        // Generate dynamic SQL with parameterization for execution
+        dynamicResult = await this.context.sqlModel.getDynamicSql(testValues, filterConditions, true);
+        
       } else if (this.context.tabType === 'main' && this.context.workspace) {
         // Fallback: find main model in workspace
         const mainModel = this.context.workspace.sqlModels.find(m => m.type === 'main');
         if (mainModel) {
           mainModel.sqlWithoutCte = this.context.tabContent;
           const testValues = this.context.workspace.testValues;
-          sqlToExecute = mainModel.getFullSql(testValues);
+          const filterConditions = this.context.workspace.filterConditions;
+          
+          // Generate dynamic SQL with parameterization for execution
+          dynamicResult = await mainModel.getDynamicSql(testValues, filterConditions, true);
         }
       }
       
-      // Execute SQL using PGlite
-      const result = await this.executeSqlWithPGlite(sqlToExecute);
+      // If we don't have dynamic result, fall back to plain SQL
+      if (!dynamicResult) {
+        dynamicResult = {
+          query: null as any,
+          formattedSql: this.context.tabContent,
+          params: []
+        };
+      }
+      
+      // Execute SQL using PGlite with parameters
+      const result = await this.executeSqlWithPGlite(dynamicResult.formattedSql, dynamicResult.params);
       const executionTime = Math.round(performance.now() - startTime);
       
       const executionResult: QueryExecutionResult = {
@@ -66,7 +78,7 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
         data: result.rows,
         executionTime,
         rowCount: result.rows?.length || 0,
-        executedSql: sqlToExecute
+        executedSql: dynamicResult.formattedSql
       };
       
       // Save result to model if available
@@ -79,12 +91,13 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
     } catch (error) {
       const executionTime = Math.round(performance.now() - startTime);
       const errorMessage = error instanceof Error ? error.message : 'SQL execution failed';
+      const executedSql = dynamicResult?.formattedSql || this.context.tabContent;
       
       return {
         success: false,
-        error: `${errorMessage}\n\nExecuted SQL:\n${sqlToExecute}`,
+        error: `${errorMessage}\n\nExecuted SQL:\n${executedSql}`,
         executionTime,
-        executedSql: sqlToExecute
+        executedSql
       };
     }
   }
@@ -96,14 +109,20 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
     return undefined;
   }
   
-  private async executeSqlWithPGlite(sql: string): Promise<any> {
+  private async executeSqlWithPGlite(sql: string, params: any[] = []): Promise<any> {
     // Dynamically import PGlite
     const { PGlite } = await import('@electric-sql/pglite');
     
     // Initialize PGlite in memory-only mode
     const db = new PGlite();
     
-    // Execute the SQL
-    return await db.query(sql);
+    // Execute the SQL with parameters
+    if (params.length > 0) {
+      console.log('[DEBUG] Executing SQL with parameters:', { sql, params });
+      return await db.query(sql, params);
+    } else {
+      console.log('[DEBUG] Executing SQL without parameters:', sql);
+      return await db.query(sql);
+    }
   }
 }

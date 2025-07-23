@@ -3,10 +3,23 @@
  * Hexagonal Architecture - Core Layer
  */
 
-import { SqlFormatter } from 'rawsql-ts';
+import { SqlFormatter, SelectQuery, DynamicQueryBuilder, FilterConditions } from 'rawsql-ts';
 import { TestValuesModel } from './test-values-model';
+import { FilterConditionsEntity } from './filter-conditions';
 import { QueryExecutionResult } from '@shared/types';
 import { CteComposer } from '@/utils/cte-composer';
+
+/**
+ * Result of dynamic SQL generation with parameterization
+ */
+export interface DynamicSqlResult {
+  /** Raw query object for further manipulation */
+  query: SelectQuery;
+  /** Formatted SQL string with parameters replaced by placeholders */
+  formattedSql: string;
+  /** Parameter values to be passed to SQL executor */
+  params: any[];
+}
 
 export interface SqlModel {
   /** Type of SQL model - main query or CTE */
@@ -76,56 +89,102 @@ export class SqlModelEntity implements SqlModel {
   /**
    * Generate full SQL with WITH clause by recursively collecting dependencies
    * @param testValues - Optional test data model or string to add for testing
-   * @param formatter - SQL formatter instance (uses workspace formatter if not provided)
-   * @returns Complete SQL with WITH clause including test data if provided
+   * @param filterConditions - Optional filter conditions to apply dynamically
+   * @param forExecution - If true, generates indexed parameters for PostgreSQL execution
+   * @returns Complete SQL with WITH clause including test data and filters if provided
    */
-  getFullSql(testValues?: TestValuesModel | string, formatter?: SqlFormatter): string {
-    // Use provided formatter or fall back to the instance formatter
-    const activeFormatter = formatter || this._formatter;
-    
-    // For main type with original SQL and no test values, return as-is
-    if (this.type === 'main' && this.originalSql && !testValues) {
-      return this.originalSql;
-    }
+  async getFullSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false): Promise<string> {
+    const result = await this.getDynamicSql(testValues, filterConditions, forExecution);
+    return result.formattedSql;
+  }
 
-    // Collect all CTEs to compose
-    const cteDefinitions: string[] = [];
-    
-    // Add test values first if provided
-    if (testValues) {
-      if (testValues instanceof TestValuesModel) {
-        // Use TestValuesModel to get formatted string
-        const testValueString = activeFormatter ? testValues.getString(activeFormatter) : testValues.toString();
-        if (testValueString.trim()) {
-          cteDefinitions.push(testValueString.trim());
-        }
-      } else if (typeof testValues === 'string' && testValues.trim()) {
-        // Handle string testValues for backward compatibility
-        cteDefinitions.push(testValues.trim());
+  /**
+   * Generate dynamic SQL with parameterization for execution
+   * @param testValues - Optional test data model or string to add for testing
+   * @param filterConditions - Optional filter conditions to apply dynamically
+   * @param forExecution - If true, generates indexed parameters for PostgreSQL execution
+   * @returns Dynamic SQL result with query, formatted SQL, and parameters
+   */
+  async getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false): Promise<DynamicSqlResult> {
+    try {
+      // Step 1: Base SQL determination
+      let baseSql = this.sqlWithoutCte;
+      if (this.type === 'main' && this.originalSql && !testValues && !filterConditions) {
+        baseSql = this.originalSql;
       }
-    }
-    
-    // Add dependency CTEs
-    const allDependencies = this.collectAllDependencies();
-    for (const dep of allDependencies) {
-      const columns = dep.columns?.length ? `(${dep.columns.join(', ')})` : '';
-      const cteDef = `${dep.name}${columns} AS (\n${dep.sqlWithoutCte}\n)`;
-      cteDefinitions.push(cteDef);
-    }
-    
-    if (cteDefinitions.length === 0) {
-      // No dependencies or test values, return query as-is
-      return this.sqlWithoutCte;
-    }
 
-    // Use CteComposer for safe, rawsql-ts based composition
-    const composer = new CteComposer();
-    
-    // Join all CTE definitions (CteComposer will handle WITH keyword)
-    const allCtes = cteDefinitions.join(',\n');
-    
-    // Compose using rawsql-ts AST manipulation
-    return composer.compose(this.sqlWithoutCte, allCtes);
+      // Step 2: CTE Composition (if needed)
+      if (testValues || this.dependents.length > 0) {
+        const cteDefinitions: string[] = [];
+        
+        // Add test values first if provided
+        if (testValues) {
+          if (testValues instanceof TestValuesModel) {
+            const testValueString = testValues.toString();
+            if (testValueString.trim()) {
+              cteDefinitions.push(testValueString.trim());
+            }
+          } else if (typeof testValues === 'string' && testValues.trim()) {
+            cteDefinitions.push(testValues.trim());
+          }
+        }
+        
+        // Add dependency CTEs
+        const allDependencies = this.collectAllDependencies();
+        for (const dep of allDependencies) {
+          const columns = dep.columns?.length ? `(${dep.columns.join(', ')})` : '';
+          const cteDef = `${dep.name}${columns} AS (\n${dep.sqlWithoutCte}\n)`;
+          cteDefinitions.push(cteDef);
+        }
+        
+        if (cteDefinitions.length > 0) {
+          // Use CteComposer for safe composition
+          const composer = new CteComposer();
+          const allCtes = cteDefinitions.join(',\n');
+          baseSql = composer.compose(baseSql, allCtes);
+        }
+      }
+
+      // Step 3: Parse base SQL
+      const { SelectQueryParser } = await import('rawsql-ts');
+      let query = SelectQueryParser.parse(baseSql);
+
+      // Step 4: Apply filter conditions if provided
+      if (filterConditions) {
+        const conditions = filterConditions.getFilterConditions();
+        if (conditions && Object.keys(conditions).length > 0) {
+          const builder = new DynamicQueryBuilder();
+          query = builder.buildFilteredQuery(baseSql, conditions);
+        }
+      }
+
+      // Step 5: Format with appropriate parameter style
+      const formatter = new SqlFormatter({
+        preset: 'postgres',
+        parameterStyle: forExecution ? 'indexed' : 'named',
+        keywordCase: 'lower',
+        identifierEscape: { start: '"', end: '"' }
+      });
+
+      const { formattedSql, params } = formatter.format(query);
+
+      return {
+        query,
+        formattedSql,
+        params: Array.isArray(params) ? params : Object.values(params || {})
+      };
+
+    } catch (error) {
+      console.warn('Error in getDynamicSql, falling back to simple string:', error);
+      
+      // Fallback: return original SQL as-is
+      const fallbackSql = this.sqlWithoutCte || this.originalSql || '';
+      return {
+        query: null as any, // Type assertion for fallback
+        formattedSql: fallbackSql,
+        params: []
+      };
+    }
   }
 
 

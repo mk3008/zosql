@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { WorkspaceEntity } from '@shared/types';
+import { MonacoEditor } from './MonacoEditor';
 
 type RightSidebarTab = 'context' | 'condition' | 'formatter' | 'help';
 
@@ -93,14 +94,31 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFor
             </div>
             
             <div className="flex-1 min-h-0">
-              <textarea
+              <MonacoEditor
                 value={filterConditionsJson}
-                onChange={(e) => handleFilterConditionsChange(e.target.value)}
-                className="w-full h-full p-3 bg-dark-primary border border-dark-border-primary rounded text-dark-text-primary font-mono text-xs resize-none focus:outline-none focus:border-primary-600"
-                placeholder="Filter conditions will be generated from SQL..."
-                style={{ 
-                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                  lineHeight: '1.4'
+                onChange={handleFilterConditionsChange}
+                language="json"
+                height="100%"
+                readOnly={false}
+                onKeyDown={(event) => {
+                  if (event.ctrlKey && event.key === 'Enter') {
+                    event.preventDefault();
+                    // Find and click the Run button in MainContent
+                    const runButton = document.querySelector('button[title="Run Query (Ctrl+Enter)"]') as HTMLButtonElement;
+                    if (runButton && !runButton.disabled) {
+                      console.log('[DEBUG] Executing query from Condition tab via Ctrl+Enter');
+                      runButton.click();
+                    }
+                  }
+                }}
+                options={{
+                  fontSize: 12,
+                  wordWrap: 'off',
+                  formatOnType: true,
+                  formatOnPaste: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  readOnly: false
                 }}
               />
             </div>
