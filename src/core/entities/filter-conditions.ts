@@ -59,9 +59,22 @@ export class FilterConditionsEntity {
    */
   static generateTemplate(sqlModels: SqlModelEntity[]): string {
     try {
+      console.log('[DEBUG] generateTemplate called with sqlModels:', sqlModels.length);
+      sqlModels.forEach((model, i) => {
+        console.log(`[DEBUG] sqlModel[${i}]:`, {
+          type: model.type,
+          name: model.name,
+          hasOriginalSql: !!model.originalSql,
+          originalSql: model.originalSql?.substring(0, 100) + '...'
+        });
+      });
+      
       // Find main model with original SQL
       const mainModel = sqlModels.find(m => m.type === 'main' && m.originalSql);
+      console.log('[DEBUG] Found mainModel:', !!mainModel, mainModel?.name);
+      
       if (!mainModel || !mainModel.originalSql) {
+        console.log('[DEBUG] No main model with originalSql found, using default template');
         return FilterConditionsEntity.getDefaultTemplate();
       }
 

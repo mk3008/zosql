@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { WorkspaceEntity } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
+import { useToast } from '@ui/hooks/useToast';
+import { Toast } from './Toast';
 
 type RightSidebarTab = 'context' | 'condition' | 'formatter' | 'help';
 
 interface RightSidebarProps {
   workspace?: WorkspaceEntity | null;
   onOpenFormatterTab?: () => void;
-  onOpenConditionTab?: () => void;
 }
 
-export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFormatterTab, onOpenConditionTab }) => {
+export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFormatterTab }) => {
   const [activeTab, setActiveTab] = useState<RightSidebarTab>('context');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
-  // Get FilterConditions and SqlFormatter from workspace
+  // Get FilterConditions and SqlFormatter from workspace (re-evaluated on refreshTrigger change)
   const filterConditionsJson = workspace?.filterConditions.displayString || '{}';
   const sqlFormatterJson = workspace?.formatter.displayString || '{}';
 
@@ -66,25 +69,40 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFor
               <h4 className="text-sm font-medium text-dark-text-white">Filter Conditions</h4>
               <div className="flex gap-2">
                 <button
-                  onClick={onOpenConditionTab}
+                  onClick={() => {
+                    console.log('[DEBUG] ReGenerate button clicked!');
+                    if (!workspace) {
+                      console.log('[DEBUG] No workspace available');
+                      showError('No workspace available');
+                      return;
+                    }
+                    
+                    try {
+                      console.log('[DEBUG] ReGenerate clicked, sqlModels:', workspace.sqlModels.length);
+                      const originalConditions = workspace.filterConditions.displayString;
+                      console.log('[DEBUG] Original conditions:', originalConditions);
+                      
+                      workspace.filterConditions.initializeFromModels(workspace.sqlModels);
+                      const newConditions = workspace.filterConditions.displayString;
+                      console.log('[DEBUG] New conditions:', newConditions);
+                      
+                      // Force React re-render to refresh binding
+                      setRefreshTrigger(prev => prev + 1);
+                      
+                      if (originalConditions !== newConditions) {
+                        showSuccess('Filter conditions regenerated successfully');
+                      } else {
+                        showSuccess('Filter conditions regenerated (no changes)');
+                      }
+                    } catch (error) {
+                      console.error('[DEBUG] ReGenerate failed:', error);
+                      showError(`ReGenerate failed: ${error.message}`);
+                    }
+                  }}
                   className="text-xs text-primary-400 hover:text-primary-300"
-                  title="Open in tab for editing"
+                  title="ReGenerate filter conditions from current SQL query"
                 >
-                  Open in Tab
-                </button>
-                <button
-                  onClick={() => workspace?.filterConditions.reset()}
-                  className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
-                  title="Reset to template"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={() => workspace?.filterConditions.initializeFromModels(workspace.sqlModels)}
-                  className="text-xs text-dark-text-secondary hover:text-dark-text-primary"
-                  title="Generate from SQL models"
-                >
-                  Generate
+                  ReGenerate
                 </button>
               </div>
             </div>
@@ -128,43 +146,23 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFor
                 <button
                   onClick={() => {
                     if (workspace) {
-                      const formatted = workspace.filterConditions.getFormattedString();
-                      workspace.filterConditions.displayString = formatted;
+                      console.log('[DEBUG] Format JSON clicked, original:', workspace.filterConditions.displayString);
+                      try {
+                        const parsed = JSON.parse(workspace.filterConditions.displayString);
+                        const formatted = JSON.stringify(parsed, null, 2);
+                        workspace.filterConditions.displayString = formatted;
+                        console.log('[DEBUG] JSON formatted successfully');
+                        // Force React re-render to refresh binding
+                        setRefreshTrigger(prev => prev + 1);
+                      } catch (error) {
+                        console.warn('[DEBUG] JSON format failed:', error);
+                      }
                     }
                   }}
                   className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-xs"
                   title="Format JSON"
                 >
-                  Format
-                </button>
-                
-                <button
-                  onClick={() => {
-                    if (workspace) {
-                      const conditions = workspace.filterConditions.getFilterConditions();
-                      console.log('Parsed FilterConditions:', conditions);
-                    }
-                  }}
-                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-xs"
-                  title="Test parsing to FilterConditions"
-                >
-                  Test Parse
-                </button>
-                
-                <button
-                  onClick={() => {
-                    if (workspace) {
-                      navigator.clipboard.writeText(filterConditionsJson).then(() => {
-                        console.log('FilterConditions JSON copied to clipboard');
-                      }).catch(err => {
-                        console.error('Failed to copy:', err);
-                      });
-                    }
-                  }}
-                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-xs"
-                  title="Copy JSON"
-                >
-                  Copy
+                  Format JSON
                 </button>
               </div>
               
@@ -352,6 +350,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, onOpenFor
       <div className="flex-1 overflow-y-auto">
         {renderTabContent()}
       </div>
+      
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </aside>
   );
 };
