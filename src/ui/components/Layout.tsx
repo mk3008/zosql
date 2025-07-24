@@ -22,6 +22,7 @@ export const Layout: React.FC = () => {
   const [selectedModelName, setSelectedModelName] = useState<string>();
   const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceEntity | null>(null);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(false);
+  const [lastExecutedSql, setLastExecutedSql] = useState<string>('');
   const hasLoadedWorkspace = useRef(false);
   const mainContentRef = useRef<MainContentRef>(null);
   
@@ -255,11 +256,13 @@ export const Layout: React.FC = () => {
               setSelectedModelName(undefined);
             }
           }}
+          onSqlExecuted={(sql) => setLastExecutedSql(sql)}
         />
         
         {/* Right Sidebar */}
         {rightSidebarVisible && (
           <RightSidebar 
+            lastExecutedSql={lastExecutedSql}
             workspace={currentWorkspace} 
             onOpenFormatterTab={() => mainContentRef.current?.openFormatterTab()}
             onOpenConditionTab={() => mainContentRef.current?.openConditionTab()}

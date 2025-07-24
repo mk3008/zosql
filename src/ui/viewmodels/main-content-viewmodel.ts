@@ -22,6 +22,9 @@ export class MainContentViewModel extends BaseViewModel {
   private _workspace: WorkspaceEntity | null = null;
   private _tabModelMap: Map<string, SqlModelEntity> = new Map();
   private _useSchemaCollector: boolean = true;
+  
+  // Callbacks
+  private _onSqlExecuted?: (sql: string) => void;
 
   // Bindable Properties
 
@@ -129,6 +132,11 @@ export class MainContentViewModel extends BaseViewModel {
     }
   }
 
+  // Callback setters
+  setOnSqlExecuted(callback: (sql: string) => void): void {
+    this._onSqlExecuted = callback;
+  }
+
 
   // Commands
 
@@ -153,9 +161,15 @@ export class MainContentViewModel extends BaseViewModel {
         hasWorkspace: !!context.workspace,
         hasSqlModel: !!context.sqlModel,
         sqlModelName: context.sqlModel?.name,
+        sqlModelType: context.sqlModel?.type,
         tabType: context.tabType,
         tabId: this.activeTab.id,
-        tabContent: context.tabContent.substring(0, 100) + '...'
+        tabContent: context.tabContent.substring(0, 100) + '...',
+        workspaceTestValues: context.workspace?.testValues?.withClause?.substring(0, 100) + '...',
+        workspaceSqlModelsCount: context.workspace?.sqlModels?.length,
+        sqlModelDependentsCount: context.sqlModel?.dependents?.length,
+        sqlModelDependentNames: context.sqlModel?.dependents?.map(d => d.name),
+        allWorkspaceSqlModels: context.workspace?.sqlModels?.map(m => ({ name: m.name, type: m.type, dependentsCount: m.dependents?.length }))
       });
 
       // Execute command
@@ -163,6 +177,11 @@ export class MainContentViewModel extends BaseViewModel {
       const result = await commandExecutor.execute(command);
 
       this.queryResult = result;
+
+      // Notify parent component about executed SQL
+      if (result.executedSql && this._onSqlExecuted) {
+        this._onSqlExecuted(result.executedSql);
+      }
 
       // Save result to model if available
       const model = this.tabModelMap.get(this.activeTab.id);

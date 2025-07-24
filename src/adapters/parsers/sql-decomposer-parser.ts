@@ -3,7 +3,7 @@
  * Infrastructure Layer - Implements SqlParserPort for SQL decomposition
  */
 
-import { SelectQueryParser, SimpleSelectQuery, SqlFormatter } from 'rawsql-ts';
+import { SelectQueryParser, SimpleSelectQuery, SqlFormatter, WithClauseParser, CTEDependencyAnalyzer } from 'rawsql-ts';
 import { SqlParserPort } from '@core/usecases/sql-decomposer-usecase';
 import { CTEEntity } from '@core/entities/cte';
 
@@ -18,6 +18,10 @@ export class SqlDecomposerParser implements SqlParserPort {
       const ctes: CTEEntity[] = [];
 
       if (simpleQuery.withClause?.tables) {
+        // Use new CTEDependencyAnalyzer from rawsql-ts
+        const analyzer = new CTEDependencyAnalyzer();
+        analyzer.analyzeDependencies(simpleQuery);
+
         for (const cte of simpleQuery.withClause.tables) {
           const cteName = cte.aliasExpression?.table?.name;
           if (!cteName) continue;
@@ -25,8 +29,8 @@ export class SqlDecomposerParser implements SqlParserPort {
           // Extract CTE query
           const cteQuery = this.extractCTEQueryString(cte);
           
-          // Extract dependencies from the CTE query
-          const dependencies = await this.extractDependencies(cteQuery);
+          // Use rawsql-ts analyzer for dependencies instead of our custom implementation
+          const dependencies = analyzer.getDependencies(cteName) || [];
           
           // Extract column names if available
           const columns = cte.aliasExpression?.columns?.map(col => col.name) || [];
@@ -72,29 +76,94 @@ export class SqlDecomposerParser implements SqlParserPort {
 
   /**
    * Extract dependencies (table/CTE references) from SQL query
+   * First tries rawsql-ts CTEDependencyAnalyzer, falls back to custom implementation for UNION queries
    */
   async extractDependencies(sql: string): Promise<string[]> {
     const dependencies = new Set<string>();
+
+    console.log('[DEBUG] SqlDecomposerParser.extractDependencies - START:', {
+      sqlLength: sql.length,
+      sqlPreview: sql.substring(0, 200) + '...',
+      SelectQueryParserExists: typeof SelectQueryParser !== 'undefined',
+      CTEDependencyAnalyzerExists: typeof CTEDependencyAnalyzer !== 'undefined',
+      environment: typeof window !== 'undefined' ? 'browser' : 'node'
+    });
 
     try {
       // Parse the SQL to get structured query
       const query = SelectQueryParser.parse(sql);
       const simpleQuery = query.toSimpleQuery();
-
-      // Extract from FROM clause
-      this.extractFromSource(simpleQuery.fromClause?.source, dependencies);
-
-      // Extract from JOINs
-      if (simpleQuery.fromClause?.joins) {
-        for (const join of simpleQuery.fromClause.joins) {
-          this.extractFromSource(join.source, dependencies);
+      
+      console.log('[DEBUG] SqlDecomposerParser.extractDependencies - parsed:', {
+        queryType: query.constructor.name,
+        simpleQueryType: simpleQuery.constructor.name,
+        hasWithClause: !!simpleQuery.withClause,
+        withClauseTablesCount: simpleQuery.withClause?.tables?.length || 0,
+        hasLeftRightOperator: !!(query.left && query.right && query.operator),
+        leftType: query.left?.constructor?.name,
+        rightType: query.right?.constructor?.name,
+        operator: query.operator?.value || query.operator
+      });
+      
+      // Try rawsql-ts CTEDependencyAnalyzer first
+      try {
+        console.log('[DEBUG] SqlDecomposerParser.extractDependencies - trying CTEDependencyAnalyzer');
+        const analyzer = new CTEDependencyAnalyzer();
+        
+        console.log('[DEBUG] SqlDecomposerParser.extractDependencies - calling analyzeDependencies');
+        analyzer.analyzeDependencies(simpleQuery);
+        
+        console.log('[DEBUG] SqlDecomposerParser.extractDependencies - calling getMainQueryDependencies');
+        const mainQueryDeps = analyzer.getMainQueryDependencies();
+        
+        console.log('[DEBUG] SqlDecomposerParser.extractDependencies - CTEDependencyAnalyzer result:', {
+          mainQueryDeps,
+          mainQueryDepsLength: mainQueryDeps ? mainQueryDeps.length : 0,
+          mainQueryDepsType: Array.isArray(mainQueryDeps) ? 'array' : typeof mainQueryDeps
+        });
+        
+        // If rawsql-ts found dependencies, use them
+        if (mainQueryDeps && mainQueryDeps.length > 0) {
+          console.log('[DEBUG] Using rawsql-ts CTEDependencyAnalyzer result:', mainQueryDeps);
+          return mainQueryDeps;
+        } else {
+          console.log('[DEBUG] CTEDependencyAnalyzer returned empty/null result, using fallback');
         }
+      } catch (analyzerError) {
+        console.log('[DEBUG] rawsql-ts CTEDependencyAnalyzer failed, using custom implementation:', analyzerError);
+        console.log('[DEBUG] CTEDependencyAnalyzer error details:', {
+          type: analyzerError instanceof Error ? analyzerError.constructor.name : typeof analyzerError,
+          message: analyzerError instanceof Error ? analyzerError.message : String(analyzerError),
+          stack: analyzerError instanceof Error ? analyzerError.stack : undefined
+        });
       }
-
-      // Extract from subqueries in SELECT, WHERE, etc.
-      // This is simplified - a complete implementation would traverse the entire AST
+      
+      // Fallback to our custom implementation for UNION queries
+      // Handle different query types - use ORIGINAL query type, not converted simpleQuery
+      console.log('[DEBUG] SqlDecomposerParser.extractDependencies - using fallback implementation');
+      console.log('[DEBUG] Original query type:', query.constructor.name);
+      console.log('[DEBUG] SimpleQuery type:', simpleQuery.constructor.name);
+      
+      // Check if query has binary structure (left/right properties instead of constructor.name)
+      if (query.left !== undefined && query.right !== undefined && query.operator !== undefined) {
+        // UNION/INTERSECT/EXCEPT query - process all parts using ORIGINAL query
+        console.log('[DEBUG] SqlDecomposerParser.extractDependencies - processing BinarySelectQuery (by structure)');
+        this.extractDependenciesFromBinaryQuery(query, dependencies);
+      } else {
+        // Simple query
+        console.log('[DEBUG] SqlDecomposerParser.extractDependencies - processing SimpleSelectQuery');
+        this.extractDependenciesFromSimpleQuery(simpleQuery, dependencies);
+      }
+      
+      console.log('[DEBUG] SqlDecomposerParser.extractDependencies - fallback result:', Array.from(dependencies));
       
     } catch (error) {
+      console.log('[DEBUG] extractDependencies error, falling back to regex:', error);
+      console.log('[DEBUG] extractDependencies error details:', {
+        type: error instanceof Error ? error.constructor.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       // Fallback to regex-based extraction
       const matches = sql.match(/\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)/gi) || [];
       matches.forEach(match => {
@@ -103,9 +172,76 @@ export class SqlDecomposerParser implements SqlParserPort {
           dependencies.add(tableName);
         }
       });
+      console.log('[DEBUG] extractDependencies regex fallback result:', Array.from(dependencies));
     }
 
-    return Array.from(dependencies);
+    const finalResult = Array.from(dependencies);
+    console.log('[DEBUG] SqlDecomposerParser.extractDependencies - FINAL RESULT:', {
+      finalResult,
+      finalResultLength: finalResult.length,
+      environment: typeof window !== 'undefined' ? 'browser' : 'node'
+    });
+    
+    return finalResult;
+  }
+
+  /**
+   * Extract dependencies from BinarySelectQuery (UNION/INTERSECT/EXCEPT)
+   */
+  private extractDependenciesFromBinaryQuery(query: any, dependencies: Set<string>): void {
+    console.log('[DEBUG] extractDependenciesFromBinaryQuery called:', {
+      hasLeft: !!query.left,
+      hasRight: !!query.right,
+      operator: query.operator
+    });
+    
+    // Process left side of the binary operation
+    if (query.left) {
+      // Check if left side is also a binary query (by structure, not constructor.name)
+      if (query.left.left !== undefined && query.left.right !== undefined && query.left.operator !== undefined) {
+        // Recursively handle nested binary queries
+        console.log('[DEBUG] Processing nested left BinarySelectQuery');
+        this.extractDependenciesFromBinaryQuery(query.left, dependencies);
+      } else {
+        // Simple query on the left
+        console.log('[DEBUG] Processing left SimpleSelectQuery');
+        const leftSimple = query.left.toSimpleQuery();
+        this.extractDependenciesFromSimpleQuery(leftSimple, dependencies);
+      }
+    }
+
+    // Process right side of the binary operation
+    if (query.right) {
+      // Check if right side is also a binary query (by structure, not constructor.name)
+      if (query.right.left !== undefined && query.right.right !== undefined && query.right.operator !== undefined) {
+        // Recursively handle nested binary queries
+        console.log('[DEBUG] Processing nested right BinarySelectQuery');
+        this.extractDependenciesFromBinaryQuery(query.right, dependencies);
+      } else {
+        // Simple query on the right
+        console.log('[DEBUG] Processing right SimpleSelectQuery');
+        const rightSimple = query.right.toSimpleQuery();
+        this.extractDependenciesFromSimpleQuery(rightSimple, dependencies);
+      }
+    }
+  }
+
+  /**
+   * Extract dependencies from SimpleSelectQuery
+   */
+  private extractDependenciesFromSimpleQuery(simpleQuery: any, dependencies: Set<string>): void {
+    // Extract from FROM clause
+    this.extractFromSource(simpleQuery.fromClause?.source, dependencies);
+
+    // Extract from JOINs
+    if (simpleQuery.fromClause?.joins) {
+      for (const join of simpleQuery.fromClause.joins) {
+        this.extractFromSource(join.source, dependencies);
+      }
+    }
+
+    // Extract from subqueries in SELECT, WHERE, etc.
+    // This is simplified - a complete implementation would traverse the entire AST
   }
 
   /**

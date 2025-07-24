@@ -107,6 +107,13 @@ export class SqlModelEntity implements SqlModel {
    */
   async getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false): Promise<DynamicSqlResult> {
     try {
+      console.log('[DEBUG] getDynamicSql called with:', {
+        testValuesType: testValues ? typeof testValues : 'undefined',
+        testValuesWithClause: testValues && typeof testValues === 'object' && 'withClause' in testValues ? testValues.withClause.substring(0, 100) + '...' : 'N/A',
+        dependentsCount: this.dependents.length,
+        sqlWithoutCteLength: this.sqlWithoutCte.length
+      });
+
       // Step 1: Base SQL determination
       let baseSql = this.sqlWithoutCte;
       // Always use sqlWithoutCte as it contains the latest edited content
@@ -130,9 +137,15 @@ export class SqlModelEntity implements SqlModel {
         
         // Add dependency CTEs
         const allDependencies = this.collectAllDependencies();
+        console.log('[DEBUG] CTE dependencies:', {
+          dependenciesCount: allDependencies.length,
+          dependencyNames: allDependencies.map(d => d.name)
+        });
+        
         for (const dep of allDependencies) {
           const columns = dep.columns?.length ? `(${dep.columns.join(', ')})` : '';
           const cteDef = `${dep.name}${columns} AS (\n${dep.sqlWithoutCte}\n)`;
+          console.log('[DEBUG] Adding CTE definition:', dep.name, 'length:', cteDef.length);
           cteDefinitions.push(cteDef);
         }
         
@@ -175,10 +188,19 @@ export class SqlModelEntity implements SqlModel {
 
     } catch (error) {
       console.error('Error in getDynamicSql:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+      console.error('Error details:', {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        baseSql: this.sqlWithoutCte.substring(0, 200) + '...',
+        dependentsCount: this.dependents.length,
+        dependentNames: this.dependents.map(d => d.name),
+        hasTestValues: !!testValues,
+        hasFilterConditions: !!filterConditions
+      });
       
       // Re-throw the error with more context
       if (error instanceof Error) {
-        throw new Error(`Failed to generate dynamic SQL: ${error.message}`);
+        throw new Error(`Failed to generate dynamic SQL: ${error.message}\nStack: ${error.stack}`);
       }
       throw new Error('Failed to generate dynamic SQL');
     }

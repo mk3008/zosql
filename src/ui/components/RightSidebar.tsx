@@ -4,14 +4,15 @@ import { MonacoEditor } from './MonacoEditor';
 import { useToast } from '@ui/hooks/useToast';
 import { Toast } from './Toast';
 
-type RightSidebarTab = 'context' | 'condition' | 'formatter' | 'help';
+type RightSidebarTab = 'sql' | 'condition' | 'formatter';
 
 interface RightSidebarProps {
   workspace?: WorkspaceEntity | null;
+  lastExecutedSql?: string;
 }
 
-export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
-  const [activeTab, setActiveTab] = useState<RightSidebarTab>('context');
+export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace, lastExecutedSql }) => {
+  const [activeTab, setActiveTab] = useState<RightSidebarTab>('sql');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [filterConditionsJson, setFilterConditionsJson] = useState('{}');
   const [sqlFormatterJson, setSqlFormatterJson] = useState('{}');
@@ -59,29 +60,49 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'context':
+      case 'sql':
         return (
-          <div className="p-4 space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Current Context</h4>
-              <div className="text-sm text-dark-text-secondary space-y-1">
-                <div>Cursor position: Line 1, Col 1</div>
-                <div>Word under cursor: SELECT</div>
-                <div>Available CTEs: 0</div>
-              </div>
+          <div className="p-4 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-dark-text-white">Last Executed SQL</h4>
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">IntelliSense</h4>
-              <div className="text-sm text-dark-text-primary opacity-75">
-                Start typing to see suggestions...
-              </div>
+            <div className="text-xs text-dark-text-primary opacity-75 mb-2">
+              This shows the most recent SQL query that was executed
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Errors</h4>
-              <div className="text-sm text-dark-text-primary opacity-75">
-                No syntax errors detected
+            <div className="flex-1 min-h-0">
+              <MonacoEditor
+                key="executed-sql-viewer"
+                value={lastExecutedSql || '-- No SQL has been executed yet'}
+                onChange={() => {}} // Read-only
+                language="sql"
+                height="100%"
+                readOnly={true}
+                workspace={workspace}
+                options={{
+                  fontSize: 12,
+                  wordWrap: 'on',
+                  formatOnType: false,
+                  formatOnPaste: false,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  readOnly: true,
+                  selectOnLineNumbers: false,
+                  lineNumbers: 'on'
+                }}
+              />
+            </div>
+            
+            <div className="mt-3 space-y-2">
+              <div className="text-xs text-dark-text-secondary">
+                Status: {lastExecutedSql ? 
+                  <span className="text-green-400">✓ SQL Available</span> : 
+                  <span className="text-gray-400">No execution yet</span>
+                }
+              </div>
+              <div className="text-xs text-dark-text-primary opacity-75">
+                💡 This SQL reflects what was actually executed, including composed CTEs and filters.
               </div>
             </div>
           </div>
@@ -325,40 +346,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
           </div>
         );
         
-      case 'help':
-        return (
-          <div className="p-4 space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Keyboard Shortcuts</h4>
-              <div className="space-y-1 text-xs text-dark-text-secondary">
-                <div><kbd className="bg-dark-hover px-1 rounded">Ctrl+Enter</kbd> Run Query</div>
-                <div><kbd className="bg-dark-hover px-1 rounded">Ctrl+S</kbd> Save</div>
-                <div><kbd className="bg-dark-hover px-1 rounded">Ctrl+/</kbd> Toggle Comment</div>
-                <div><kbd className="bg-dark-hover px-1 rounded">F1</kbd> Command Palette</div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">zosql Features</h4>
-              <div className="space-y-1 text-xs text-dark-text-secondary">
-                <div>• CTE decomposition and analysis</div>
-                <div>• Dependency resolution</div>
-                <div>• SQL formatting and validation</div>
-                <div>• IntelliSense for SQL</div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Getting Started</h4>
-              <div className="text-xs text-dark-text-secondary">
-                1. Paste your SQL with CTEs into the editor<br/>
-                2. Click "Decompose Query" to analyze<br/>
-                3. Edit individual CTEs in separate tabs<br/>
-                4. Validate and run your queries
-              </div>
-            </div>
-          </div>
-        );
         
       default:
         return null;
@@ -370,10 +357,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
       {/* Tab Headers */}
       <div className="bg-dark-tertiary border-b border-dark-border-primary flex">
         {[
-          { id: 'context' as const, label: 'Context', icon: '🎯' },
+          { id: 'sql' as const, label: 'SQL', icon: '💾' },
           { id: 'condition' as const, label: 'Condition', icon: '⚙️' },
-          { id: 'formatter' as const, label: 'Formatter', icon: '✨' },
-          { id: 'help' as const, label: 'Help', icon: '❓' }
+          { id: 'formatter' as const, label: 'Formatter', icon: '✨' }
         ].map(tab => (
           <button
             key={tab.id}
@@ -394,29 +380,49 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
       
       {/* Tab Content - Pre-render all tabs to prevent Monaco re-mounting */}
       <div className="flex-1 overflow-y-auto">
-        {/* Context Tab */}
-        <div className={`h-full ${activeTab === 'context' ? 'block' : 'hidden'}`}>
-          <div className="p-4 space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Current Context</h4>
-              <div className="text-sm text-dark-text-secondary space-y-1">
-                <div>Cursor position: Line 1, Col 1</div>
-                <div>Word under cursor: SELECT</div>
-                <div>Available CTEs: 0</div>
-              </div>
+        {/* SQL Tab */}
+        <div className={`h-full flex flex-col ${activeTab === 'sql' ? 'block' : 'hidden'}`}>
+          <div className="p-4 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-dark-text-white">Last Executed SQL</h4>
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">IntelliSense</h4>
-              <div className="text-sm text-dark-text-primary opacity-75">
-                Start typing to see suggestions...
-              </div>
+            <div className="text-xs text-dark-text-primary opacity-75 mb-2">
+              This shows the most recent SQL query that was executed
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Errors</h4>
-              <div className="text-sm text-dark-text-primary opacity-75">
-                No syntax errors detected
+            <div className="flex-1 min-h-0">
+              <MonacoEditor
+                key="executed-sql-viewer"
+                value={lastExecutedSql || '-- No SQL has been executed yet'}
+                onChange={() => {}} // Read-only
+                language="sql"
+                height="100%"
+                readOnly={true}
+                workspace={workspace}
+                options={{
+                  fontSize: 12,
+                  wordWrap: 'on',
+                  formatOnType: false,
+                  formatOnPaste: false,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  readOnly: true,
+                  selectOnLineNumbers: false,
+                  lineNumbers: 'on'
+                }}
+              />
+            </div>
+            
+            <div className="mt-3 space-y-2">
+              <div className="text-xs text-dark-text-secondary">
+                Status: {lastExecutedSql ? 
+                  <span className="text-green-400">✓ SQL Available</span> : 
+                  <span className="text-gray-400">No execution yet</span>
+                }
+              </div>
+              <div className="text-xs text-dark-text-primary opacity-75">
+                💡 This SQL reflects what was actually executed, including composed CTEs and filters.
               </div>
             </div>
           </div>
@@ -657,40 +663,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ workspace }) => {
           </div>
         </div>
 
-        {/* Help Tab */}
-        <div className={`h-full ${activeTab === 'help' ? 'block' : 'hidden'}`}>
-          <div className="p-4 space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Keyboard Shortcuts</h4>
-              <div className="space-y-1 text-xs text-dark-text-secondary">
-                <div><kbd className="bg-dark-hover px-1 rounded">Ctrl+Enter</kbd> Run Query</div>
-                <div><kbd className="bg-dark-hover px-1 rounded">Ctrl+S</kbd> Save</div>
-                <div><kbd className="bg-dark-hover px-1 rounded">Ctrl+/</kbd> Toggle Comment</div>
-                <div><kbd className="bg-dark-hover px-1 rounded">F1</kbd> Command Palette</div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">zosql Features</h4>
-              <div className="space-y-1 text-xs text-dark-text-secondary">
-                <div>• CTE decomposition and analysis</div>
-                <div>• Dependency resolution</div>
-                <div>• SQL formatting and validation</div>
-                <div>• IntelliSense for SQL</div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-dark-text-white mb-2">Getting Started</h4>
-              <div className="text-xs text-dark-text-secondary">
-                1. Paste your SQL with CTEs into the editor<br/>
-                2. Click "Decompose Query" to analyze<br/>
-                3. Edit individual CTEs in separate tabs<br/>
-                4. Validate and run your queries
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
       
       {/* Toast Notifications */}

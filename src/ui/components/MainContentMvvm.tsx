@@ -26,6 +26,7 @@ export interface MainContentProps {
   workspace: WorkspaceEntity | null;
   onWorkspaceChange?: (workspace: WorkspaceEntity) => void;
   onActiveTabChange?: (tabId: string | null) => void;
+  onSqlExecuted?: (sql: string) => void;
   showSuccess?: (message: string) => void;
   showError?: (message: string) => void;
   showErrorWithDetails?: (message: string, details?: string, stack?: string) => void;
@@ -34,7 +35,7 @@ export interface MainContentProps {
 // Global ViewModel instance to prevent duplication in React StrictMode
 let globalViewModel: MainContentViewModel | null = null;
 
-const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange, showSuccess, showError, showErrorWithDetails }, ref) => {
+const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange, onSqlExecuted, showSuccess, showError, showErrorWithDetails }, ref) => {
   // MVVM: Create and bind ViewModel (singleton pattern)
   const viewModelRef = useRef<MainContentViewModel | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);
@@ -59,6 +60,13 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   useEffect(() => {
     updateWorkspaceReference();
   }, [workspace, vm]);
+
+  // Set SQL execution callback
+  useEffect(() => {
+    if (onSqlExecuted) {
+      vm.setOnSqlExecuted(onSqlExecuted);
+    }
+  }, [onSqlExecuted, vm]);
 
   // Global keyboard event handler for shortcuts
   useEffect(() => {
