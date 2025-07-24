@@ -114,6 +114,10 @@ export class MainContentViewModel extends BaseViewModel {
            this.activeTab.content.trim().length > 0;
   }
 
+  get canSave(): boolean {
+    return this.activeTab !== null && this.activeTab.isDirty;
+  }
+
   get useSchemaCollector(): boolean {
     return this._useSchemaCollector;
   }
@@ -230,6 +234,12 @@ export class MainContentViewModel extends BaseViewModel {
     try {
       // Get the main SQL query from workspace for prompt generation
       const mainModel = this.workspace.sqlModels.find(m => m.type === 'main');
+      console.log('[DEBUG] Copy Prompt - Looking for main model:', {
+        hasWorkspace: !!this.workspace,
+        sqlModelsCount: this.workspace?.sqlModels.length,
+        mainModel: mainModel ? { name: mainModel.name, type: mainModel.type } : null
+      });
+      
       if (!mainModel) {
         console.error('No main SQL model found for prompt generation');
         // Send simple toast for error
@@ -247,12 +257,16 @@ export class MainContentViewModel extends BaseViewModel {
       console.log('[DEBUG] Creating PromptGenerator and generating prompt');
       
       // Get full SQL from root model using getFullSql with specified parameters
+      console.log('[DEBUG] Copy Prompt - Before getFullSql, mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
       const fullSql = await mainModel.getFullSql(
         null,        // testValues: NULL
         null,        // filterConditions: NULL
         false        // forExecution: false
       );
-      console.log('[DEBUG] Got full SQL from root model:', fullSql.length, 'characters');
+      console.log('[DEBUG] Copy Prompt - Got full SQL from root model:', {
+        fullSqlLength: fullSql.length,
+        fullSqlPreview: fullSql.substring(0, 100) + '...'
+      });
       
       const schemaExtractor = new SchemaExtractor();
       const promptGenerator = new PromptGenerator(schemaExtractor);
@@ -312,11 +326,28 @@ export class MainContentViewModel extends BaseViewModel {
         isDirty: true
       };
       this.tabs = updatedTabs;
-
-      // Update workspace if this is a special tab
-      const tab = updatedTabs[tabIndex];
-      this.syncTabContentToWorkspace(tab, content);
     }
+  }
+
+  saveTab(tabId: string): void {
+    const tab = this._tabs.find(t => t.id === tabId);
+    if (!tab || !tab.isDirty) return;
+
+    // Save content to model
+    this.syncTabContentToWorkspace(tab, tab.content);
+
+    // Mark as clean
+    const tabIndex = this._tabs.findIndex(t => t.id === tabId);
+    if (tabIndex !== -1) {
+      const updatedTabs = [...this._tabs];
+      updatedTabs[tabIndex] = {
+        ...updatedTabs[tabIndex],
+        isDirty: false
+      };
+      this.tabs = updatedTabs;
+    }
+
+    console.log('[DEBUG] Tab saved:', tabId);
   }
 
   closeTab(tabId: string): void {
@@ -361,9 +392,47 @@ export class MainContentViewModel extends BaseViewModel {
   // Private Methods
 
   private syncTabContentToWorkspace(tab: Tab, content: string): void {
-    if (!this.workspace) return;
+    if (!this.workspace) {
+      console.log('[DEBUG] No workspace available for sync');
+      return;
+    }
+
+    console.log('[DEBUG] syncTabContentToWorkspace called:', {
+      tabType: tab.type,
+      tabId: tab.id,
+      contentLength: content.length
+    });
 
     switch (tab.type) {
+      case 'main':
+        // Update main SQL model with edited content
+        const mainModel = this.workspace.sqlModels.find(m => m.type === 'main');
+        console.log('[DEBUG] Found main model:', {
+          hasMainModel: !!mainModel,
+          mainModelName: mainModel?.name,
+          tabId: tab.id,
+          nameMatches: mainModel?.name === tab.id
+        });
+        
+        if (mainModel) {
+          console.log('[DEBUG] Syncing main tab content to model:', tab.id, 'content length:', content.length);
+          console.log('[DEBUG] Before update - mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
+          mainModel.sqlWithoutCte = content;
+          console.log('[DEBUG] After update - mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
+        } else {
+          console.log('[DEBUG] No main model found');
+        }
+        break;
+
+      case 'cte':
+        // Update CTE SQL model with edited content
+        const cteModel = this.workspace.sqlModels.find(m => m.type === 'cte' && m.name === tab.id);
+        if (cteModel) {
+          console.log('[DEBUG] Syncing CTE tab content to model:', tab.id);
+          cteModel.sqlWithoutCte = content;
+        }
+        break;
+
       case 'values':
         try {
           const testValues = new TestValuesModel(content);

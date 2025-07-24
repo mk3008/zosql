@@ -109,9 +109,8 @@ export class SqlModelEntity implements SqlModel {
     try {
       // Step 1: Base SQL determination
       let baseSql = this.sqlWithoutCte;
-      if (this.type === 'main' && this.originalSql && !testValues && !filterConditions) {
-        baseSql = this.originalSql;
-      }
+      // Always use sqlWithoutCte as it contains the latest edited content
+      // originalSql is only used for initial loading, not for current operations
 
       // Step 2: CTE Composition (if needed)
       if (testValues || this.dependents.length > 0) {

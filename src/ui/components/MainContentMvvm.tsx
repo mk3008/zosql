@@ -60,6 +60,28 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     updateWorkspaceReference();
   }, [workspace, vm]);
 
+  // Global keyboard event handler for shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.ctrlKey && event.key === 's') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (vm.canSave) {
+          vm.saveTab(vm.activeTabId);
+        }
+      } else if (event.ctrlKey && event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        vm.executeQuery();
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [vm]);
+
   // Initialize default tabs only once when no workspace and no tabs
   useEffect(() => {
     console.log('[DEBUG] MainContentMvvm useEffect: tabs.length=', vm.tabs.length, 'workspace=', !!workspace);
@@ -250,6 +272,11 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     if (event.ctrlKey && event.key === 'Enter') {
       event.preventDefault();
       vm.executeQuery();
+    } else if (event.ctrlKey && event.key === 's') {
+      event.preventDefault();
+      if (vm.canSave) {
+        vm.saveTab(vm.activeTabId);
+      }
     }
   };
 
@@ -399,6 +426,15 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   title="Run Query (Ctrl+Enter)"
                 >
                   {vm.isExecuting ? 'Running...' : 'Run'}
+                </button>
+                
+                <button 
+                  onClick={() => vm.saveTab(vm.activeTabId)}
+                  disabled={!vm.canSave}
+                  className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Save changes to model (Ctrl+S)"
+                >
+                  Save
                 </button>
                 
                 <button 
