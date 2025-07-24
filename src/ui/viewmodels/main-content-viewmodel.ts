@@ -168,8 +168,7 @@ export class MainContentViewModel extends BaseViewModel {
         workspaceTestValues: context.workspace?.testValues?.withClause?.substring(0, 100) + '...',
         workspaceSqlModelsCount: context.workspace?.sqlModels?.length,
         sqlModelDependentsCount: context.sqlModel?.dependents?.length,
-        sqlModelDependentNames: context.sqlModel?.dependents?.map(d => d.name),
-        allWorkspaceSqlModels: context.workspace?.sqlModels?.map(m => ({ name: m.name, type: m.type, dependentsCount: m.dependents?.length }))
+        sqlModelDependentNames: context.sqlModel?.dependents?.map(d => d.name)
       });
 
       // Execute command

@@ -15,6 +15,32 @@ import { TestValuesModel } from '@core/entities/test-values-model';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 import { FilterConditionsEntity } from '@core/entities/filter-conditions';
 import { createValidatedDemoWorkspace } from '@core/factories/demo-workspace-factory';
+import { CreateWorkspaceCommand } from '@ui/commands/create-workspace-command';
+import { commandExecutor } from '@core/services/command-executor';
+
+/**
+ * Read file content as text
+ */
+function readFileContent(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const content = e.target?.result;
+      if (typeof content === 'string') {
+        resolve(content);
+      } else {
+        reject(new Error('Failed to read file as text'));
+      }
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+    
+    reader.readAsText(file);
+  });
+}
 
 export const Layout: React.FC = () => {
   const [leftSidebarVisible, setLeftSidebarVisible] = useState(true);
@@ -62,35 +88,20 @@ export const Layout: React.FC = () => {
     }
   };
   
-  // Handle file open with automatic decomposition and workspace creation
+  // Handle file open with automatic decomposition and workspace creation  
   const handleFileOpen = async (file: File) => {
     try {
       // Clear all existing tabs and workspace content before opening new file
       mainContentRef.current?.clearAllTabs();
       
-      // Create new WorkspaceEntity first with default formatter
+      // Read file content
+      const content = await readFileContent(file);
       const fileName = file.name.replace(/\.sql$/i, '');
-      const workspace = new WorkspaceEntity(
-        WorkspaceEntity.generateId(),
-        fileName,
-        file.name,
-        [], // Will be populated after decomposition
-        new TestValuesModel(''),
-        new SqlFormatterEntity(),
-        new FilterConditionsEntity(),
-        {}
-      );
       
-      // Decompose file using the workspace's formatter entity
-      const result = await openFile(file, workspace.formatter);
+      // Use CreateWorkspaceCommand to ensure correct dependency setup
+      const command = new CreateWorkspaceCommand(fileName, content);
+      const workspace = await commandExecutor.execute(command);
       
-      // Add the decomposed models to the workspace
-      for (const model of result.models) {
-        workspace.addSqlModel(model);
-      }
-      
-      // Initialize filter conditions template from SQL models
-      workspace.filterConditions.initializeFromModels(result.models);
       
       setCurrentWorkspace(workspace);
       
@@ -104,6 +115,7 @@ export const Layout: React.FC = () => {
       // Open the main SQL model from workspace (processed data)
       const mainModel = workspace.sqlModels.find(m => m.type === 'main');
       if (mainModel) {
+        
         // Use processed sqlWithoutCte instead of original file content
         mainContentRef.current?.openSqlModel(
           mainModel.name, 
@@ -113,7 +125,7 @@ export const Layout: React.FC = () => {
         );
       }
       
-      showSuccess(`Opened ${result.fileName} with ${result.models.length} models`);
+      showSuccess(`Opened ${file.name} with ${workspace.sqlModels.length} models`);
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Failed to open file');
     }

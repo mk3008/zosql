@@ -40,15 +40,15 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     if (!workspace) return 2; // default
     
     try {
-      console.log('[DEBUG] Getting indent size from workspace formatter');
+      // console.log('[DEBUG] Getting indent size from workspace formatter');
       // ✅ CORRECT: Parse the JSON config directly
       const formatterConfig = JSON.parse(workspace.formatter.config);
-      console.log('[DEBUG] Formatter config:', formatterConfig);
+      // console.log('[DEBUG] Formatter config:', formatterConfig);
       
       // The correct property name is 'indentSize'
       const indentSize = formatterConfig?.indentSize || 2; // default
       
-      console.log('[DEBUG] Resolved indent size:', indentSize);
+      // console.log('[DEBUG] Resolved indent size:', indentSize);
       return typeof indentSize === 'number' ? indentSize : 2;
     } catch (error) {
       console.warn('[DEBUG] Failed to get indent size from formatter:', error);

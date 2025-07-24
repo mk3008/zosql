@@ -136,6 +136,7 @@ export class SqlModelEntity implements SqlModel {
         }
         
         // Add dependency CTEs
+        
         const allDependencies = this.collectAllDependencies();
         console.log('[DEBUG] CTE dependencies:', {
           dependenciesCount: allDependencies.length,

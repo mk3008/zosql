@@ -192,6 +192,7 @@ export class SqlDecomposerUseCase {
 
     // Find main query dependencies
     const mainDependencies = await this.parser.extractDependencies(mainQuery);
+    
     const cteNames = new Set(ctes.map(cte => cte.name));
     
     for (const depName of mainDependencies) {

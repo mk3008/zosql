@@ -48,6 +48,7 @@ export class CreateWorkspaceCommand implements Command<WorkspaceEntity> {
     }
 
     try {
+
       // SQL分解処理
       const sqlModels = await this.decomposer.decomposeSql(
         trimmedSql, 
