@@ -19,6 +19,7 @@ interface MonacoEditorProps {
   onKeyDown?: (event: KeyboardEvent) => void;
   workspace?: WorkspaceEntity | null;
   refreshTrigger?: number;
+  // jumpToPosition?: number; // Position jump temporarily disabled
 }
 
 export const MonacoEditor: React.FC<MonacoEditorProps> = ({
@@ -33,6 +34,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   onKeyDown,
   workspace,
   refreshTrigger = 0
+  // jumpToPosition // Position jump temporarily disabled
 }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -370,6 +372,34 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       }
     }
   }, [value]);
+
+  // Position jump functionality temporarily disabled
+  // useEffect(() => {
+  //   if (jumpToPosition !== undefined && editorRef.current && monacoRef.current) {
+  //     const editor = editorRef.current;
+  //     const model = editor.getModel();
+  //     
+  //     if (model) {
+  //       try {
+  //         // Convert character position to line/column position
+  //         const position = model.getPositionAt(jumpToPosition);
+  //         
+  //         // Set cursor position
+  //         editor.setPosition(position);
+  //         
+  //         // Scroll to reveal the position
+  //         editor.revealPositionInCenter(position);
+  //         
+  //         // Focus the editor
+  //         editor.focus();
+  //         
+  //         console.log('[DEBUG] Jumped to position:', jumpToPosition, 'line:', position.lineNumber, 'column:', position.column);
+  //       } catch (error) {
+  //         console.error('[DEBUG] Failed to jump to position:', jumpToPosition, error);
+  //       }
+  //     }
+  //   }
+  // }, [jumpToPosition]);
 
   // Get dynamic options based on formatter configuration
   const indentSize = getIndentSize();

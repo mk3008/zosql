@@ -254,6 +254,16 @@ export class MainContentViewModel extends BaseViewModel {
 
     try {
       console.log('[DEBUG] Running static analysis for all models');
+      
+      // Log current state of models and their editor content
+      const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
+      console.log('[DEBUG] Models to validate:');
+      for (const model of models) {
+        console.log(`[DEBUG] - ${model.name}: editorContent(${model.editorContent.length}), sqlWithoutCte(${model.sqlWithoutCte.length}), hasUnsavedChanges: ${model.hasUnsavedChanges}`);
+        console.log(`[DEBUG] - ${model.name} editorContent preview:`, model.editorContent.substring(0, 200) + '...');
+        console.log(`[DEBUG] - ${model.name} sqlWithoutCte preview:`, model.sqlWithoutCte.substring(0, 200) + '...');
+      }
+      
       const startTime = performance.now();
       
       // Run validation on all schemas using editor content (real-time analysis)
@@ -263,7 +273,6 @@ export class MainContentViewModel extends BaseViewModel {
       const totalTime = Math.round(endTime - startTime);
       
       // Show toast based on results
-      const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
       const passedCount = models.filter(m => {
         const result = this.workspace!.getValidationResult(m.name);
         return result && result.success;

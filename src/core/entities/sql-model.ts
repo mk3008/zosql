@@ -342,7 +342,10 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
         useEditorContent // use editor content for validation
       );
       
-      console.log('[DEBUG] Generated full SQL for analysis:', fullSql.substring(0, 200) + '...');
+      console.log('[DEBUG] Generated full SQL for analysis:');
+      console.log('[DEBUG] Full SQL length:', fullSql.length);
+      console.log('[DEBUG] Full SQL content:', fullSql);
+      console.log('[DEBUG] Character at position 32:', fullSql.charAt(32), 'ASCII:', fullSql.charCodeAt(32));
       
       // Use new SelectQueryParser.analyze for improved error handling
       const { SelectQueryParser, SchemaCollector } = await import('rawsql-ts');
@@ -359,9 +362,19 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
         
         // Use rawsql-ts provided data only
         if (parseResult.errorPosition !== undefined) {
+          const errorPos = parseResult.errorPosition;
+          const contextStart = Math.max(0, errorPos - 20);
+          const contextEnd = Math.min(fullSql.length, errorPos + 20);
+          const context = fullSql.substring(contextStart, contextEnd);
+          const errorChar = fullSql.charAt(errorPos);
+          
+          console.log('[DEBUG] Parse error context:', context);
+          console.log('[DEBUG] Error character at position', errorPos, ':', errorChar, 'ASCII:', fullSql.charCodeAt(errorPos));
+          
+          // Position display temporarily disabled due to rawsql-ts position accuracy issues
           return { 
             success: false, 
-            error: `Parse error at position ${parseResult.errorPosition}` 
+            error: `Parse error` 
           };
         } else {
           // Log cases where position is not available for debugging
@@ -413,22 +426,49 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
   }
 
   /**
+   * Calculate position in editor content from full SQL position
+   */
+  private calculateEditorPosition(fullSql: string, fullSqlPosition: number, editorSql: string): number {
+    // If fullSql and editorSql are the same, return position as-is
+    if (fullSql === editorSql) {
+      return fullSqlPosition;
+    }
+    
+    // Find where the editor SQL starts in the full SQL
+    const editorSqlIndex = fullSql.indexOf(editorSql);
+    if (editorSqlIndex === -1) {
+      console.log('[DEBUG] Could not find editor SQL in full SQL, returning original position');
+      return fullSqlPosition;
+    }
+    
+    // If error is before the editor SQL starts, it's in the CTE part
+    if (fullSqlPosition < editorSqlIndex) {
+      console.log('[DEBUG] Error is in CTE part, returning 0');
+      return 0;
+    }
+    
+    // Calculate relative position within editor SQL
+    const relativePosition = fullSqlPosition - editorSqlIndex;
+    
+    // Clamp to editor SQL bounds
+    const adjustedPosition = Math.min(relativePosition, editorSql.length - 1);
+    
+    console.log('[DEBUG] Position calculation:', {
+      fullSqlPosition,
+      editorSqlIndex,
+      relativePosition,
+      adjustedPosition,
+      editorSqlLength: editorSql.length
+    });
+    
+    return Math.max(0, adjustedPosition);
+  }
+
+  /**
    * Convert technical error messages to user-friendly ones using only rawsql-ts provided data
    */
   private createUserFriendlyErrorMessage(errorMessage: string): { success: false; error: string } {
-    // Extract position information only from rawsql-ts format: (index N)
-    const positionMatch = errorMessage.match(/\(index (\d+)\)/);
-    const position = positionMatch ? positionMatch[1] : null;
-    
-    // Simple position-based error message - no complex parsing
-    if (position) {
-      return { 
-        success: false, 
-        error: `Parse error at position ${position}` 
-      };
-    }
-    
-    // Fallback for errors without position
+    // Position display temporarily disabled due to rawsql-ts position accuracy issues
     return { 
       success: false, 
       error: 'Parse error' 

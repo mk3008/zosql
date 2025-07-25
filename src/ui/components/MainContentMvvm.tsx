@@ -40,6 +40,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   // MVVM: Create and bind ViewModel (singleton pattern)
   const viewModelRef = useRef<MainContentViewModel | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);
+  // const [jumpToPosition, setJumpToPosition] = useState<number | undefined>(undefined); // Position jump temporarily disabled
   
   if (!viewModelRef.current) {
     if (!globalViewModel) {
@@ -112,6 +113,10 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
           isDirty: false
         });
         vm.setTabModel(mainModel.name, mainModel);
+        
+        // Ensure editorContent is synced with tab content
+        console.log('[DEBUG] Syncing editorContent with tab content for:', mainModel.name);
+        mainModel.updateEditorContent(mainModel.sqlWithoutCte);
       }
     } else if (vm.tabs.length === 0 && !workspace) {
       console.log('[DEBUG] Adding default main tab');
@@ -274,6 +279,10 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       
       if (modelEntity) {
         vm.setTabModel(name, modelEntity);
+        
+        // Ensure editorContent is synced with tab content
+        console.log('[DEBUG] Syncing editorContent with tab content for openSqlModel:', name);
+        modelEntity.updateEditorContent(sql);
       }
       
       // No workspace sync needed - ViewModel manages tabs independently
@@ -341,6 +350,19 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
         return tab.title;
     }
   };
+
+  // Error message click functionality temporarily disabled
+  // const handleErrorClick = (errorMessage: string) => {
+  //   const positionMatch = errorMessage.match(/at position (\d+)/);
+  //   if (positionMatch) {
+  //     const position = parseInt(positionMatch[1], 10);
+  //     console.log('[DEBUG] Clicking error message, jumping to position:', position);
+  //     setJumpToPosition(position);
+  //     
+  //     // Reset jumpToPosition after a short delay to allow re-clicking
+  //     setTimeout(() => setJumpToPosition(undefined), 100);
+  //   }
+  // };
 
   // Pure View - No business logic, only bindings
   return (
@@ -474,15 +496,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   // Parse and display different types of validation errors
                   const errorMessage = validationResult.error || '';
                   
-                  // Handle Parse Errors (highest priority) - using only rawsql-ts data
-                  if (errorMessage.includes('Parse error at position')) {
-                    return (
-                      <span className="text-red-400 truncate" title={errorMessage}>
-                        {errorMessage}
-                      </span>
-                    );
-                  }
-                  
+                  // Handle Parse Errors (highest priority) - position click temporarily disabled
                   if (errorMessage.includes('Parse error') || errorMessage.includes('SQL Parse Error:')) {
                     return (
                       <span className="text-red-400 truncate" title={errorMessage}>
@@ -596,7 +610,13 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                     // Update model's editor content for real-time validation
                     const model = vm.tabModelMap.get(vm.activeTab!.id);
                     if (model && (vm.activeTab!.type === 'main' || vm.activeTab!.type === 'cte')) {
+                      console.log('[DEBUG] Updating model editor content for', vm.activeTab!.id, 'length:', value.length);
+                      console.log('[DEBUG] Before update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
                       model.updateEditorContent(value);
+                      console.log('[DEBUG] After update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
+                      console.log('[DEBUG] Has unsaved changes:', model.hasUnsavedChanges);
+                    } else {
+                      console.log('[DEBUG] Model not found or wrong type for tab:', vm.activeTab!.id, 'model exists:', !!model);
                     }
                   }}
                   language={vm.activeTab.type === 'values' ? 'sql' : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
@@ -604,6 +624,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   isMainEditor={true}
                   onKeyDown={handleKeyDown}
                   workspace={workspace}
+                  // jumpToPosition={jumpToPosition} // Position jump temporarily disabled
                   options={vm.activeTab.type === 'values' ? {
                     wordWrap: 'off',
                     wrappingStrategy: 'simple',
