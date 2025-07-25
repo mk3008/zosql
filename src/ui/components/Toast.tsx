@@ -33,7 +33,7 @@ export const Toast: React.FC<ToastProps> = ({
   return (
     <div 
       className={`
-        fixed bottom-4 right-4 z-50
+        fixed bottom-4 right-4 z-[9999]
         flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg
         ${bgColor} text-white
         animate-slide-in-bottom
