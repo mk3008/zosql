@@ -6,14 +6,10 @@ import { RightSidebar } from './RightSidebar';
 import { Toast } from './Toast';
 import { ErrorPanel } from './ErrorPanel';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
-import { useFileOpen } from '@ui/hooks/useFileOpen';
 import { SqlModelEntity } from '@core/entities/sql-model';
 import { useToast } from '@ui/hooks/useToast';
 import { useErrorPanel } from '@ui/hooks/useErrorPanel';
 import { WorkspaceEntity } from '@core/entities/workspace';
-import { TestValuesModel } from '@core/entities/test-values-model';
-import { SqlFormatterEntity } from '@core/entities/sql-formatter';
-import { FilterConditionsEntity } from '@core/entities/filter-conditions';
 import { createValidatedDemoWorkspace } from '@core/factories/demo-workspace-factory';
 import { CreateWorkspaceCommand } from '@ui/commands/create-workspace-command';
 import { commandExecutor } from '@core/services/command-executor';
@@ -55,8 +51,6 @@ export const Layout: React.FC = () => {
   // SQL decomposer hook
   const { decomposeSql, isDecomposing, error } = useSqlDecomposer();
   
-  // File open hook  
-  const { openFile } = useFileOpen();
   
   // Toast notifications
   const { toast, showSuccess, showError, hideToast } = useToast();
@@ -240,7 +234,7 @@ export const Layout: React.FC = () => {
           <LeftSidebar 
             onOpenValuesTab={() => mainContentRef.current?.openValuesTab()} 
             sqlModels={currentWorkspace?.sqlModels || []}
-            onModelClick={handleModelClick}
+            onModelClick={handleModelClick as any}
             selectedModelName={selectedModelName}
             onDecomposeQuery={handleDecomposeQuery}
             isDecomposing={isDecomposing}
@@ -275,9 +269,7 @@ export const Layout: React.FC = () => {
         {rightSidebarVisible && (
           <RightSidebar 
             lastExecutedSql={lastExecutedSql}
-            workspace={currentWorkspace} 
-            onOpenFormatterTab={() => mainContentRef.current?.openFormatterTab()}
-            onOpenConditionTab={() => mainContentRef.current?.openConditionTab()}
+            workspace={currentWorkspace}
           />
         )}
       </div>

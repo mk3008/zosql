@@ -20,6 +20,7 @@ export class WorkspaceApi {
   private formatterConfigPath: string;
   private fileManager: FileManager;
   private cteDecomposer: CTEDecomposer;
+  private workspaceBasePath: string;
 
   constructor(storageType: 'filesystem' | 'localstorage' = 'filesystem') {
     this.logger = Logger.getInstance();
@@ -38,6 +39,7 @@ export class WorkspaceApi {
     }
     
     this.formatterConfigPath = path.join(process.cwd(), 'zosql.formatter.json');
+    this.workspaceBasePath = path.join(process.cwd(), 'workspaces');
     this.fileManager = new FileManager();
     this.cteDecomposer = new CTEDecomposer();
   }
@@ -81,15 +83,6 @@ export class WorkspaceApi {
     };
   }
 
-  private async clearWorkspace(): Promise<void> {
-    try {
-      await fs.rm(this.workspaceBasePath, { recursive: true, force: true });
-      this.logger.log('[WORKSPACE] Workspace cleared');
-    } catch (error) {
-      // Workspace doesn't exist, that's fine
-      this.logger.log('[WORKSPACE] Workspace already clean or doesn\'t exist');
-    }
-  }
 
   private async extractCTEsAndDecomposeQuery(sql: string): Promise<{ privateCtes: Record<string, PrivateCte>, decomposedQuery: string, flowDiagram?: string }> {
     try {
@@ -171,18 +164,6 @@ export class WorkspaceApi {
 
 
 
-  private async savePrivateCteFiles(privateCtes: Record<string, PrivateCte>): Promise<void> {
-    // FileManager already contains the CTE files, so just flush them to disk
-    await this.cteDecomposer.flushToFileSystem(this.fileManager, process.cwd());
-    
-    this.logger.log(`[WORKSPACE] Saved ${Object.keys(privateCtes).length} private CTE files using FileManager`);
-  }
-
-  private async saveWorkspaceInfo(workspaceInfo: WorkspaceInfo): Promise<void> {
-    const infoPath = path.join(this.workspaceBasePath, 'workspace.json');
-    await fs.writeFile(infoPath, JSON.stringify(workspaceInfo, null, 2), 'utf8');
-    this.logger.log('[WORKSPACE] Saved workspace info');
-  }
 
   public async handleDecomposeQuery(req: Request, res: Response): Promise<void> {
     try {

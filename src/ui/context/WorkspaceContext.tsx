@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Workspace, CTE, ApiResponse } from '@shared/types';
+import { Workspace, ApiResponse } from '@shared/types';
 import { WorkspaceUseCase } from '@core/usecases/workspace-usecase';
 import { LocalStorageWorkspaceRepository } from '@adapters/storage/local-storage';
 import { RawSqlParser } from '@adapters/parsers/rawsql-parser';

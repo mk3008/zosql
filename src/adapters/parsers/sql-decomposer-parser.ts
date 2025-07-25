@@ -3,7 +3,7 @@
  * Infrastructure Layer - Implements SqlParserPort for SQL decomposition
  */
 
-import { SelectQueryParser, SimpleSelectQuery, SqlFormatter, WithClauseParser, CTEDependencyAnalyzer } from 'rawsql-ts';
+import { SelectQueryParser, SimpleSelectQuery, SqlFormatter, CTEDependencyAnalyzer } from 'rawsql-ts';
 import { SqlParserPort } from '@core/usecases/sql-decomposer-usecase';
 import { CTEEntity } from '@core/entities/cte';
 
@@ -60,12 +60,6 @@ export class SqlDecomposerParser implements SqlParserPort {
       const query = SelectQueryParser.parse(sql);
       const simpleQuery = query.toSimpleQuery();
 
-      // Remove WITH clause and reconstruct query
-      const queryWithoutWith = {
-        ...simpleQuery,
-        withClause: undefined
-      };
-
       // Convert back to SQL string by reconstructing from original
       return this.reconstructMainQuery(sql, simpleQuery);
     } catch (error) {
@@ -104,7 +98,8 @@ export class SqlDecomposerParser implements SqlParserPort {
       
       // Fallback to our custom implementation for UNION queries
       // Check if query has binary structure (left/right properties instead of constructor.name)
-      if (query.left !== undefined && query.right !== undefined && query.operator !== undefined) {
+      const binaryQuery = query as any;
+      if (binaryQuery.left !== undefined && binaryQuery.right !== undefined && binaryQuery.operator !== undefined) {
         // UNION/INTERSECT/EXCEPT query - process all parts using ORIGINAL query
         this.extractDependenciesFromBinaryQuery(query, dependencies);
       } else {
@@ -298,20 +293,4 @@ export class SqlDecomposerParser implements SqlParserPort {
     }
   }
 
-  /**
-   * Reconstruct SQL query from AST (simplified version)
-   */
-  private reconstructQueryFromAST(queryAST: any): string {
-    // This is a placeholder - actual implementation would need
-    // to traverse the AST and reconstruct the SQL
-    try {
-      if (typeof queryAST.toSqlString === 'function') {
-        return queryAST.toSqlString();
-      }
-    } catch (error) {
-      console.warn('Failed to reconstruct query from AST:', error);
-    }
-    
-    return 'SELECT * FROM table_placeholder';
-  }
 }

@@ -5,7 +5,7 @@ export class LocalStorageWorkspaceRepository implements WorkspaceRepository {
   private readonly STORAGE_KEY = 'zosql_workspace_v2';
   private readonly VERSION = '2.0.0';
 
-  async findById(id: string): Promise<Workspace | null> {
+  async findById(_id: string): Promise<Workspace | null> {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       

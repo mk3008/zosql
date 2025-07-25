@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { FormatterManager, FormatterConfig } from '@core/usecases/formatter-manager';
+import { FormatterManager } from '@core/usecases/formatter-manager';
 
 interface UseFormatterManagerResult {
   applyConfig: (configJson: string) => Promise<void>;

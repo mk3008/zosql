@@ -1,6 +1,6 @@
 import { SelectQueryParser } from 'rawsql-ts';
 import { SqlParser, ParsedQuery, FormatOptions } from '@core/ports/workspace';
-import { CTE, ColumnInfo } from '@shared/types';
+import { CTE } from '@shared/types';
 import { CTEEntity } from '@core/entities/cte';
 
 export class RawSqlParser implements SqlParser {
@@ -11,7 +11,7 @@ export class RawSqlParser implements SqlParser {
       
       return {
         type: 'simple',
-        withClause: simpleQuery.withClause,
+        withClause: simpleQuery.withClause ? { tables: [] } : undefined,
         ctes: []
       };
     } catch (error) {
@@ -53,7 +53,7 @@ export class RawSqlParser implements SqlParser {
     }
   }
 
-  async formatQuery(sql: string, options: FormatOptions = {}): Promise<string> {
+  async formatQuery(sql: string, _options: FormatOptions = {}): Promise<string> {
     try {
       // For now, return the original SQL
       // TODO: Implement proper formatting when rawsql-ts formatter is available

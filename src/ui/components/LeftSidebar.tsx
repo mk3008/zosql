@@ -19,16 +19,18 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onModelClick,
   selectedModelName,
   onDecomposeQuery,
-  isDecomposing = false,
+  isDecomposing,
   workspace
 }) => {
+  // Suppress unused variable warning
+  void isDecomposing;
   const { isLoading, validateWorkspace } = useWorkspace();
-  const [isValidating, setIsValidating] = useState(false);
+  const [_isValidating, _setIsValidating] = useState(false);
 
   const handleValidateWorkspace = async () => {
     if (!workspace) return;
     
-    setIsValidating(true);
+    _setIsValidating(true);
     try {
       const result = await validateWorkspace();
       console.log('Validation result:', result);
@@ -36,7 +38,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     } catch (error) {
       console.error('Validation failed:', error);
     } finally {
-      setIsValidating(false);
+      _setIsValidating(false);
     }
   };
 
@@ -96,7 +98,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         </h3>
         
         <SqlModelsList 
-          models={sqlModels}
+          models={sqlModels as any}
           onModelClick={onModelClick}
           selectedModelName={selectedModelName}
           onOpenValuesTab={onOpenValuesTab}

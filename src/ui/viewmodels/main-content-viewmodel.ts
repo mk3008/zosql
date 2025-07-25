@@ -172,7 +172,7 @@ export class MainContentViewModel extends BaseViewModel {
       });
 
       // Execute command
-      const command = new ExecuteQueryCommand(context);
+      const command = new ExecuteQueryCommand(context as any);
       const result = await commandExecutor.execute(command);
 
       this.queryResult = result;
@@ -277,8 +277,8 @@ export class MainContentViewModel extends BaseViewModel {
       // Get full SQL from root model using getFullSql with specified parameters
       console.log('[DEBUG] Copy Prompt - Before getFullSql, mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
       const fullSql = await mainModel.getFullSql(
-        null,        // testValues: NULL
-        null,        // filterConditions: NULL
+        undefined,   // testValues: undefined
+        undefined,   // filterConditions: undefined
         false        // forExecution: false
       );
       console.log('[DEBUG] Copy Prompt - Got full SQL from root model:', {

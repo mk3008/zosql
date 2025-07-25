@@ -41,8 +41,11 @@ export interface CteDependencyAnalyzerPort {
 export class SqlDecomposerUseCase {
   constructor(
     private parser: SqlParserPort,
-    private dependencyAnalyzer: CteDependencyAnalyzerPort
-  ) {}
+    private readonly _dependencyAnalyzer: CteDependencyAnalyzerPort // TODO: Implement dependency analysis
+  ) {
+    // Suppress unused variable warning for future use
+    void this._dependencyAnalyzer;
+  }
 
   /**
    * Decompose SQL with CTEs into individual SQL models

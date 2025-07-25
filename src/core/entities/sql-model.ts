@@ -3,10 +3,10 @@
  * Hexagonal Architecture - Core Layer
  */
 
-import { SqlFormatter, SelectQuery, DynamicQueryBuilder, FilterConditions } from 'rawsql-ts';
+import { SqlFormatter, SelectQuery, DynamicQueryBuilder } from 'rawsql-ts';
 import { TestValuesModel } from './test-values-model';
 import { FilterConditionsEntity } from './filter-conditions';
-import { QueryExecutionResult } from '@shared/types';
+import { QueryExecutionResult, QueryResultCapable } from '@core/types/query-types';
 import { CteComposer } from '@/utils/cte-composer';
 
 /**
@@ -41,8 +41,8 @@ export interface SqlModel {
   originalSql?: string;
 }
 
-export class SqlModelEntity implements SqlModel {
-  private _queryResult?: QueryExecutionResult;
+export class SqlModelEntity implements SqlModel, QueryResultCapable {
+  private _queryResult: QueryExecutionResult | null = null;
 
   constructor(
     public type: 'main' | 'cte',
@@ -298,30 +298,42 @@ export class SqlModelEntity implements SqlModel {
   }
 
   /**
-   * Get query execution result for this model
-   */
-  get queryResult(): QueryExecutionResult | undefined {
-    return this._queryResult;
-  }
-
-  /**
    * Set query execution result for this model
+   * Implements QueryResultCapable interface
    */
   setQueryResult(result: QueryExecutionResult): void {
     this._queryResult = result;
   }
 
   /**
-   * Clear query execution result
+   * Get query execution result for this model
+   * Implements QueryResultCapable interface
    */
-  clearQueryResult(): void {
-    this._queryResult = undefined;
+  getQueryResult(): QueryExecutionResult | null {
+    return this._queryResult;
   }
 
   /**
    * Check if this model has a cached query result
+   * Implements QueryResultCapable interface
    */
   hasQueryResult(): boolean {
-    return this._queryResult !== undefined;
+    return this._queryResult !== null;
+  }
+
+  /**
+   * Clear query execution result
+   * Implements QueryResultCapable interface
+   */
+  clearQueryResult(): void {
+    this._queryResult = null;
+  }
+
+  /**
+   * Legacy getter for backward compatibility
+   * @deprecated Use getQueryResult() instead
+   */
+  get queryResult(): QueryExecutionResult | null {
+    return this._queryResult;
   }
 }

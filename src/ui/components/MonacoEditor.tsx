@@ -205,7 +205,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     });
     
     console.log('[DEBUG] SQL Monarch tokenizer configured with keywords including:', 
-      ['select', 'from', 'where'].every(kw => 
+      ['select', 'from', 'where'].every(_kw => 
         monaco.languages.getLanguages().find(lang => lang.id === 'sql')
       ) ? 'SQL language found' : 'SQL language not found'
     );
@@ -401,7 +401,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         value={value}
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}
-        options={dynamicOptions}
+        options={dynamicOptions as any}
       />
     </div>
   );

@@ -8,7 +8,6 @@ import { commandExecutor } from '@core/services/command-executor';
 import { ExecuteQueryCommand, ExecuteQueryContext } from '@core/commands/execute-query-command';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { SqlModelEntity } from '@core/entities/sql-model';
-import { QueryExecutionResult } from '@shared/types';
 
 export interface UseCommandsProps {
   workspace: WorkspaceEntity | null;

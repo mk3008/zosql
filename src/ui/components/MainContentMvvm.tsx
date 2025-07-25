@@ -10,7 +10,6 @@ import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
 import { useMvvmBinding } from '@ui/hooks/useMvvm';
-import { useToast } from '@ui/hooks/useToast';
 
 export interface MainContentRef {
   openValuesTab: () => void;
@@ -36,6 +35,8 @@ export interface MainContentProps {
 let globalViewModel: MainContentViewModel | null = null;
 
 const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange, onSqlExecuted, showSuccess, showError, showErrorWithDetails }, ref) => {
+  // Suppress unused variable warning
+  void onWorkspaceChange;
   // MVVM: Create and bind ViewModel (singleton pattern)
   const viewModelRef = useRef<MainContentViewModel | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);

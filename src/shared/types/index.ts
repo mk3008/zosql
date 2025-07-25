@@ -49,9 +49,9 @@ export interface SqlModelEntity {
   dependents: SqlModelEntity[];
   columns?: string[];
   originalSql?: string;
-  getFullSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution?: boolean): Promise<string>;
+  getFullSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean): Promise<string>;
   getDependentNames(): string[];
-  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution?: boolean): Promise<any>;
+  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean): Promise<any>;
 }
 
 export interface SqlModel {

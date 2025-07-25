@@ -3,25 +3,25 @@
  * Core Layer - Manages rawsql-ts SqlFormatter with JSON string GUI binding
  */
 
-import { SqlFormatter } from 'rawsql-ts';
+import { SqlFormatter, type SqlFormatterOptions } from 'rawsql-ts';
 
 /**
  * Default formatter configuration
  */
-const DEFAULT_FORMATTER_CONFIG = {
-  "identifierEscape": {
-    "start": "",
-    "end": ""
+const DEFAULT_FORMATTER_CONFIG: SqlFormatterOptions = {
+  identifierEscape: {
+    start: "",
+    end: ""
   },
-  "parameterSymbol": ":",
-  "parameterStyle": "named" as const,
-  "indentSize": 4,
-  "indentChar": " ",
-  "newline": "\n",
-  "keywordCase": "lower" as const,
-  "commaBreak": "before" as const,
-  "andBreak": "before" as const,
-  "preserveComments": true
+  parameterSymbol: ":",
+  parameterStyle: "named",
+  indentSize: 4,
+  indentChar: " " as const, // IndentCharOption: '' | ' ' | '\t'
+  newline: "\n" as const,   // NewlineOption: ' ' | '\n' | '\r\n'
+  keywordCase: "lower",
+  commaBreak: "before",
+  andBreak: "before",
+  exportComment: true  // Changed from preserveComments to exportComment per SqlFormatterOptions
 };
 
 /**

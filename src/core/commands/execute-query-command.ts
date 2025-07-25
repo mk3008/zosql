@@ -3,10 +3,14 @@
  * Core Layer - SQL Query Execution Business Logic
  */
 
-import { BaseCommand, CommandResult } from './base';
+import { BaseCommand } from './base';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { SqlModelEntity, DynamicSqlResult } from '@core/entities/sql-model';
 import { TestValuesModel } from '@core/entities/test-values-model';
+import { 
+  hasQueryResultCapability,
+  QueryResultBuilder
+} from '@core/types/query-types';
 import { QueryExecutionResult } from '@shared/types';
 
 export interface ExecuteQueryContext {
@@ -35,6 +39,7 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
     let dynamicResult: DynamicSqlResult | null = null;
     
     try {
+
       console.log('[DEBUG] ExecuteQueryCommand context:', {
         hasSqlModel: !!this.context.sqlModel,
         sqlModelName: this.context.sqlModel?.name,
@@ -102,9 +107,20 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
         executedSql: dynamicResult.formattedSql
       };
       
-      // Save result to model if available
-      if (this.context.sqlModel && 'setQueryResult' in this.context.sqlModel) {
-        (this.context.sqlModel as any).setQueryResult(executionResult);
+      // Save result to model if available - using type-safe approach
+      if (this.context.sqlModel && hasQueryResultCapability(this.context.sqlModel)) {
+        // Convert legacy result format to new type-safe format
+        const typeSafeResult = new QueryResultBuilder(dynamicResult.formattedSql)
+          .setStatus('completed')
+          .setRows(result.rows || [])
+          .setStats({
+            rowsAffected: 0,
+            rowsReturned: result.rows?.length || 0,
+            executionTimeMs: executionTime
+          })
+          .build();
+        
+        this.context.sqlModel.setQueryResult(typeSafeResult);
       }
       
       return executionResult;

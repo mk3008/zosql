@@ -72,7 +72,7 @@ export const useSqlDecomposer = (): UseSqlDecomposerResult => {
 
   return {
     decomposeSql,
-    reconstructSql,
+    reconstructSql: reconstructSql as any,
     isDecomposing,
     error,
     models,

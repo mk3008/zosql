@@ -529,7 +529,7 @@ export class WorkspaceEntity {
 
     // Restore opened objects and layout state
     if (data.openedObjects && Array.isArray(data.openedObjects)) {
-      workspace._openedObjects = data.openedObjects.map(obj => ({
+      workspace._openedObjects = data.openedObjects.map((obj: any) => ({
         ...obj,
         modelEntity: obj.modelEntity ? workspace.sqlModels.find(m => m.name === obj.modelEntity.name) : undefined
       }));

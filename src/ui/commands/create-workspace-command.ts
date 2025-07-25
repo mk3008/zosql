@@ -7,7 +7,6 @@ import { WorkspaceEntity } from '@core/entities/workspace';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 import { FilterConditionsEntity } from '@core/entities/filter-conditions';
 import { TestValuesModel } from '@core/entities/test-values-model';
-import { SqlModelEntity } from '@core/entities/sql-model';
 import { SqlDecomposerUseCase } from '@core/usecases/sql-decomposer-usecase';
 import { SqlDecomposerParser } from '@adapters/parsers/sql-decomposer-parser';
 import { CteDependencyAnalyzerAdapter } from '@adapters/dependency-analyzer/cte-dependency-analyzer-adapter';

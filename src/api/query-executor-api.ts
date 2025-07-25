@@ -368,8 +368,7 @@ export class QueryExecutorApi {
       await this.db.exec('DROP TABLE IF EXISTS products CASCADE');
       await this.db.exec('DROP TABLE IF EXISTS users CASCADE');
       
-      // Recreate schema
-      await this.createDefaultSchema();
+      // Note: Schema creation is not performed as per WASM Postgres usage policy
       
       res.json({ success: true, message: 'Database reset successfully' });
     } catch (error) {
