@@ -298,6 +298,49 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
   }
 
   /**
+   * Validate schema by testing if SchemaCollector can complete successfully
+   * This tests CTE dependency restoration without any arguments
+   */
+  async validateSchema(): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('[DEBUG] SqlModelEntity.validateSchema for:', this.name, 'type:', this.type);
+      
+      // Generate full SQL with CTE dependencies only (no test values, no filter conditions)
+      const fullSql = await this.getFullSql(
+        undefined, // no testValues
+        undefined, // no filterConditions  
+        false      // not for execution
+      );
+      
+      console.log('[DEBUG] Generated full SQL for validation:', fullSql.substring(0, 200) + '...');
+      
+      // Parse the SQL and run SchemaCollector to validate schema extraction
+      const { SelectQueryParser, SchemaCollector } = await import('rawsql-ts');
+      const query = SelectQueryParser.parse(fullSql);
+      
+      console.log('[DEBUG] Successfully parsed SQL, query type:', query.constructor.name);
+      
+      // Use SchemaCollector to test if schema information can be extracted
+      const schemaCollector = new SchemaCollector();
+      const schemas = schemaCollector.collect(query);
+      
+      console.log('[DEBUG] SchemaCollector completed successfully, found', schemas.length, 'schemas:', 
+        schemas.map(s => `${s.name}(${s.columns.length} cols)`).join(', '));
+      
+      // If we get here without throwing, the schema validation passed
+      return { success: true };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+      console.log('[DEBUG] SchemaCollector validation failed:', errorMessage);
+      return { 
+        success: false, 
+        error: `SchemaCollector failed: ${errorMessage}` 
+      };
+    }
+  }
+
+  /**
    * Set query execution result for this model
    * Implements QueryResultCapable interface
    */

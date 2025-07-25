@@ -285,6 +285,8 @@ export const Layout: React.FC = () => {
             isDecomposing={isDecomposing}
             workspace={currentWorkspace}
             activeTabId={activeTabId}
+            showErrorWithDetails={addError}
+            showSuccess={showSuccess}
           />
         )}
         

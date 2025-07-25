@@ -71,6 +71,7 @@ export class WorkspaceEntity {
       system: true
     }
   };
+  private _validationResults: Map<string, { success: boolean; error?: string; timestamp: Date }> = new Map();
 
   constructor(
     public id: string,
@@ -176,6 +177,51 @@ export class WorkspaceEntity {
   setSidebarSectionCollapsed(section: keyof WorkspaceLayoutState['leftSidebarCollapsed'], collapsed: boolean): void {
     this._layoutState.leftSidebarCollapsed[section] = collapsed;
     this.updateModified();
+  }
+
+  // Schema Validation Management
+
+  getValidationResult(modelName: string): { success: boolean; error?: string; timestamp: Date } | null {
+    return this._validationResults.get(modelName) || null;
+  }
+
+  setValidationResult(modelName: string, result: { success: boolean; error?: string }): void {
+    this._validationResults.set(modelName, {
+      ...result,
+      timestamp: new Date()
+    });
+    this.updateModified();
+  }
+
+  clearValidationResults(): void {
+    this._validationResults.clear();
+    this.updateModified();
+  }
+
+  async validateAllSchemas(): Promise<void> {
+    console.log('[DEBUG] WorkspaceEntity.validateAllSchemas started');
+    
+    // Validate only SQL models (main and cte), not data/values
+    const modelsToValidate = this.sqlModels.filter(model => 
+      model.type === 'main' || model.type === 'cte'
+    );
+    
+    for (const model of modelsToValidate) {
+      console.log('[DEBUG] Validating schema for:', model.name, 'type:', model.type);
+      try {
+        const result = await model.validateSchema();
+        this.setValidationResult(model.name, result);
+        console.log('[DEBUG] Validation result for', model.name, ':', result);
+      } catch (error) {
+        console.error('[DEBUG] Error validating', model.name, ':', error);
+        this.setValidationResult(model.name, {
+          success: false,
+          error: error instanceof Error ? error.message : 'Validation failed'
+        });
+      }
+    }
+    
+    console.log('[DEBUG] WorkspaceEntity.validateAllSchemas completed');
   }
 
   // Special Tab Management (Values, Formatter, Condition)

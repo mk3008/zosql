@@ -12,6 +12,7 @@ interface SqlModelsListProps {
   selectedModelName?: string;
   onOpenValuesTab?: () => void;
   isValuesTabActive?: boolean;
+  workspace?: any; // WorkspaceEntity for validation results
 }
 
 export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({ 
@@ -19,7 +20,8 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
   onModelClick,
   selectedModelName,
   onOpenValuesTab,
-  isValuesTabActive = false
+  isValuesTabActive = false,
+  workspace
 }) => {
   console.log('[DEBUG] SqlModelsList render - selectedModelName:', selectedModelName, 'isValuesTabActive:', isValuesTabActive);
   
@@ -29,6 +31,34 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
     selectedModelName: selectedModelName,
     isValuesTabActive: isValuesTabActive
   }), [selectedModelName, isValuesTabActive]);
+
+  // Helper function to get validation status for a model
+  const getValidationStatus = (modelName: string) => {
+    if (!workspace || !workspace.getValidationResult) {
+      console.log('[DEBUG] getValidationStatus: no workspace or getValidationResult method');
+      return null;
+    }
+    const result = workspace.getValidationResult(modelName);
+    console.log('[DEBUG] getValidationStatus for', modelName, ':', result);
+    return result;
+  };
+
+  // Helper function to render validation indicator
+  const renderValidationIndicator = (modelName: string) => {
+    const validationResult = getValidationStatus(modelName);
+    console.log('[DEBUG] renderValidationIndicator for', modelName, ':', validationResult);
+    if (!validationResult) {
+      return null;
+    }
+    
+    if (validationResult.success) {
+      console.log('[DEBUG] Rendering success icon for', modelName);
+      return <span className="text-xs text-green-400" title="Schema validation passed">✅</span>;
+    } else {
+      console.log('[DEBUG] Rendering error icon for', modelName);
+      return <span className="text-xs text-red-400" title={`Schema validation failed: ${validationResult.error}`}>❌</span>;
+    }
+  };
   
   if (!models || models.length === 0) {
     return (
@@ -72,6 +102,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
                     <div className="flex items-center gap-2">
                       <span className="text-xs">📄</span>
                       <span className="text-sm font-medium">*root</span>
+                      {renderValidationIndicator(model.name)}
                     </div>
                     {model.dependents.length > 0 && (
                       <span className={`text-xs ${
@@ -136,6 +167,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
                     <div className="flex items-center gap-2">
                       <span className="text-xs">🔗</span>
                       <span className="text-sm font-medium">{model.name}</span>
+                      {renderValidationIndicator(model.name)}
                     </div>
                     <div className="flex items-center gap-2">
                       {model.columns && model.columns.length > 0 && (
