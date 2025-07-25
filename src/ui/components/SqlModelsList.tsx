@@ -53,10 +53,10 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
     
     if (validationResult.success) {
       console.log('[DEBUG] Rendering success icon for', modelName);
-      return <span className="text-xs text-green-400" title="Schema validation passed">✅</span>;
+      return <span className="text-xs text-green-400" title="Static analysis passed">✅</span>;
     } else {
       console.log('[DEBUG] Rendering error icon for', modelName);
-      return <span className="text-xs text-red-400" title={`Schema validation failed: ${validationResult.error}`}>❌</span>;
+      return <span className="text-xs text-red-400" title={`Static analysis failed: ${validationResult.error}`}>❌</span>;
     }
   };
   

@@ -20,6 +20,7 @@ interface MonacoEditorProps {
   workspace?: WorkspaceEntity | null;
   refreshTrigger?: number;
   // jumpToPosition?: number; // Position jump temporarily disabled
+  searchTerm?: string; // Term to search for in the editor
 }
 
 export const MonacoEditor: React.FC<MonacoEditorProps> = ({
@@ -33,8 +34,9 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   options = {},
   onKeyDown,
   workspace,
-  refreshTrigger = 0
-  // jumpToPosition // Position jump temporarily disabled
+  refreshTrigger = 0,
+  // jumpToPosition, // Position jump temporarily disabled
+  searchTerm
 }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -400,6 +402,33 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   //     }
   //   }
   // }, [jumpToPosition]);
+
+  // Handle search functionality
+  useEffect(() => {
+    if (searchTerm && editorRef.current) {
+      const editor = editorRef.current;
+      
+      console.log('[DEBUG] Opening search widget with term:', searchTerm);
+      
+      // Open the find widget
+      editor.getAction('actions.find')?.run();
+      
+      // Set the search term programmatically
+      setTimeout(() => {
+        try {
+          // Access the find controller to set the search term
+          const findController = (editor as any)._findController;
+          if (findController && findController._state) {
+            findController._state.change({ searchString: searchTerm }, false);
+            console.log('[DEBUG] Set search term:', searchTerm);
+          }
+        } catch (error) {
+          console.error('[DEBUG] Failed to set search term:', error);
+        }
+      }, 100); // Small delay to ensure the find widget is open
+    }
+  }, [searchTerm]);
+
 
   // Get dynamic options based on formatter configuration
   const indentSize = getIndentSize();

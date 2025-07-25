@@ -76,9 +76,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     
     _setIsValidating(true);
     try {
-      console.log('[DEBUG] Starting schema validation for all models');
+      console.log('[DEBUG] Starting static analysis for all models');
       await workspace.validateAllSchemas();
-      console.log('[DEBUG] Schema validation completed');
+      console.log('[DEBUG] Static analysis completed');
       
       // Check for any validation failures and show detailed errors
       const modelsToValidate = workspace.sqlModels.filter(model => 
@@ -94,7 +94,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
       
       if (failedModels.length > 0) {
         if (showErrorWithDetails) {
-          const errorSummary = `Schema validation failed for ${failedModels.length} model(s)`;
+          const errorSummary = `Static analysis failed for ${failedModels.length} model(s)`;
           const errorDetails = failedModels
             .map(({ model, result }) => `${model.name}: ${result?.error || 'Unknown error'}`)
             .join('\n');
@@ -105,18 +105,18 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         // All validations passed
         const successCount = modelsToValidate.length;
         if (showSuccess) {
-          showSuccess(`Schema validation completed successfully for ${successCount} model(s)`);
+          showSuccess(`Static analysis completed successfully for ${successCount} model(s)`);
         }
       }
       
       // Force component re-render to show updated validation icons
       forceUpdate({});
     } catch (error) {
-      console.error('Schema validation failed:', error);
+      console.error('Static analysis failed:', error);
       if (showErrorWithDetails) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
         const errorStack = error instanceof Error ? error.stack : undefined;
-        showErrorWithDetails('Schema validation process failed', errorMessage, errorStack);
+        showErrorWithDetails('Static analysis process failed', errorMessage, errorStack);
       }
     } finally {
       _setIsValidating(false);
@@ -236,10 +236,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     : 'bg-dark-hover text-dark-text-primary hover:bg-dark-active'
                 }`}
                 disabled={_isValidating || !workspace}
-                title="Validate schema and CTE dependencies for all SQL models"
+                title="Static analysis of schema and CTE dependencies for all SQL models"
               >
                 <span>{_isValidating ? '⏳' : '🔧'}</span>
-                {_isValidating ? 'Validating...' : 'Validate Schema'}
+                {_isValidating ? 'Analyzing...' : 'Static Analyze'}
               </button>
             </div>
             

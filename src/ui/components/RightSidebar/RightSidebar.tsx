@@ -77,14 +77,17 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({ workspace, lastExe
     <>
       <div className="w-80 bg-dark-secondary border-l border-dark-border-primary flex flex-col h-full">
         {/* Tab Header */}
-        <div className="flex border-b border-dark-border-primary">
+        <div className="flex border-b border-dark-border-primary" style={{ backgroundColor: '#1a1a1a' }}>
           <button
             onClick={() => setActiveTab('sql')}
             className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
               activeTab === 'sql'
-                ? 'text-primary-400 border-b-2 border-primary-400 bg-dark-hover'
+                ? 'text-primary-400 border-b-2 border-primary-400'
                 : 'text-dark-text-secondary hover:text-dark-text-primary'
             }`}
+            style={{
+              backgroundColor: activeTab === 'sql' ? '#252526' : '#1a1a1a'
+            }}
           >
             SQL
           </button>
@@ -92,9 +95,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({ workspace, lastExe
             onClick={() => setActiveTab('condition')}
             className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
               activeTab === 'condition'
-                ? 'text-primary-400 border-b-2 border-primary-400 bg-dark-hover'
+                ? 'text-primary-400 border-b-2 border-primary-400'
                 : 'text-dark-text-secondary hover:text-dark-text-primary'
             }`}
+            style={{
+              backgroundColor: activeTab === 'condition' ? '#252526' : '#1a1a1a'
+            }}
           >
             Condition
           </button>
@@ -102,9 +108,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({ workspace, lastExe
             onClick={() => setActiveTab('formatter')}
             className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
               activeTab === 'formatter'
-                ? 'text-primary-400 border-b-2 border-primary-400 bg-dark-hover'
+                ? 'text-primary-400 border-b-2 border-primary-400'
                 : 'text-dark-text-secondary hover:text-dark-text-primary'
             }`}
+            style={{
+              backgroundColor: activeTab === 'formatter' ? '#252526' : '#1a1a1a'
+            }}
           >
             Formatter
           </button>

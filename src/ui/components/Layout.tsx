@@ -131,8 +131,8 @@ export const Layout: React.FC = () => {
       
       showSuccess(`Opened ${file.name} with ${workspace.sqlModels.length} models`);
       
-      // Automatically validate all schemas after opening file
-      console.log('[DEBUG] Starting automatic schema validation after file open');
+      // Automatically analyze all schemas after opening file
+      console.log('[DEBUG] Starting automatic static analysis after file open');
       try {
         await workspace.validateAllSchemas();
         
@@ -149,17 +149,17 @@ export const Layout: React.FC = () => {
           .filter(({ result }) => result && !result.success);
         
         if (failedModels.length > 0) {
-          const errorSummary = `Schema validation found issues in ${failedModels.length} model(s)`;
+          const errorSummary = `Static analysis found issues in ${failedModels.length} model(s)`;
           const errorDetails = failedModels
             .map(({ model, result }) => `${model.name}: ${result?.error || 'Unknown error'}`)
             .join('\n');
           
           addError(errorSummary, errorDetails);
         } else {
-          console.log('[DEBUG] All schemas validated successfully');
+          console.log('[DEBUG] All schemas analyzed successfully');
         }
       } catch (validationError) {
-        console.error('[DEBUG] Schema validation failed:', validationError);
+        console.error('[DEBUG] Static analysis failed:', validationError);
         // Continue anyway - validation failure shouldn't prevent file opening
       }
     } catch (error) {
@@ -206,7 +206,7 @@ export const Layout: React.FC = () => {
             console.log('[DEBUG] Loaded workspace with opened objects:', workspace.openedObjects.length);
             
             // Automatically validate all schemas after loading workspace
-            console.log('[DEBUG] Starting automatic schema validation after workspace load');
+            console.log('[DEBUG] Starting automatic static analysis after workspace load');
             try {
               await workspace.validateAllSchemas();
               
@@ -259,7 +259,7 @@ export const Layout: React.FC = () => {
           console.log('[DEBUG] Created workspace with opened objects:', initialWorkspace.openedObjects.length);
           
           // Automatically validate all schemas after creating new workspace
-          console.log('[DEBUG] Starting automatic schema validation after workspace creation');
+          console.log('[DEBUG] Starting automatic static analysis after workspace creation');
           try {
             await initialWorkspace.validateAllSchemas();
             

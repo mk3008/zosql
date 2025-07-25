@@ -3,7 +3,7 @@
  * UI Layer - Pure View component with ViewModel binding
  */
 
-import React, { forwardRef, useImperativeHandle, useEffect, useRef, memo } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect, useRef, memo, useState } from 'react';
 import '../styles/tab-scrollbar.css';
 import { WorkspaceEntity, SqlModelEntity } from '@shared/types';
 import { MonacoEditor } from './MonacoEditor';
@@ -41,6 +41,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   const viewModelRef = useRef<MainContentViewModel | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);
   // const [jumpToPosition, setJumpToPosition] = useState<number | undefined>(undefined); // Position jump temporarily disabled
+  const [searchTerm, setSearchTerm] = useState<string | undefined>(undefined); // Search term for Monaco editor
   
   if (!viewModelRef.current) {
     if (!globalViewModel) {
@@ -351,18 +352,35 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     }
   };
 
-  // Error message click functionality temporarily disabled
-  // const handleErrorClick = (errorMessage: string) => {
-  //   const positionMatch = errorMessage.match(/at position (\d+)/);
-  //   if (positionMatch) {
-  //     const position = parseInt(positionMatch[1], 10);
-  //     console.log('[DEBUG] Clicking error message, jumping to position:', position);
-  //     setJumpToPosition(position);
-  //     
-  //     // Reset jumpToPosition after a short delay to allow re-clicking
-  //     setTimeout(() => setJumpToPosition(undefined), 100);
-  //   }
-  // };
+  // Handle error message click to open search for columns
+  const handleColumnHighlight = (errorMessage: string) => {
+    console.log('[DEBUG] handleColumnHighlight called with:', errorMessage);
+    const unresolvedMatch = errorMessage.match(/Unresolved columns: (.+)/);
+    if (unresolvedMatch) {
+      console.log('[DEBUG] Regex matched:', unresolvedMatch[1]);
+      const columns = unresolvedMatch[1]
+        .split(',')
+        .map(col => col.trim())
+        .filter(col => col.length > 0);
+      
+      console.log('[DEBUG] Parsed columns:', columns);
+      
+      if (columns.length > 0) {
+        // Use the first column for search
+        const firstColumn = columns[0];
+        console.log('[DEBUG] Opening search for column:', firstColumn);
+        setSearchTerm(firstColumn);
+        
+        // Clear search term after a short delay to allow re-triggering
+        setTimeout(() => {
+          console.log('[DEBUG] Clearing search term');
+          setSearchTerm(undefined);
+        }, 1000);
+      }
+    } else {
+      console.log('[DEBUG] No regex match found for errorMessage:', errorMessage);
+    }
+  };
 
   // Pure View - No business logic, only bindings
   return (
@@ -513,25 +531,45 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                     );
                   }
                   
-                  // Handle Unresolved Columns (from new validation API)
+                  // Handle Unresolved Columns (clickable to highlight)
                   if (errorMessage.includes('Unresolved columns:')) {
+                    console.log('[DEBUG] Found unresolved columns error:', errorMessage);
                     const unresolvedMatch = errorMessage.match(/Unresolved columns: (.+)/);
                     if (unresolvedMatch) {
                       const columns = unresolvedMatch[1].trim();
+                      console.log('[DEBUG] Matched columns:', columns);
                       return (
-                        <span className="text-red-400 truncate" title={`Unresolved columns: ${columns}`}>
+                        <span 
+                          className="text-red-400 truncate cursor-pointer hover:text-red-300 hover:underline" 
+                          title={`Unresolved columns: ${columns} - Click to search in editor`}
+                          onClick={(e) => {
+                            console.log('[DEBUG] Unresolved columns clicked!', e);
+                            handleColumnHighlight(errorMessage);
+                          }}
+                          style={{ cursor: 'pointer' }} // Force cursor style
+                        >
                           Unresolved columns: {columns}
                         </span>
                       );
                     }
                   }
                   
-                  // Handle legacy format (Column reference(s) without table name)
+                  // Handle legacy format (Column reference(s) without table name) - now clickable
                   const legacyMatch = errorMessage.match(/Column reference\(s\) without table name found in query: (.+)/);
                   if (legacyMatch) {
                     const columns = legacyMatch[1].trim();
+                    console.log('[DEBUG] Found legacy format unresolved columns:', columns);
                     return (
-                      <span className="text-red-400 truncate" title={`Unresolved columns: ${columns}`}>
+                      <span 
+                        className="text-red-400 truncate cursor-pointer hover:text-red-300 hover:underline" 
+                        title={`Unresolved columns: ${columns} - Click to search in editor`}
+                        onClick={(e) => {
+                          console.log('[DEBUG] Legacy format columns clicked!', e);
+                          // Create a fake "Unresolved columns:" message for the handler
+                          handleColumnHighlight(`Unresolved columns: ${columns}`);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
                         Unresolved columns: {columns}
                       </span>
                     );
@@ -625,6 +663,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   onKeyDown={handleKeyDown}
                   workspace={workspace}
                   // jumpToPosition={jumpToPosition} // Position jump temporarily disabled
+                  searchTerm={searchTerm}
                   options={vm.activeTab.type === 'values' ? {
                     wordWrap: 'off',
                     wrappingStrategy: 'simple',
