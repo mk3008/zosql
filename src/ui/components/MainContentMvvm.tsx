@@ -465,98 +465,53 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
           </div>
         )}
 
-        {/* Dynamic Content Area based on tab type */}
+        {/* Content Area - Single MonacoEditor with dynamic layout */}
         <div className="flex-1 overflow-hidden">
-          {vm.activeTab && vm.activeTab.type === 'values' ? (
-            /* Data Tab Layout - Simple editor only */
-            <div className="h-full bg-dark-primary overflow-hidden">
-              <MonacoEditor
-                key={vm.activeTab.id}
-                value={vm.activeTab.content}
-                onChange={(value) => {
-                  console.log('[DEBUG] Monaco onChange for data tab:', vm.activeTab!.id);
-                  vm.updateTabContent(vm.activeTab!.id, value);
-                }}
-                language="sql"
-                height="100%"
-                isMainEditor={true}
-                onKeyDown={handleKeyDown}
-                workspace={workspace}
-                options={{
-                  wordWrap: 'off',
-                  wrappingStrategy: 'simple',
-                  scrollBeyondLastLine: false,
-                  minimap: { enabled: false },
-                  folding: true,
-                }}
-              />
-            </div>
-          ) : vm.resultsVisible && vm.queryResult ? (
-            /* Default tabs: Split view with Editor + Results */
-            <div className="h-full flex flex-col">
-              {/* Monaco Editor - takes remaining space */}
-              <div className="flex-1 bg-dark-primary overflow-hidden" style={{ minHeight: '200px' }}>
-                {vm.activeTab && (
-                  <MonacoEditor
-                    key={vm.activeTab.id}
-                    value={vm.activeTab.content}
-                    onChange={(value) => {
-                      console.log('[DEBUG] Monaco onChange for tab:', vm.activeTab!.id, 'type:', vm.activeTab!.type);
-                      vm.updateTabContent(vm.activeTab!.id, value);
-                    }}
-                    language={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
-                    height="100%"
-                    isMainEditor={true}
-                    onKeyDown={handleKeyDown}
-                    workspace={workspace}
-                    options={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
-                      wordWrap: 'off',
-                      formatOnType: true,
-                      formatOnPaste: true,
-                      minimap: { enabled: false },
-                      readOnly: false  // 明示的に編集可能に設定
-                    } : {
-                      wordWrap: 'off',
-                      minimap: { enabled: false },
-                      folding: true,
-                    }}
-                  />
-                )}
-              </div>
-              
-              {/* Query Results - fixed portion */}
-              <div className="flex-shrink-0">
-                <QueryResults
-                  result={vm.queryResult}
-                  isVisible={vm.resultsVisible}
-                  onClose={() => vm.closeResults()}
-                />
-              </div>
-            </div>
-          ) : (
-            /* Default tabs: Full editor view */
-            <div className="h-full bg-dark-primary overflow-hidden">
-              {vm.activeTab && (
+          {vm.activeTab && (
+            <div className={vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult ? 'h-full flex flex-col' : 'h-full'}>
+              {/* Monaco Editor - always present, size adjusts based on layout */}
+              <div className={vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult ? 'flex-1 bg-dark-primary overflow-hidden' : 'h-full bg-dark-primary overflow-hidden'} style={vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult ? { minHeight: '200px' } : {}}>
                 <MonacoEditor
-                  key={vm.activeTab.id}
+                  key="main-editor-unified" // Single stable key prevents remounting
                   value={vm.activeTab.content}
-                  onChange={(value) => vm.updateTabContent(vm.activeTab!.id, value)}
-                  language={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
+                  onChange={(value) => {
+                    console.log('[DEBUG] Monaco onChange for tab:', vm.activeTab!.id, 'type:', vm.activeTab!.type);
+                    vm.updateTabContent(vm.activeTab!.id, value);
+                  }}
+                  language={vm.activeTab.type === 'values' ? 'sql' : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
                   height="100%"
                   isMainEditor={true}
                   onKeyDown={handleKeyDown}
                   workspace={workspace}
-                  options={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
+                  options={vm.activeTab.type === 'values' ? {
+                    wordWrap: 'off',
+                    wrappingStrategy: 'simple',
+                    scrollBeyondLastLine: false,
+                    minimap: { enabled: false },
+                    folding: true,
+                  } : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
                     wordWrap: 'off',
                     formatOnType: true,
                     formatOnPaste: true,
-                    minimap: { enabled: false }
+                    minimap: { enabled: false },
+                    readOnly: false
                   } : {
                     wordWrap: 'off',
                     minimap: { enabled: false },
                     folding: true,
                   }}
                 />
+              </div>
+              
+              {/* Query Results - only shown when needed */}
+              {vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult && (
+                <div className="flex-shrink-0">
+                  <QueryResults
+                    result={vm.queryResult}
+                    isVisible={vm.resultsVisible}
+                    onClose={() => vm.closeResults()}
+                  />
+                </div>
               )}
             </div>
           )}

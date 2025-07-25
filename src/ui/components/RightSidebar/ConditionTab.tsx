@@ -24,6 +24,12 @@ export const ConditionTab: React.FC<ConditionTabProps> = ({
   onRefreshTrigger
 }) => {
   const { showSuccess, showError } = useToast();
+  
+  // Suppress unused variable warning - refreshTrigger still used for state management
+  void refreshTrigger;
+  
+  // Debug: Log when ConditionTab renders
+  console.log('[DEBUG] ConditionTab rendering with refreshTrigger:', refreshTrigger);
 
   const handleReGenerate = () => {
     console.log('[DEBUG] ReGenerate button clicked!');
@@ -112,7 +118,6 @@ export const ConditionTab: React.FC<ConditionTabProps> = ({
           height="100%"
           readOnly={false}
           workspace={workspace}
-          refreshTrigger={refreshTrigger}
           onKeyDown={handleKeyDown}
           options={{
             fontSize: 12,

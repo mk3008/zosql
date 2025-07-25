@@ -24,6 +24,12 @@ export const FormatterTab: React.FC<FormatterTabProps> = ({
   onRefreshTrigger
 }) => {
   const { showSuccess, showError } = useToast();
+  
+  // Suppress unused variable warning - refreshTrigger still used for state management
+  void refreshTrigger;
+  
+  // Debug: Log when FormatterTab renders
+  console.log('[DEBUG] FormatterTab rendering with refreshTrigger:', refreshTrigger);
 
   const handleReset = () => {
     console.log('[DEBUG] Reset Formatter button clicked!');
@@ -103,7 +109,6 @@ export const FormatterTab: React.FC<FormatterTabProps> = ({
           height="100%"
           readOnly={false}
           workspace={workspace}
-          refreshTrigger={refreshTrigger}
           onKeyDown={handleKeyDown}
           options={{
             fontSize: 12,

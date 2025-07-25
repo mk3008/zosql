@@ -4,6 +4,9 @@ import { editor } from 'monaco-editor';
 import { useEditor } from '../context/EditorContext';
 import { WorkspaceEntity } from '@shared/types';
 
+// Global flag to ensure theme is only defined once across all editor instances
+let globalThemeInitialized = false;
+
 interface MonacoEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -34,6 +37,17 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const { setEditorRef } = useEditor();
+  
+  // Suppress unused variable warning for refreshTrigger (may be used in future for forced refreshes)
+  void refreshTrigger;
+  
+  // Debug: Log when component mounts/unmounts
+  useEffect(() => {
+    console.log('[DEBUG] MonacoEditor component mounted/updated with language:', language, 'isMainEditor:', isMainEditor);
+    return () => {
+      console.log('[DEBUG] MonacoEditor component unmounting, language:', language, 'isMainEditor:', isMainEditor);
+    };
+  }, []);
 
   // Get indent size from workspace formatter configuration
   const getIndentSize = (): number => {
@@ -70,33 +84,38 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     console.log('[DEBUG] Monaco Editor readOnly prop:', readOnly);
     console.log('[DEBUG] Monaco Editor options:', options);
     
-    // Define custom dark theme to match our VS Code Dark style
-    monaco.editor.defineTheme('zosql-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'keyword', foreground: '569cd6' },
-        { token: 'keyword.uppercase', foreground: '569cd6' },
-        { token: 'string', foreground: 'ce9178' },
-        { token: 'comment', foreground: '6a9955' },
-        { token: 'number', foreground: 'b5cea8' },
-        { token: 'operator', foreground: 'd4d4d4' },
-        { token: 'delimiter', foreground: 'd4d4d4' }
-      ],
-      colors: {
-        'editor.background': '#1e1e1e',
-        'editor.foreground': '#cccccc',
-        'editor.lineHighlightBackground': '#2d2d30',
-        'editor.selectionBackground': '#264f78',
-        'editor.inactiveSelectionBackground': '#3a3d41',
-        'editorCursor.foreground': '#ffffff',
-        'editorWhitespace.foreground': '#404040',
-        'editorLineNumber.foreground': '#858585',
-        'editorLineNumber.activeForeground': '#c6c6c6'
-      }
-    });
+    // Define custom dark theme only once globally to prevent flicker
+    if (!globalThemeInitialized) {
+      console.log('[DEBUG] Initializing zosql-dark theme globally');
+      monaco.editor.defineTheme('zosql-dark', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [
+          { token: 'keyword', foreground: '569cd6' },
+          { token: 'keyword.uppercase', foreground: '569cd6' },
+          { token: 'string', foreground: 'ce9178' },
+          { token: 'comment', foreground: '6a9955' },
+          { token: 'number', foreground: 'b5cea8' },
+          { token: 'operator', foreground: 'd4d4d4' },
+          { token: 'delimiter', foreground: 'd4d4d4' }
+        ],
+        colors: {
+          'editor.background': '#1e1e1e',
+          'editor.foreground': '#cccccc',
+          'editor.lineHighlightBackground': '#2d2d30',
+          'editor.selectionBackground': '#264f78',
+          'editor.inactiveSelectionBackground': '#3a3d41',
+          'editorCursor.foreground': '#ffffff',
+          'editorWhitespace.foreground': '#404040',
+          'editorLineNumber.foreground': '#858585',
+          'editorLineNumber.activeForeground': '#c6c6c6'
+        }
+      });
+      globalThemeInitialized = true;
+      console.log('[DEBUG] zosql-dark theme defined globally');
+    }
     
-    // Set the custom theme
+    // Set the custom theme (this is lightweight and doesn't cause flicker)
     monaco.editor.setTheme('zosql-dark');
     
     // Force language configuration for SQL (even if already set)
@@ -213,18 +232,13 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     // Set the language explicitly for the current model
     const model = editor.getModel();
     if (model) {
-      monaco.editor.setModelLanguage(model, 'sql');
-      const actualLanguage = model.getLanguageId();
-      console.log('[DEBUG] Set model language to SQL, actual language:', actualLanguage);
-      
-      // Force tokenization update
-      setTimeout(() => {
-        monaco.editor.setModelLanguage(model, 'plaintext');
-        setTimeout(() => {
-          monaco.editor.setModelLanguage(model, 'sql');
-          console.log('[DEBUG] Forced re-tokenization complete');
-        }, 10);
-      }, 10);
+      const currentLanguage = model.getLanguageId();
+      if (currentLanguage !== 'sql') {
+        monaco.editor.setModelLanguage(model, 'sql');
+        console.log('[DEBUG] Set model language to SQL, was:', currentLanguage);
+      } else {
+        console.log('[DEBUG] Model language already set to SQL, skipping re-tokenization');
+      }
     }
   }
 
@@ -329,8 +343,9 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   }, [language]);
 
   // Watch for workspace formatter changes and update indent settings
+  const formatterConfig = workspace?.formatter.config;
   useEffect(() => {
-    if (editorRef.current && language === 'sql') {
+    if (editorRef.current && language === 'sql' && formatterConfig) {
       const indentSize = getIndentSize();
       console.log('[DEBUG] Updating Monaco editor indent settings, indentSize:', indentSize);
       
@@ -343,7 +358,18 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       
       console.log('[DEBUG] Updated Monaco editor with tabSize:', indentSize);
     }
-  }, [workspace?.formatter.config, workspace?.formatter.displayString, language, refreshTrigger]);
+  }, [formatterConfig, language]); // Remove refreshTrigger dependency to prevent unnecessary re-renders
+
+  // Watch for value prop changes and sync with editor content
+  useEffect(() => {
+    if (editorRef.current) {
+      const currentValue = editorRef.current.getValue();
+      if (currentValue !== value) {
+        console.log('[DEBUG] Syncing editor value, current:', currentValue.length, 'new:', value.length);
+        editorRef.current.setValue(value);
+      }
+    }
+  }, [value]);
 
   // Get dynamic options based on formatter configuration
   const indentSize = getIndentSize();
