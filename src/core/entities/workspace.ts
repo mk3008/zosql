@@ -46,6 +46,12 @@ export interface WorkspaceLayoutState {
   leftSidebarVisible: boolean;
   rightSidebarVisible: boolean;
   resultsVisible: boolean;
+  leftSidebarCollapsed: {
+    workspace: boolean;
+    sqlModels: boolean;
+    actions: boolean;
+    system: boolean;
+  };
 }
 
 /**
@@ -57,7 +63,13 @@ export class WorkspaceEntity {
   private _layoutState: WorkspaceLayoutState = {
     leftSidebarVisible: true,
     rightSidebarVisible: true,
-    resultsVisible: false
+    resultsVisible: false,
+    leftSidebarCollapsed: {
+      workspace: false,
+      sqlModels: false,
+      actions: true,
+      system: true
+    }
   };
 
   constructor(
@@ -158,6 +170,11 @@ export class WorkspaceEntity {
 
   updateLayoutState(layoutState: Partial<WorkspaceLayoutState>): void {
     this._layoutState = { ...this._layoutState, ...layoutState };
+    this.updateModified();
+  }
+
+  setSidebarSectionCollapsed(section: keyof WorkspaceLayoutState['leftSidebarCollapsed'], collapsed: boolean): void {
+    this._layoutState.leftSidebarCollapsed[section] = collapsed;
     this.updateModified();
   }
 
