@@ -130,6 +130,38 @@ export const Layout: React.FC = () => {
       }
       
       showSuccess(`Opened ${file.name} with ${workspace.sqlModels.length} models`);
+      
+      // Automatically validate all schemas after opening file
+      console.log('[DEBUG] Starting automatic schema validation after file open');
+      try {
+        await workspace.validateAllSchemas();
+        
+        // Check validation results
+        const modelsToValidate = workspace.sqlModels.filter(model => 
+          model.type === 'main' || model.type === 'cte'
+        );
+        
+        const failedModels = modelsToValidate
+          .map(model => ({ 
+            model, 
+            result: workspace.getValidationResult(model.name) 
+          }))
+          .filter(({ result }) => result && !result.success);
+        
+        if (failedModels.length > 0) {
+          const errorSummary = `Schema validation found issues in ${failedModels.length} model(s)`;
+          const errorDetails = failedModels
+            .map(({ model, result }) => `${model.name}: ${result?.error || 'Unknown error'}`)
+            .join('\n');
+          
+          addError(errorSummary, errorDetails);
+        } else {
+          console.log('[DEBUG] All schemas validated successfully');
+        }
+      } catch (validationError) {
+        console.error('[DEBUG] Schema validation failed:', validationError);
+        // Continue anyway - validation failure shouldn't prevent file opening
+      }
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Failed to open file');
     }
@@ -172,6 +204,34 @@ export const Layout: React.FC = () => {
             }
             
             console.log('[DEBUG] Loaded workspace with opened objects:', workspace.openedObjects.length);
+            
+            // Automatically validate all schemas after loading workspace
+            console.log('[DEBUG] Starting automatic schema validation after workspace load');
+            try {
+              await workspace.validateAllSchemas();
+              
+              // Check validation results but don't show errors on initial load
+              const modelsToValidate = workspace.sqlModels.filter(model => 
+                model.type === 'main' || model.type === 'cte'
+              );
+              
+              const failedModels = modelsToValidate
+                .map(model => ({ 
+                  model, 
+                  result: workspace.getValidationResult(model.name) 
+                }))
+                .filter(({ result }) => result && !result.success);
+              
+              if (failedModels.length > 0) {
+                console.log('[DEBUG] Schema validation found issues in', failedModels.length, 'models on initial load');
+              } else {
+                console.log('[DEBUG] All schemas validated successfully on initial load');
+              }
+            } catch (validationError) {
+              console.error('[DEBUG] Schema validation failed on initial load:', validationError);
+              // Continue anyway - validation failure shouldn't prevent workspace loading
+            }
+            
             setIsWorkspaceLoading(false);
             return; // Exit early if we loaded successfully
           }
@@ -197,6 +257,33 @@ export const Layout: React.FC = () => {
           }
           
           console.log('[DEBUG] Created workspace with opened objects:', initialWorkspace.openedObjects.length);
+          
+          // Automatically validate all schemas after creating new workspace
+          console.log('[DEBUG] Starting automatic schema validation after workspace creation');
+          try {
+            await initialWorkspace.validateAllSchemas();
+            
+            // Check validation results
+            const modelsToValidate = initialWorkspace.sqlModels.filter(model => 
+              model.type === 'main' || model.type === 'cte'
+            );
+            
+            const failedModels = modelsToValidate
+              .map(model => ({ 
+                model, 
+                result: initialWorkspace.getValidationResult(model.name) 
+              }))
+              .filter(({ result }) => result && !result.success);
+            
+            if (failedModels.length > 0) {
+              console.log('[DEBUG] Schema validation found issues in', failedModels.length, 'models in demo workspace');
+            } else {
+              console.log('[DEBUG] All schemas validated successfully in demo workspace');
+            }
+          } catch (validationError) {
+            console.error('[DEBUG] Schema validation failed for demo workspace:', validationError);
+            // Continue anyway - validation failure shouldn't prevent workspace creation
+          }
         } catch (error) {
           console.error('[ERROR] Failed to create demo workspace:', error);
           showError('Failed to create initial workspace');
@@ -261,7 +348,6 @@ export const Layout: React.FC = () => {
             console.warn('Failed to save workspace to localStorage:', error);
           }
         }}
-        workspaceName={currentWorkspace?.name}
       />
       
       {/* Main Container */}

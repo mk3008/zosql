@@ -225,14 +225,34 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
         />
         
         {isSqlModelsExpanded && (
-          <SqlModelsList 
-            models={sqlModels as any}
-            onModelClick={onModelClick}
-            selectedModelName={selectedModelName}
-            onOpenValuesTab={onOpenValuesTab}
-            isValuesTabActive={activeTabId === 'values'}
-            workspace={workspace}
-          />
+          <>
+            {/* Validate Schema Button */}
+            <div className="mb-3">
+              <button 
+                onClick={handleValidateWorkspace}
+                className={`w-full px-3 py-2 rounded transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  _isValidating 
+                    ? 'bg-yellow-600 text-white' 
+                    : 'bg-dark-hover text-dark-text-primary hover:bg-dark-active'
+                }`}
+                disabled={_isValidating || !workspace}
+                title="Validate schema and CTE dependencies for all SQL models"
+              >
+                <span>{_isValidating ? '⏳' : '🔧'}</span>
+                {_isValidating ? 'Validating...' : 'Validate Schema'}
+              </button>
+            </div>
+            
+            {/* SQL Models List */}
+            <SqlModelsList 
+              models={sqlModels as any}
+              onModelClick={onModelClick}
+              selectedModelName={selectedModelName}
+              onOpenValuesTab={onOpenValuesTab}
+              isValuesTabActive={activeTabId === 'values'}
+              workspace={workspace}
+            />
+          </>
         )}
       </div>
 
@@ -255,20 +275,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             >
               <span>📄</span>
               Decompose
-            </button>
-            
-            <button 
-              onClick={handleValidateWorkspace}
-              className={`w-full px-3 py-2 rounded transition-colors text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                _isValidating 
-                  ? 'bg-yellow-600 text-white' 
-                  : 'bg-dark-hover text-dark-text-primary hover:bg-dark-active'
-              }`}
-              disabled={_isValidating || !workspace}
-              title="Validate schema and CTE dependencies for all SQL models"
-            >
-              <span>{_isValidating ? '⏳' : '🔧'}</span>
-              {_isValidating ? 'Validating...' : 'Validate Schema'}
             </button>
           </div>
         )}

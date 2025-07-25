@@ -8,9 +8,8 @@ interface HeaderProps {
   onToggleRightSidebar: () => void;
   leftSidebarVisible: boolean;
   rightSidebarVisible: boolean;
-  onFileOpen?: (file: File) => Promise<void>;
+  onFileOpen?: (file: File) => Promise<void>;  
   onWorkspaceCreated?: (workspace: WorkspaceEntity) => void;
-  workspaceName?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,8 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   leftSidebarVisible,
   rightSidebarVisible,
   onFileOpen,
-  onWorkspaceCreated,
-  workspaceName
+  onWorkspaceCreated
 }) => {
   const [showNewWorkspaceDialog, setShowNewWorkspaceDialog] = useState(false);
   const [showFileOpenDialog, setShowFileOpenDialog] = useState(false);
@@ -43,14 +41,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Center Section - Workspace Info */}
+      {/* Center Section - Empty */}
       <div className="flex items-center gap-4">
-        {workspaceName && (
-          <div className="flex items-center gap-2 text-dark-text-primary">
-            <span className="text-sm">Workspace:</span>
-            <span className="text-sm font-medium text-dark-text-white">{workspaceName}</span>
-          </div>
-        )}
+        {/* Workspace name display removed */}
       </div>
 
       {/* Right Section */}
