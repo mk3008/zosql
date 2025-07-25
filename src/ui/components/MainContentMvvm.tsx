@@ -82,6 +82,11 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
         event.preventDefault();
         event.stopPropagation();
         vm.executeQuery();
+      } else if (event.ctrlKey && event.key === 'd') {
+        console.log('[DEBUG] Ctrl+D pressed');
+        event.preventDefault();
+        event.stopPropagation();
+        vm.runStaticAnalysis();
       }
     };
 
@@ -161,6 +166,15 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
         if (showErrorWithDetails && value) {
           showErrorWithDetails(value.message, value.details, value.stack);
         }
+      } else if (propertyName === 'success') {
+        console.log('[DEBUG] Showing success toast:', value);
+        showSuccess?.(value);
+      } else if (propertyName === 'error') {
+        console.log('[DEBUG] Showing error toast:', value);
+        showError?.(value);
+      } else if (propertyName === 'analysisUpdated') {
+        console.log('[DEBUG] Analysis updated, forcing re-render');
+        // Force re-render to update error displays
       }
     };
 
@@ -334,7 +348,8 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       {/* Tab Bar - Fixed at top */}
       <div 
         ref={tabContainerRef}
-        className="bg-dark-secondary border-b border-dark-border-primary flex items-center overflow-x-auto relative tab-container flex-shrink-0"
+        className="border-b border-dark-border-primary flex items-center overflow-x-auto relative tab-container flex-shrink-0"
+        style={{ backgroundColor: '#1a1a1a' }}
         onWheel={handleTabWheel}
       >
         <div className="flex min-w-max">
@@ -343,12 +358,15 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
               key={tab.id}
               data-tab-id={tab.id}
               className={`
-                flex items-center gap-2 px-4 py-2 cursor-pointer relative flex-shrink-0
+                flex items-center gap-2 px-4 py-2 cursor-pointer relative flex-shrink-0 border-r border-dark-border-primary
                 ${vm.activeTabId === tab.id 
-                  ? 'bg-dark-primary text-dark-text-white border-r border-dark-border-primary z-10' 
-                  : 'bg-dark-secondary text-dark-text-primary hover:bg-dark-hover border-r border-dark-border-primary'
+                  ? 'text-dark-text-white z-10' 
+                  : 'text-dark-text-primary hover:bg-dark-hover'
                 }
               `}
+              style={{
+                backgroundColor: vm.activeTabId === tab.id ? '#252526' : '#1a1a1a'
+              }}
               onClick={() => vm.activeTabId = tab.id}
             >
               {/* Active tab bottom accent */}
@@ -439,7 +457,42 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
           /* Default Toolbar for root/CTE tabs */
           <div className="bg-dark-secondary border-b border-dark-border-primary px-4 py-2">
             <div className="flex items-center justify-between">
-              <div /> {/* Spacer */}
+              {/* Left side - validation errors with fixed height */}
+              <div className="flex items-center gap-2 text-sm min-h-[24px] flex-1 min-w-0">
+                {(() => {
+                  // Get validation error for current tab
+                  if (!vm.workspace || !vm.activeTab || (vm.activeTab.type !== 'main' && vm.activeTab.type !== 'cte')) {
+                    return null;
+                  }
+                  
+                  const model = vm.tabModelMap.get(vm.activeTab.id);
+                  if (!model) return null;
+                  
+                  const validationResult = vm.workspace.getValidationResult(model.name);
+                  if (!validationResult || validationResult.success) return null;
+                  
+                  // Extract unresolved columns from error message
+                  const errorMessage = validationResult.error || '';
+                  const match = errorMessage.match(/Column reference\(s\) without table name found in query: (.+)/);
+                  if (match) {
+                    const columns = match[1].trim();
+                    return (
+                      <span className="text-red-400 truncate" title={`Unresolved columns: ${columns}`}>
+                        Unresolved columns: {columns}
+                      </span>
+                    );
+                  }
+                  
+                  // Show other errors with truncation
+                  return (
+                    <span className="text-red-400 truncate" title={errorMessage}>
+                      {errorMessage}
+                    </span>
+                  );
+                })()}
+              </div>
+              
+              {/* Right side - buttons */}
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => vm.executeQuery()}

@@ -244,6 +244,97 @@ export class MainContentViewModel extends BaseViewModel {
     this.resultsVisible = false;
   }
 
+  async runStaticAnalysis(): Promise<void> {
+    console.log('[DEBUG] runStaticAnalysis called');
+    if (!this.workspace) {
+      console.log('[DEBUG] No workspace available for static analysis');
+      this.notifyChange('error', 'No workspace loaded');
+      return;
+    }
+
+    try {
+      console.log('[DEBUG] Running static analysis for all models');
+      const startTime = performance.now();
+      
+      // Run validation on all schemas
+      await this.workspace.validateAllSchemas();
+      
+      const endTime = performance.now();
+      const totalTime = Math.round(endTime - startTime);
+      
+      // Show success toast
+      const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
+      const passedCount = models.filter(m => {
+        const result = this.workspace!.getValidationResult(m.name);
+        return result && result.success;
+      }).length;
+      
+      this.notifyChange('success', `Static analysis completed: ${passedCount}/${models.length} models passed`);
+      
+      // Force re-render to update error displays in tabs
+      this.notifyChange('analysisUpdated', Date.now());
+      
+      console.log('[DEBUG] Static analysis completed in', totalTime, 'ms');
+    } catch (error) {
+      console.error('[DEBUG] Static analysis failed:', error);
+      this.notifyChange('errorWithDetails', {
+        message: 'Static analysis failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
+  }
+
+  private buildAnalysisReport(totalTime: number): string {
+    if (!this.workspace) return '';
+    
+    const timestamp = new Date().toLocaleString();
+    const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
+    
+    let report = `Static Analysis Report - ${timestamp}\n`;
+    report += `${'='.repeat(60)}\n\n`;
+    
+    // Summary
+    const passedCount = models.filter(m => {
+      const result = this.workspace!.getValidationResult(m.name);
+      return result && result.success;
+    }).length;
+    
+    report += `📊 Summary:\n`;
+    report += `  - Total Models: ${models.length}\n`;
+    report += `  - Passed: ${passedCount}\n`;
+    report += `  - Failed: ${models.length - passedCount}\n`;
+    report += `  - Analysis Time: ${totalTime}ms\n\n`;
+    
+    // Detailed results
+    report += `📋 Detailed Results:\n`;
+    report += `${'─'.repeat(60)}\n\n`;
+    
+    for (const model of models) {
+      const result = this.workspace.getValidationResult(model.name);
+      const icon = result?.success ? '✅' : '❌';
+      const modelType = model.type === 'main' ? 'Main Query' : 'CTE';
+      
+      report += `${icon} ${model.name} (${modelType})\n`;
+      
+      if (result) {
+        if (result.success) {
+          report += `   Status: Success\n`;
+        } else {
+          report += `   Status: Failed\n`;
+          report += `   Error: ${result.error || 'Unknown error'}\n`;
+        }
+        report += `   Analyzed: ${result.timestamp.toLocaleTimeString()}\n`;
+      } else {
+        report += `   Status: Not analyzed\n`;
+      }
+      report += '\n';
+    }
+    
+    return report;
+  }
+
+
   async copyPrompt(): Promise<void> {
     if (!this.activeTab || this.activeTab.type !== 'values' || !this.workspace) {
       return;
