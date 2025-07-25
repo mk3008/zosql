@@ -82,8 +82,8 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
         event.preventDefault();
         event.stopPropagation();
         vm.executeQuery();
-      } else if (event.ctrlKey && event.key === 'd') {
-        console.log('[DEBUG] Ctrl+D pressed');
+      } else if (event.ctrlKey && event.shiftKey && event.key === 'A') {
+        console.log('[DEBUG] Ctrl+Shift+A pressed');
         event.preventDefault();
         event.stopPropagation();
         vm.runStaticAnalysis();
@@ -471,14 +471,63 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   const validationResult = vm.workspace.getValidationResult(model.name);
                   if (!validationResult || validationResult.success) return null;
                   
-                  // Extract unresolved columns from error message
+                  // Parse and display different types of validation errors
                   const errorMessage = validationResult.error || '';
-                  const match = errorMessage.match(/Column reference\(s\) without table name found in query: (.+)/);
-                  if (match) {
-                    const columns = match[1].trim();
+                  
+                  // Handle Parse Errors (highest priority) - using only rawsql-ts data
+                  if (errorMessage.includes('Parse error at position')) {
+                    return (
+                      <span className="text-red-400 truncate" title={errorMessage}>
+                        {errorMessage}
+                      </span>
+                    );
+                  }
+                  
+                  if (errorMessage.includes('Parse error') || errorMessage.includes('SQL Parse Error:')) {
+                    return (
+                      <span className="text-red-400 truncate" title={errorMessage}>
+                        Parse error
+                      </span>
+                    );
+                  }
+                  
+                  if (errorMessage.includes('Analysis error')) {
+                    return (
+                      <span className="text-red-400 truncate" title={errorMessage}>
+                        Analysis error
+                      </span>
+                    );
+                  }
+                  
+                  // Handle Unresolved Columns (from new validation API)
+                  if (errorMessage.includes('Unresolved columns:')) {
+                    const unresolvedMatch = errorMessage.match(/Unresolved columns: (.+)/);
+                    if (unresolvedMatch) {
+                      const columns = unresolvedMatch[1].trim();
+                      return (
+                        <span className="text-red-400 truncate" title={`Unresolved columns: ${columns}`}>
+                          Unresolved columns: {columns}
+                        </span>
+                      );
+                    }
+                  }
+                  
+                  // Handle legacy format (Column reference(s) without table name)
+                  const legacyMatch = errorMessage.match(/Column reference\(s\) without table name found in query: (.+)/);
+                  if (legacyMatch) {
+                    const columns = legacyMatch[1].trim();
                     return (
                       <span className="text-red-400 truncate" title={`Unresolved columns: ${columns}`}>
                         Unresolved columns: {columns}
+                      </span>
+                    );
+                  }
+                  
+                  // Handle Schema Analysis Errors
+                  if (errorMessage.includes('Schema Analysis Error:')) {
+                    return (
+                      <span className="text-red-400 truncate" title={errorMessage}>
+                        Schema analysis error
                       </span>
                     );
                   }
@@ -543,6 +592,12 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   onChange={(value) => {
                     console.log('[DEBUG] Monaco onChange for tab:', vm.activeTab!.id, 'type:', vm.activeTab!.type);
                     vm.updateTabContent(vm.activeTab!.id, value);
+                    
+                    // Update model's editor content for real-time validation
+                    const model = vm.tabModelMap.get(vm.activeTab!.id);
+                    if (model && (vm.activeTab!.type === 'main' || vm.activeTab!.type === 'cte')) {
+                      model.updateEditorContent(value);
+                    }
                   }}
                   language={vm.activeTab.type === 'values' ? 'sql' : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
                   height="100%"

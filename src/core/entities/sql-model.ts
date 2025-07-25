@@ -43,6 +43,9 @@ export interface SqlModel {
 
 export class SqlModelEntity implements SqlModel, QueryResultCapable {
   private _queryResult: QueryExecutionResult | null = null;
+  
+  /** Editor content (unsaved changes) - used for real-time analysis */
+  public editorContent: string;
 
   constructor(
     public type: 'main' | 'cte',
@@ -52,13 +55,37 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
     public columns?: string[],
     public originalSql?: string,
     private _formatter?: SqlFormatter
-  ) {}
+  ) {
+    // Initialize editor content with saved content
+    this.editorContent = sqlWithoutCte;
+  }
 
   /**
    * Check if this model depends on a specific model
    */
   dependsOn(modelName: string): boolean {
     return this.dependents.some(dep => dep.name === modelName);
+  }
+
+  /**
+   * Check if editor content has unsaved changes
+   */
+  get hasUnsavedChanges(): boolean {
+    return this.editorContent !== this.sqlWithoutCte;
+  }
+
+  /**
+   * Update editor content (called on every keystroke)
+   */
+  updateEditorContent(content: string): void {
+    this.editorContent = content;
+  }
+
+  /**
+   * Save editor content to persistent storage
+   */
+  save(): void {
+    this.sqlWithoutCte = this.editorContent;
   }
 
   /**
@@ -91,10 +118,11 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
    * @param testValues - Optional test data model or string to add for testing
    * @param filterConditions - Optional filter conditions to apply dynamically
    * @param forExecution - If true, generates indexed parameters for PostgreSQL execution
+   * @param useEditorContent - If true, uses editor content instead of saved content
    * @returns Complete SQL with WITH clause including test data and filters if provided
    */
-  async getFullSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false): Promise<string> {
-    const result = await this.getDynamicSql(testValues, filterConditions, forExecution);
+  async getFullSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false, useEditorContent: boolean = false): Promise<string> {
+    const result = await this.getDynamicSql(testValues, filterConditions, forExecution, useEditorContent);
     return result.formattedSql;
   }
 
@@ -103,9 +131,10 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
    * @param testValues - Optional test data model or string to add for testing
    * @param filterConditions - Optional filter conditions to apply dynamically
    * @param forExecution - If true, generates indexed parameters for PostgreSQL execution
+   * @param useEditorContent - If true, uses editor content instead of saved content
    * @returns Dynamic SQL result with query, formatted SQL, and parameters
    */
-  async getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false): Promise<DynamicSqlResult> {
+  async getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false, useEditorContent: boolean = false): Promise<DynamicSqlResult> {
     try {
       console.log('[DEBUG] getDynamicSql called with:', {
         testValuesType: testValues ? typeof testValues : 'undefined',
@@ -115,9 +144,8 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
       });
 
       // Step 1: Base SQL determination
-      let baseSql = this.sqlWithoutCte;
-      // Always use sqlWithoutCte as it contains the latest edited content
-      // originalSql is only used for initial loading, not for current operations
+      let baseSql = useEditorContent ? this.editorContent : this.sqlWithoutCte;
+      console.log('[DEBUG] Using', useEditorContent ? 'editor content' : 'saved content', 'for SQL generation');
 
       // Step 2: CTE Composition (if needed)
       if (testValues || this.dependents.length > 0) {
@@ -298,46 +326,113 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
   }
 
   /**
-   * Validate schema by testing if SchemaCollector can complete successfully
+   * Validate schema using improved static analysis with SelectQueryParser.analyze and SchemaCollector.analyze
    * This tests CTE dependency restoration without any arguments
+   * @param useEditorContent - If true, validates against editor content instead of saved content
    */
-  async validateSchema(): Promise<{ success: boolean; error?: string }> {
+  async validateSchema(useEditorContent: boolean = false): Promise<{ success: boolean; error?: string }> {
+    console.log('[DEBUG] SqlModelEntity.validateSchema for:', this.name, 'type:', this.type, 'useEditorContent:', useEditorContent);
+    
     try {
-      console.log('[DEBUG] SqlModelEntity.validateSchema for:', this.name, 'type:', this.type);
-      
       // Generate full SQL with CTE dependencies only (no test values, no filter conditions)
       const fullSql = await this.getFullSql(
         undefined, // no testValues
         undefined, // no filterConditions  
-        false      // not for execution
+        false,     // not for execution
+        useEditorContent // use editor content for validation
       );
       
-      console.log('[DEBUG] Generated full SQL for validation:', fullSql.substring(0, 200) + '...');
+      console.log('[DEBUG] Generated full SQL for analysis:', fullSql.substring(0, 200) + '...');
       
-      // Parse the SQL and run SchemaCollector to validate schema extraction
+      // Use new SelectQueryParser.analyze for improved error handling
       const { SelectQueryParser, SchemaCollector } = await import('rawsql-ts');
-      const query = SelectQueryParser.parse(fullSql);
       
-      console.log('[DEBUG] Successfully parsed SQL, query type:', query.constructor.name);
+      // First, analyze SQL parsing
+      const parseResult = SelectQueryParser.analyze(fullSql);
+      if (!parseResult.success) {
+        console.log('[DEBUG] SQL parsing failed:', {
+          success: parseResult.success,
+          errorPosition: parseResult.errorPosition,
+          error: parseResult.error,
+          hasPosition: parseResult.errorPosition !== undefined
+        });
+        
+        // Use rawsql-ts provided data only
+        if (parseResult.errorPosition !== undefined) {
+          return { 
+            success: false, 
+            error: `Parse error at position ${parseResult.errorPosition}` 
+          };
+        } else {
+          // Log cases where position is not available for debugging
+          console.log('[DEBUG] Parse error without position info:', parseResult.error);
+          return { 
+            success: false, 
+            error: parseResult.error ? `Parse error: ${parseResult.error}` : `Parse error` 
+          };
+        }
+      }
       
-      // Use SchemaCollector to test if schema information can be extracted
+      console.log('[DEBUG] SQL parsing successful, query type:', parseResult.query?.constructor.name);
+      
+      // Then, analyze schema extraction
       const schemaCollector = new SchemaCollector();
-      const schemas = schemaCollector.collect(query);
+      const schemaResult = schemaCollector.analyze(parseResult.query!);
       
-      console.log('[DEBUG] SchemaCollector completed successfully, found', schemas.length, 'schemas:', 
-        schemas.map(s => `${s.name}(${s.columns.length} cols)`).join(', '));
+      if (!schemaResult.success) {
+        const errorMessage = schemaResult.error || 'Schema analysis failed';
+        console.log('[DEBUG] Schema analysis failed:', errorMessage);
+        return { 
+          success: false, 
+          error: `Schema Analysis Error: ${errorMessage}` 
+        };
+      }
       
-      // If we get here without throwing, the schema validation passed
+      // Check for unresolved columns
+      if (schemaResult.unresolvedColumns.length > 0) {
+        const unresolvedList = schemaResult.unresolvedColumns.join(', ');
+        console.log('[DEBUG] Schema analysis found unresolved columns:', unresolvedList);
+        return {
+          success: false,
+          error: `Unresolved columns: ${unresolvedList}`
+        };
+      }
+      
+      console.log('[DEBUG] Static analysis completed successfully, found', schemaResult.schemas.length, 'schemas:', 
+        schemaResult.schemas.map(s => `${s.name}(${s.columns.length} cols)`).join(', '));
+      
       return { success: true };
       
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
-      console.log('[DEBUG] SchemaCollector validation failed:', errorMessage);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown analysis error';
+      console.log('[DEBUG] Static analysis failed with exception:', errorMessage);
+      
+      // Create user-friendly error messages based on common patterns
+      return this.createUserFriendlyErrorMessage(errorMessage);
+    }
+  }
+
+  /**
+   * Convert technical error messages to user-friendly ones using only rawsql-ts provided data
+   */
+  private createUserFriendlyErrorMessage(errorMessage: string): { success: false; error: string } {
+    // Extract position information only from rawsql-ts format: (index N)
+    const positionMatch = errorMessage.match(/\(index (\d+)\)/);
+    const position = positionMatch ? positionMatch[1] : null;
+    
+    // Simple position-based error message - no complex parsing
+    if (position) {
       return { 
         success: false, 
-        error: `SchemaCollector failed: ${errorMessage}` 
+        error: `Parse error at position ${position}` 
       };
     }
+    
+    // Fallback for errors without position
+    return { 
+      success: false, 
+      error: 'Parse error' 
+    };
   }
 
   /**

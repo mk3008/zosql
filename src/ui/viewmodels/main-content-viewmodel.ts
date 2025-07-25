@@ -256,20 +256,26 @@ export class MainContentViewModel extends BaseViewModel {
       console.log('[DEBUG] Running static analysis for all models');
       const startTime = performance.now();
       
-      // Run validation on all schemas
-      await this.workspace.validateAllSchemas();
+      // Run validation on all schemas using editor content (real-time analysis)
+      await this.workspace.validateAllSchemas(true);
       
       const endTime = performance.now();
       const totalTime = Math.round(endTime - startTime);
       
-      // Show success toast
+      // Show toast based on results
       const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
       const passedCount = models.filter(m => {
         const result = this.workspace!.getValidationResult(m.name);
         return result && result.success;
       }).length;
       
-      this.notifyChange('success', `Static analysis completed: ${passedCount}/${models.length} models passed`);
+      if (passedCount === models.length) {
+        // All models passed - show success
+        this.notifyChange('success', `Static analysis completed: ${passedCount}/${models.length} models passed`);
+      } else {
+        // Some models failed - show error
+        this.notifyChange('error', `Static analysis completed: ${passedCount}/${models.length} models passed`);
+      }
       
       // Force re-render to update error displays in tabs
       this.notifyChange('analysisUpdated', Date.now());
@@ -528,10 +534,11 @@ export class MainContentViewModel extends BaseViewModel {
         });
         
         if (mainModel) {
-          console.log('[DEBUG] Syncing main tab content to model:', tab.id, 'content length:', content.length);
-          console.log('[DEBUG] Before update - mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
-          mainModel.sqlWithoutCte = content;
-          console.log('[DEBUG] After update - mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
+          console.log('[DEBUG] Saving main tab content to model:', tab.id, 'content length:', content.length);
+          console.log('[DEBUG] Before save - mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
+          mainModel.editorContent = content; // Update editor content first
+          mainModel.save(); // Save editor content to persistent storage
+          console.log('[DEBUG] After save - mainModel.sqlWithoutCte:', mainModel.sqlWithoutCte.substring(0, 100) + '...');
         } else {
           console.log('[DEBUG] No main model found');
         }
@@ -541,8 +548,9 @@ export class MainContentViewModel extends BaseViewModel {
         // Update CTE SQL model with edited content
         const cteModel = this.workspace.sqlModels.find(m => m.type === 'cte' && m.name === tab.id);
         if (cteModel) {
-          console.log('[DEBUG] Syncing CTE tab content to model:', tab.id);
-          cteModel.sqlWithoutCte = content;
+          console.log('[DEBUG] Saving CTE tab content to model:', tab.id);
+          cteModel.editorContent = content; // Update editor content first
+          cteModel.save(); // Save editor content to persistent storage
         }
         break;
 

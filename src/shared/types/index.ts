@@ -46,12 +46,16 @@ export interface SqlModelEntity {
   type: 'main' | 'cte';
   name: string;
   sqlWithoutCte: string;
+  editorContent: string;
   dependents: SqlModelEntity[];
   columns?: string[];
   originalSql?: string;
-  getFullSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean): Promise<string>;
+  hasUnsavedChanges: boolean;
+  updateEditorContent(content: string): void;
+  save(): void;
+  getFullSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean, useEditorContent?: boolean): Promise<string>;
   getDependentNames(): string[];
-  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean): Promise<any>;
+  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean, useEditorContent?: boolean): Promise<any>;
 }
 
 export interface SqlModel {

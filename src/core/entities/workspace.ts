@@ -198,8 +198,8 @@ export class WorkspaceEntity {
     this.updateModified();
   }
 
-  async validateAllSchemas(): Promise<void> {
-    console.log('[DEBUG] WorkspaceEntity.validateAllSchemas started');
+  async validateAllSchemas(useEditorContent: boolean = false): Promise<void> {
+    console.log('[DEBUG] WorkspaceEntity.validateAllSchemas started, useEditorContent:', useEditorContent);
     
     // Validate only SQL models (main and cte), not data/values
     const modelsToValidate = this.sqlModels.filter(model => 
@@ -209,7 +209,7 @@ export class WorkspaceEntity {
     for (const model of modelsToValidate) {
       console.log('[DEBUG] Validating schema for:', model.name, 'type:', model.type);
       try {
-        const result = await model.validateSchema();
+        const result = await model.validateSchema(useEditorContent);
         this.setValidationResult(model.name, result);
         console.log('[DEBUG] Validation result for', model.name, ':', result);
       } catch (error) {
