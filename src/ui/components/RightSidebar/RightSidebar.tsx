@@ -75,9 +75,9 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({ workspace, lastExe
 
   return (
     <>
-      <div className="w-80 bg-dark-sidebar border-l border-dark-border flex flex-col h-full">
+      <div className="w-80 bg-dark-secondary border-l border-dark-border-primary flex flex-col h-full">
         {/* Tab Header */}
-        <div className="flex border-b border-dark-border">
+        <div className="flex border-b border-dark-border-primary">
           <button
             onClick={() => setActiveTab('sql')}
             className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${

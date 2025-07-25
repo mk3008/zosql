@@ -88,7 +88,7 @@ export const FormatterTab: React.FC<FormatterTabProps> = ({
         <div className="flex gap-2">
           <button
             onClick={handleReset}
-            className="text-xs text-primary-400 hover:text-primary-300"
+            className="px-3 py-1 text-xs bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors"
             title="Reset formatter configuration to default values"
           >
             Reset

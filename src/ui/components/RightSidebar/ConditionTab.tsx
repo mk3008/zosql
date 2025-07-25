@@ -97,7 +97,7 @@ export const ConditionTab: React.FC<ConditionTabProps> = ({
         <div className="flex gap-2">
           <button
             onClick={handleReGenerate}
-            className="text-xs text-primary-400 hover:text-primary-300"
+            className="px-3 py-1 text-xs bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors"
             title="ReGenerate filter conditions from current SQL query"
           >
             ReGenerate
