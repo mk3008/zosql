@@ -3,7 +3,7 @@
  * Displays decomposed SQL models (CTEs and main query) in the workspace
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SqlModelEntity } from '@core/entities/sql-model';
 
 interface SqlModelsListProps {
@@ -11,14 +11,25 @@ interface SqlModelsListProps {
   onModelClick?: (model: SqlModelEntity) => void;
   selectedModelName?: string;
   onOpenValuesTab?: () => void;
+  isValuesTabActive?: boolean;
 }
 
-export const SqlModelsList: React.FC<SqlModelsListProps> = ({ 
+export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({ 
   models, 
   onModelClick,
   selectedModelName,
-  onOpenValuesTab
+  onOpenValuesTab,
+  isValuesTabActive = false
 }) => {
+  console.log('[DEBUG] SqlModelsList render - selectedModelName:', selectedModelName, 'isValuesTabActive:', isValuesTabActive);
+  
+  // Simplified selection logic - always use selectedModelName for model selection
+  // Values tab selection is handled separately via isValuesTabActive
+  const selectionState = useMemo(() => ({
+    selectedModelName: selectedModelName,
+    isValuesTabActive: isValuesTabActive
+  }), [selectedModelName, isValuesTabActive]);
+  
   if (!models || models.length === 0) {
     return (
       <div className="text-sm text-dark-text-primary opacity-75">
@@ -40,42 +51,54 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
             Main Query
           </h4>
           <div className="space-y-1">
-            {mainModels.map((model) => (
-              <div
-                key={model.name}
-                onClick={() => onModelClick?.(model)}
-                className={`
-                  p-2 cursor-pointer transition-all relative
-                  ${selectedModelName === model.name 
-                    ? 'bg-dark-hover text-dark-text-white border-l-2 border-primary-600' 
-                    : 'hover:bg-dark-hover text-dark-text-primary'
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs">📄</span>
-                    <span className="text-sm font-medium">*root</span>
+            {mainModels.map((model) => {
+              // Model is selected if selectedModelName matches AND values tab is not active
+              const isSelected = !selectionState.isValuesTabActive && selectionState.selectedModelName === model.name;
+              console.log('[DEBUG] Root model', model.name, 'isSelected:', isSelected, 'selectedModelName:', selectionState.selectedModelName, 'isValuesTabActive:', selectionState.isValuesTabActive);
+              
+              return (
+                <div
+                  key={model.name}
+                  onClick={() => onModelClick?.(model)}
+                  className={`
+                    p-2 cursor-pointer relative
+                    ${isSelected
+                      ? 'bg-dark-hover text-dark-text-white border-l-2 border-primary-600' 
+                      : 'hover:bg-dark-hover text-dark-text-primary'
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">📄</span>
+                      <span className="text-sm font-medium">*root</span>
+                    </div>
+                    {model.dependents.length > 0 && (
+                      <span className={`text-xs ${
+                        isSelected
+                          ? 'text-primary-400' 
+                          : 'text-dark-text-secondary'
+                      }`}>
+                        {model.dependents.length} deps
+                      </span>
+                    )}
                   </div>
-                  {model.dependents.length > 0 && (
-                    <span className={`text-xs ${
-                      selectedModelName === model.name 
-                        ? 'text-primary-400' 
-                        : 'text-dark-text-secondary'
-                    }`}>
-                      {model.dependents.length} deps
-                    </span>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           {/* Values Test Data - under Main Query */}
           <div className="mt-2">
             <div
               onClick={() => onOpenValuesTab?.()}
-              className="p-2 cursor-pointer transition-all relative hover:bg-dark-hover text-dark-text-primary"
+              className={`
+                p-2 cursor-pointer relative
+                ${isValuesTabActive 
+                  ? 'bg-dark-hover text-dark-text-white border-l-2 border-primary-600' 
+                  : 'hover:bg-dark-hover text-dark-text-primary'
+                }
+              `}
             >
               <div className="flex items-center gap-2">
                 <span className="text-xs">📊</span>
@@ -93,58 +116,62 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
             CTEs ({cteModels.length})
           </h4>
           <div className="space-y-1">
-            {cteModels.map((model) => (
-              <div
-                key={model.name}
-                onClick={() => onModelClick?.(model)}
-                className={`
-                  p-2 cursor-pointer transition-all relative
-                  ${selectedModelName === model.name 
-                    ? 'bg-dark-hover text-dark-text-white border-l-2 border-primary-600' 
-                    : 'hover:bg-dark-hover text-dark-text-primary'
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs">🔗</span>
-                    <span className="text-sm font-medium">{model.name}</span>
+            {cteModels.map((model) => {
+              const isSelected = !selectionState.isValuesTabActive && selectionState.selectedModelName === model.name;
+              console.log('[DEBUG] CTE model', model.name, 'isSelected:', isSelected, 'selectedModelName:', selectionState.selectedModelName, 'isValuesTabActive:', selectionState.isValuesTabActive);
+              
+              return (
+                <div
+                  key={model.name}
+                  onClick={() => onModelClick?.(model)}
+                  className={`
+                    p-2 cursor-pointer relative
+                    ${isSelected
+                      ? 'bg-dark-hover text-dark-text-white border-l-2 border-primary-600' 
+                      : 'hover:bg-dark-hover text-dark-text-primary'
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">🔗</span>
+                      <span className="text-sm font-medium">{model.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {model.columns && model.columns.length > 0 && (
+                        <span className={`text-xs ${
+                          isSelected
+                            ? 'text-primary-400' 
+                            : 'text-dark-text-secondary'
+                        }`}>
+                          {model.columns.length} cols
+                        </span>
+                      )}
+                      {model.dependents.length > 0 && (
+                        <span className={`text-xs ${
+                          isSelected
+                            ? 'text-primary-400' 
+                            : 'text-dark-text-secondary'
+                        }`}>
+                          {model.dependents.length} deps
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {model.columns && model.columns.length > 0 && (
-                      <span className={`text-xs ${
-                        selectedModelName === model.name 
-                          ? 'text-primary-400' 
-                          : 'text-dark-text-secondary'
-                      }`}>
-                        {model.columns.length} cols
-                      </span>
-                    )}
-                    {model.dependents.length > 0 && (
-                      <span className={`text-xs ${
-                        selectedModelName === model.name 
-                          ? 'text-primary-400' 
-                          : 'text-dark-text-secondary'
-                      }`}>
-                        {model.dependents.length} deps
-                      </span>
-                    )}
-                  </div>
+                  
+                  {/* Show columns if available */}
+                  {model.columns && model.columns.length > 0 && (
+                    <div className={`text-xs mt-1 ${
+                      isSelected
+                        ? 'text-dark-text-primary opacity-90' 
+                        : 'text-dark-text-primary opacity-75'
+                    }`}>
+                      Columns: {model.columns.join(', ')}
+                    </div>
+                  )}
                 </div>
-                
-                {/* Show columns if available */}
-                {model.columns && model.columns.length > 0 && (
-                  <div className={`text-xs mt-1 ${
-                    selectedModelName === model.name 
-                      ? 'text-dark-text-primary opacity-90' 
-                      : 'text-dark-text-primary opacity-75'
-                  }`}>
-                    Columns: {model.columns.join(', ')}
-                  </div>
-                )}
-                
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -169,7 +196,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
       )}
     </div>
   );
-};
+});
 
 /**
  * Calculate maximum dependency depth in the model graph

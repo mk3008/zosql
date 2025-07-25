@@ -407,6 +407,19 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                 </button>
                 
                 <button 
+                  onClick={() => {
+                    if (vm.activeTab) {
+                      vm.saveTab(vm.activeTab.id);
+                    }
+                  }}
+                  disabled={!vm.activeTab?.isDirty}
+                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Save changes to workspace"
+                >
+                  Save
+                </button>
+                
+                <button 
                   onClick={() => vm.formatQuery()}
                   disabled={!vm.canFormat}
                   className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -440,7 +453,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                 <button 
                   onClick={() => vm.saveTab(vm.activeTabId)}
                   disabled={!vm.canSave}
-                  className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Save changes to model (Ctrl+S)"
                 >
                   Save

@@ -11,6 +11,7 @@ interface LeftSidebarProps {
   onDecomposeQuery?: () => void;
   isDecomposing?: boolean;
   workspace?: WorkspaceEntity | null;
+  activeTabId?: string | null;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
@@ -20,7 +21,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   selectedModelName,
   onDecomposeQuery,
   isDecomposing,
-  workspace
+  workspace,
+  activeTabId
 }) => {
   // Suppress unused variable warning
   void isDecomposing;
@@ -102,6 +104,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           onModelClick={onModelClick}
           selectedModelName={selectedModelName}
           onOpenValuesTab={onOpenValuesTab}
+          isValuesTabActive={activeTabId === 'values'}
         />
       </div>
 

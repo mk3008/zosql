@@ -45,6 +45,7 @@ export const Layout: React.FC = () => {
   const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceEntity | null>(null);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(false);
   const [lastExecutedSql, setLastExecutedSql] = useState<string>('');
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const hasLoadedWorkspace = useRef(false);
   const mainContentRef = useRef<MainContentRef>(null);
   
@@ -59,7 +60,12 @@ export const Layout: React.FC = () => {
   const { errors, addError, clearError, clearAllErrors } = useErrorPanel();
   
   const handleModelClick = (model: SqlModelEntity) => {
+    console.log('[DEBUG] handleModelClick called for model:', model.name);
+    console.log('[DEBUG] Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
+    // Update both states synchronously to prevent flicker
     setSelectedModelName(model.name);
+    setActiveTabId(model.name);
+    console.log('[DEBUG] State updated - selectedModelName:', model.name, 'activeTabId:', model.name);
     // Open model in editor tab with entity reference (SQL is already formatted during creation)
     mainContentRef.current?.openSqlModel(model.name, model.sqlWithoutCte, model.type, model);
   };
@@ -109,6 +115,10 @@ export const Layout: React.FC = () => {
       // Open the main SQL model from workspace (processed data)
       const mainModel = workspace.sqlModels.find(m => m.type === 'main');
       if (mainModel) {
+        console.log('[DEBUG] Setting initial selectedModelName to:', mainModel.name);
+        // Set initial selectedModelName and activeTabId
+        setSelectedModelName(mainModel.name);
+        setActiveTabId(mainModel.name);
         
         // Use processed sqlWithoutCte instead of original file content
         mainContentRef.current?.openSqlModel(
@@ -152,6 +162,15 @@ export const Layout: React.FC = () => {
             const workspace = WorkspaceEntity.fromJSON(workspaceData);
             console.log('[DEBUG] Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
             setCurrentWorkspace(workspace);
+            
+            // Set initial selectedModelName for main model
+            const mainModel = workspace.sqlModels.find(m => m.type === 'main');
+            if (mainModel) {
+              console.log('[DEBUG] Setting initial selectedModelName from saved workspace to:', mainModel.name);
+              setSelectedModelName(mainModel.name);
+              setActiveTabId(mainModel.name);
+            }
+            
             console.log('[DEBUG] Loaded workspace with opened objects:', workspace.openedObjects.length);
             setIsWorkspaceLoading(false);
             return; // Exit early if we loaded successfully
@@ -168,6 +187,15 @@ export const Layout: React.FC = () => {
           console.log('[DEBUG] Initialized FilterConditions:', initialWorkspace.filterConditions.displayString);
           
           setCurrentWorkspace(initialWorkspace);
+          
+          // Set initial selectedModelName for main model
+          const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
+          if (mainModel) {
+            console.log('[DEBUG] Setting initial selectedModelName from new workspace to:', mainModel.name);
+            setSelectedModelName(mainModel.name);
+            setActiveTabId(mainModel.name);
+          }
+          
           console.log('[DEBUG] Created workspace with opened objects:', initialWorkspace.openedObjects.length);
         } catch (error) {
           console.error('[ERROR] Failed to create demo workspace:', error);
@@ -190,6 +218,15 @@ export const Layout: React.FC = () => {
         console.log('[DEBUG] Fallback workspace created with FilterConditions:', initialWorkspace.filterConditions.displayString);
         
         setCurrentWorkspace(initialWorkspace);
+        
+        // Set initial selectedModelName for main model
+        const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
+        if (mainModel) {
+          console.log('[DEBUG] Setting initial selectedModelName from fallback workspace to:', mainModel.name);
+          setSelectedModelName(mainModel.name);
+          setActiveTabId(mainModel.name);
+        }
+        
         console.log('[DEBUG] Created fallback workspace with opened objects:', initialWorkspace.openedObjects.length);
       } finally {
         setIsWorkspaceLoading(false);
@@ -232,13 +269,22 @@ export const Layout: React.FC = () => {
         {/* Left Sidebar */}
         {leftSidebarVisible && (
           <LeftSidebar 
-            onOpenValuesTab={() => mainContentRef.current?.openValuesTab()} 
+            onOpenValuesTab={() => {
+              console.log('[DEBUG] onOpenValuesTab called');
+              console.log('[DEBUG] Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
+              // Update states synchronously to prevent flicker
+              setActiveTabId('values');
+              // Keep selectedModelName as is - don't clear it to avoid flicker
+              console.log('[DEBUG] State updated - selectedModelName: unchanged, activeTabId: values');
+              mainContentRef.current?.openValuesTab();
+            }} 
             sqlModels={currentWorkspace?.sqlModels || []}
             onModelClick={handleModelClick as any}
             selectedModelName={selectedModelName}
             onDecomposeQuery={handleDecomposeQuery}
             isDecomposing={isDecomposing}
             workspace={currentWorkspace}
+            activeTabId={activeTabId}
           />
         )}
         
@@ -250,16 +296,27 @@ export const Layout: React.FC = () => {
           showError={showError}
           showErrorWithDetails={addError}
           onActiveTabChange={(tabId) => {
-            // Sync left sidebar selection with active tab
-            if (tabId && currentWorkspace) {
-              const model = currentWorkspace.sqlModels.find(m => m.name === tabId);
-              if (model) {
-                setSelectedModelName(model.name);
-              } else {
-                setSelectedModelName(undefined);
+            console.log('[DEBUG] onActiveTabChange called with tabId:', tabId, 'current activeTabId:', activeTabId);
+            // Only update if tabId actually changed to prevent unnecessary re-renders
+            if (activeTabId !== tabId) {
+              console.log('[DEBUG] Updating activeTabId from', activeTabId, 'to', tabId);
+              // Update active tab ID first
+              setActiveTabId(tabId);
+              
+              // Sync left sidebar selection with active tab only for model tabs
+              if (tabId && currentWorkspace && tabId !== 'values') {
+                const model = currentWorkspace.sqlModels.find(m => m.name === tabId);
+                if (model) {
+                  console.log('[DEBUG] Setting selectedModelName to:', model.name);
+                  setSelectedModelName(model.name);
+                } else {
+                  console.log('[DEBUG] No model found for tabId:', tabId);
+                  // Don't clear selectedModelName if no model found
+                }
               }
+              // Don't clear selectedModelName when switching to values tab to avoid flicker
             } else {
-              setSelectedModelName(undefined);
+              console.log('[DEBUG] activeTabId unchanged, skipping update');
             }
           }}
           onSqlExecuted={(sql) => setLastExecutedSql(sql)}

@@ -337,13 +337,17 @@ export class MainContentViewModel extends BaseViewModel {
   updateTabContent(tabId: string, content: string): void {
     const tabIndex = this._tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex !== -1) {
-      const updatedTabs = [...this._tabs];
-      updatedTabs[tabIndex] = {
-        ...updatedTabs[tabIndex],
-        content,
-        isDirty: true
-      };
-      this.tabs = updatedTabs;
+      const currentTab = this._tabs[tabIndex];
+      // Only mark as dirty if content actually changed
+      if (currentTab.content !== content) {
+        const updatedTabs = [...this._tabs];
+        updatedTabs[tabIndex] = {
+          ...updatedTabs[tabIndex],
+          content,
+          isDirty: true
+        };
+        this.tabs = updatedTabs;
+      }
     }
   }
 
