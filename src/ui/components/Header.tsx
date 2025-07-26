@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NewWorkspaceDialog } from './NewWorkspaceDialog';
 import { FileOpenDialog } from './FileOpenDialog';
+import { FinalSqlDialog } from './FinalSqlDialog';
 import { WorkspaceEntity } from '@core/entities/workspace';
 
 interface HeaderProps {
@@ -11,6 +12,7 @@ interface HeaderProps {
   onFileOpen?: (file: File) => Promise<void>;  
   onWorkspaceCreated?: (workspace: WorkspaceEntity) => void;
   onWorkspaceSave?: () => void;
+  onViewFinalSql?: () => Promise<{ sql: string; error?: string }>;
   currentWorkspace?: WorkspaceEntity | null;
 }
 
@@ -22,15 +24,41 @@ export const Header: React.FC<HeaderProps> = ({
   onFileOpen,
   onWorkspaceCreated,
   onWorkspaceSave,
+  onViewFinalSql,
   currentWorkspace
 }) => {
   const [showNewWorkspaceDialog, setShowNewWorkspaceDialog] = useState(false);
   const [showFileOpenDialog, setShowFileOpenDialog] = useState(false);
+  const [showFinalSqlDialog, setShowFinalSqlDialog] = useState(false);
+  const [finalSqlData, setFinalSqlData] = useState({ sql: '', error: '', isLoading: false });
 
-  // Keyboard shortcut for Export (Ctrl+Shift+E)
+  // Handle View Final SQL
+  const handleViewFinalSql = async () => {
+    if (!currentWorkspace || !onViewFinalSql) return;
+
+    setFinalSqlData({ sql: '', error: '', isLoading: true });
+    setShowFinalSqlDialog(true);
+
+    try {
+      const result = await onViewFinalSql();
+      setFinalSqlData({ 
+        sql: result.sql, 
+        error: result.error || '', 
+        isLoading: false 
+      });
+    } catch (error) {
+      setFinalSqlData({ 
+        sql: '', 
+        error: error instanceof Error ? error.message : 'Unknown error occurred', 
+        isLoading: false 
+      });
+    }
+  };
+
+  // Keyboard shortcut for Save Workspace (Ctrl+Shift+W)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+      if (e.ctrlKey && e.shiftKey && e.key === 'W') {
         e.preventDefault();
         if (currentWorkspace && onWorkspaceSave) {
           onWorkspaceSave();
@@ -88,9 +116,18 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onWorkspaceSave}
           disabled={!currentWorkspace}
           className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Export Workspace as JSON (Ctrl+Shift+E)"
+          title="Save Workspace as JSON (Ctrl+Shift+W)"
         >
-          Export
+          Save Workspace
+        </button>
+        
+        <button
+          onClick={handleViewFinalSql}
+          disabled={!currentWorkspace}
+          className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          title="View Final SQL (Production Ready)"
+        >
+          View Final SQL
         </button>
         
         <div className="w-px h-6 bg-dark-border-primary mx-2"></div>
@@ -116,6 +153,14 @@ export const Header: React.FC<HeaderProps> = ({
         onClose={() => setShowFileOpenDialog(false)}
         onFileOpen={onFileOpen}
         onWorkspaceOpen={onWorkspaceCreated}
+      />
+      
+      <FinalSqlDialog
+        isOpen={showFinalSqlDialog}
+        onClose={() => setShowFinalSqlDialog(false)}
+        finalSql={finalSqlData.sql}
+        isLoading={finalSqlData.isLoading}
+        error={finalSqlData.error}
       />
     </header>
   );

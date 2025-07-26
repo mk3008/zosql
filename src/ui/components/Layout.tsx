@@ -416,6 +416,22 @@ export const Layout: React.FC = () => {
             }
           }
         }}
+        onViewFinalSql={async () => {
+          if (!currentWorkspace) {
+            return { sql: '', error: 'No workspace available' };
+          }
+          
+          try {
+            const finalSql = await currentWorkspace.generateFinalSql();
+            return { sql: finalSql };
+          } catch (error) {
+            console.error('Failed to generate Final SQL:', error);
+            return { 
+              sql: '', 
+              error: error instanceof Error ? error.message : 'Unknown error occurred' 
+            };
+          }
+        }}
         currentWorkspace={currentWorkspace}
       />
       

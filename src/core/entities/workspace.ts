@@ -502,6 +502,48 @@ export class WorkspaceEntity {
   }
 
   /**
+   * Generate Final SQL for production use
+   * - Includes WITH clause composition
+   * - Excludes VALUES clause (test data)
+   * - Excludes filter conditions
+   * - Applies formatter settings
+   */
+  async generateFinalSql(): Promise<string> {
+    console.log('[DEBUG] WorkspaceEntity.generateFinalSql called');
+    
+    // Find main model
+    const mainModel = this.sqlModels.find(m => m.type === 'main');
+    if (!mainModel) {
+      throw new Error('No main SQL model found in workspace');
+    }
+    
+    console.log('[DEBUG] Found main model:', mainModel.name);
+    console.log('[DEBUG] Using workspace formatter config:', this.formatter.displayString.substring(0, 100) + '...');
+    
+    try {
+      // Generate dynamic SQL result (unformatted)
+      const dynamicResult = await mainModel.getDynamicSql(
+        undefined, // testValues: exclude VALUES clause
+        undefined, // filterConditions: exclude filter conditions
+        false,     // forExecution: false for display formatting
+        false      // useEditorContent: use saved content, not editor content
+      );
+      
+      console.log('[DEBUG] Generated dynamic SQL, now applying workspace formatter');
+      
+      // Apply workspace formatter to the query
+      const workspaceFormatter = this.formatter.getSqlFormatter();
+      const { formattedSql } = workspaceFormatter.format(dynamicResult.query);
+      
+      console.log('[DEBUG] Final SQL formatted, length:', formattedSql.length);
+      return formattedSql;
+    } catch (error) {
+      console.error('[DEBUG] Failed to generate final SQL:', error);
+      throw new Error(`Failed to generate Final SQL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Clone the workspace
    */
   clone(): WorkspaceEntity {
