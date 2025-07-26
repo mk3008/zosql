@@ -189,23 +189,67 @@ export const Layout: React.FC = () => {
               !workspaceData.testValues?.withClause ||
               !workspaceData.openedObjects ||
               !workspaceData.layoutState) {
-            console.log('[DEBUG] Old workspace detected (missing openedObjects/layoutState), creating new demoworkspace');
+            console.log('[DEBUG] Old workspace detected (missing openedObjects/layoutState), will create new demoworkspace');
             localStorage.removeItem('zosql_workspace_v3'); // Clear old data
-            // Force create new workspace below
+            // Continue to create new workspace below
           } else {
+            console.log('[DEBUG] Valid workspace found, restoring it');
             const workspace = WorkspaceEntity.fromJSON(workspaceData);
             console.log('[DEBUG] Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
             setCurrentWorkspace(workspace);
             
-            // Set initial selectedModelName for main model
-            const mainModel = workspace.sqlModels.find(m => m.type === 'main');
-            if (mainModel) {
-              console.log('[DEBUG] Setting initial selectedModelName from saved workspace to:', mainModel.name);
-              setSelectedModelName(mainModel.name);
-              setActiveTabId(mainModel.name);
-            }
-            
             console.log('[DEBUG] Loaded workspace with opened objects:', workspace.openedObjects.length);
+            
+            // Restore tabs from workspace opened objects
+            if (workspace.openedObjects.length > 0 && mainContentRef.current) {
+              console.log('[DEBUG] Restoring tabs from workspace opened objects');
+              
+              // Clear any existing tabs first to prevent duplicates
+              mainContentRef.current.clearAllTabs();
+              
+              for (const openedObject of workspace.openedObjects) {
+                console.log('[DEBUG] Restoring tab:', openedObject.id, openedObject.type);
+                
+                if (openedObject.type === 'main' || openedObject.type === 'cte') {
+                  // Find the corresponding SQL model
+                  const model = workspace.sqlModels.find(m => m.name === openedObject.id);
+                  if (model) {
+                    mainContentRef.current.openSqlModel(
+                      openedObject.id, 
+                      openedObject.content, 
+                      openedObject.type,
+                      model
+                    );
+                  }
+                } else if (openedObject.type === 'values') {
+                  mainContentRef.current.openValuesTab();
+                } else if (openedObject.type === 'formatter') {
+                  mainContentRef.current.openFormatterTab();
+                } else if (openedObject.type === 'condition') {
+                  mainContentRef.current.openConditionTab();
+                }
+              }
+              
+              // Set active tab to the workspace's active object
+              if (workspace.activeObjectId) {
+                console.log('[DEBUG] Setting active tab to:', workspace.activeObjectId);
+                setActiveTabId(workspace.activeObjectId);
+                
+                // Also set selectedModelName if it's a SQL model
+                const activeObject = workspace.openedObjects.find(obj => obj.id === workspace.activeObjectId);
+                if (activeObject && (activeObject.type === 'main' || activeObject.type === 'cte')) {
+                  setSelectedModelName(workspace.activeObjectId);
+                }
+              }
+            } else {
+              // No opened objects - set initial selectedModelName for main model only
+              const mainModel = workspace.sqlModels.find(m => m.type === 'main');
+              if (mainModel) {
+                console.log('[DEBUG] No opened objects, setting initial selectedModelName from saved workspace to:', mainModel.name);
+                setSelectedModelName(mainModel.name);
+                setActiveTabId(mainModel.name);
+              }
+            }
             
             // Automatically validate all schemas after loading workspace
             console.log('[DEBUG] Starting automatic static analysis after workspace load');
@@ -235,7 +279,7 @@ export const Layout: React.FC = () => {
             }
             
             setIsWorkspaceLoading(false);
-            return; // Exit early if we loaded successfully
+            return; // Exit early - workspace loaded successfully, don't create demo workspace
           }
         }
         
@@ -300,23 +344,8 @@ export const Layout: React.FC = () => {
           console.warn('Failed to save initial workspace to localStorage:', error);
         }
       } catch (error) {
-        console.warn('Failed to load saved workspace:', error);
-        // Create fallback initial workspace using factory
-        console.log('[DEBUG] Creating fallback workspace using factory');
-        const initialWorkspace = createValidatedDemoWorkspace();
-        console.log('[DEBUG] Fallback workspace created with FilterConditions:', initialWorkspace.filterConditions.displayString);
-        
-        setCurrentWorkspace(initialWorkspace);
-        
-        // Set initial selectedModelName for main model
-        const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
-        if (mainModel) {
-          console.log('[DEBUG] Setting initial selectedModelName from fallback workspace to:', mainModel.name);
-          setSelectedModelName(mainModel.name);
-          setActiveTabId(mainModel.name);
-        }
-        
-        console.log('[DEBUG] Created fallback workspace with opened objects:', initialWorkspace.openedObjects.length);
+        console.error('[ERROR] Failed to load or create workspace:', error);
+        showError('Failed to load workspace');
       } finally {
         setIsWorkspaceLoading(false);
       }
@@ -370,6 +399,50 @@ export const Layout: React.FC = () => {
             if (mainModel) {
               setSelectedModelName(mainModel.name);
               setActiveTabId(mainModel.name);
+            }
+            
+            // Restore tabs from workspace opened objects (JSON restored workspace)
+            if (isFromJson && workspaceEntity.openedObjects.length > 0 && mainContentRef.current) {
+              console.log('[DEBUG] Restoring tabs from JSON workspace opened objects');
+              setTimeout(() => {
+                // Use setTimeout to ensure mainContentRef is ready
+                if (mainContentRef.current) {
+                  for (const openedObject of workspaceEntity.openedObjects) {
+                    console.log('[DEBUG] Restoring JSON tab:', openedObject.id, openedObject.type);
+                    
+                    if (openedObject.type === 'main' || openedObject.type === 'cte') {
+                      // Find the corresponding SQL model
+                      const model = workspaceEntity.sqlModels.find(m => m.name === openedObject.id);
+                      if (model) {
+                        mainContentRef.current!.openSqlModel(
+                          openedObject.id, 
+                          openedObject.content, 
+                          openedObject.type,
+                          model
+                        );
+                      }
+                    } else if (openedObject.type === 'values') {
+                      mainContentRef.current!.openValuesTab();
+                    } else if (openedObject.type === 'formatter') {
+                      mainContentRef.current!.openFormatterTab();
+                    } else if (openedObject.type === 'condition') {
+                      mainContentRef.current!.openConditionTab();
+                    }
+                  }
+                  
+                  // Set active tab to the workspace's active object
+                  if (workspaceEntity.activeObjectId) {
+                    console.log('[DEBUG] Setting active tab from JSON to:', workspaceEntity.activeObjectId);
+                    setActiveTabId(workspaceEntity.activeObjectId);
+                    
+                    // Also set selectedModelName if it's a SQL model
+                    const activeObject = workspaceEntity.openedObjects.find(obj => obj.id === workspaceEntity.activeObjectId);
+                    if (activeObject && (activeObject.type === 'main' || activeObject.type === 'cte')) {
+                      setSelectedModelName(workspaceEntity.activeObjectId);
+                    }
+                  }
+                }
+              }, 100);
             }
             
             // Save to localStorage
