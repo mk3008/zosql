@@ -366,16 +366,22 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       console.log('[DEBUG] Parsed columns:', columns);
       
       if (columns.length > 0) {
-        // Use the first column for search
-        const firstColumn = columns[0];
-        console.log('[DEBUG] Opening search for column:', firstColumn);
-        setSearchTerm(firstColumn);
+        // Reset search term first to ensure change detection
+        setSearchTerm(undefined);
         
-        // Clear search term after a short delay to allow re-triggering
+        // Then set the new search term with a small delay
         setTimeout(() => {
-          console.log('[DEBUG] Clearing search term');
-          setSearchTerm(undefined);
-        }, 1000);
+          // Use the first column for search
+          const firstColumn = columns[0];
+          console.log('[DEBUG] Opening search for column:', firstColumn);
+          setSearchTerm(firstColumn);
+          
+          // Clear search term after a longer delay to allow re-triggering
+          setTimeout(() => {
+            console.log('[DEBUG] Clearing search term');
+            setSearchTerm(undefined);
+          }, 2000);
+        }, 50);
       }
     } else {
       console.log('[DEBUG] No regex match found for errorMessage:', errorMessage);

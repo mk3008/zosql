@@ -410,22 +410,45 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       
       console.log('[DEBUG] Opening search widget with term:', searchTerm);
       
-      // Open the find widget
-      editor.getAction('actions.find')?.run();
-      
-      // Set the search term programmatically
-      setTimeout(() => {
-        try {
-          // Access the find controller to set the search term
-          const findController = (editor as any)._findController;
-          if (findController && findController._state) {
-            findController._state.change({ searchString: searchTerm }, false);
-            console.log('[DEBUG] Set search term:', searchTerm);
-          }
-        } catch (error) {
-          console.error('[DEBUG] Failed to set search term:', error);
+      try {
+        // Access the find controller directly
+        const findController = (editor as any).getContribution('editor.contrib.findController');
+        
+        if (findController) {
+          // First, close the find widget if it's already open to reset state
+          findController.closeFindWidget();
+          
+          // Then open it with a slight delay
+          setTimeout(() => {
+            // Open the find widget
+            editor.getAction('actions.find')?.run();
+            
+            // Set the search term after another small delay
+            setTimeout(() => {
+              try {
+                const findState = findController.getState();
+                if (findState) {
+                  // Clear previous search and set new one
+                  findState.change({ 
+                    searchString: searchTerm,
+                    isRegex: false,
+                    matchCase: false,
+                    wholeWord: false
+                  }, false);
+                  console.log('[DEBUG] Set search term:', searchTerm);
+                  
+                  // Trigger the search
+                  findController.moveToNextMatch();
+                }
+              } catch (error) {
+                console.error('[DEBUG] Failed to set search term:', error);
+              }
+            }, 50);
+          }, 50);
         }
-      }, 100); // Small delay to ensure the find widget is open
+      } catch (error) {
+        console.error('[DEBUG] Failed to access find controller:', error);
+      }
     }
   }, [searchTerm]);
 

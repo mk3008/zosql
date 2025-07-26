@@ -45,24 +45,46 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
         sqlModelName: this.context.sqlModel?.name,
         sqlModelType: this.context.sqlModel?.type,
         tabType: this.context.tabType,
-        hasWorkspace: !!this.context.workspace
+        hasWorkspace: !!this.context.workspace,
+        tabContent: this.context.tabContent.substring(0, 100) + '...'
       });
 
       // If we have a model, use dynamic SQL generation
       if (this.context.sqlModel) {
         console.log('[DEBUG] Using sqlModel path for execution');
-        // Update model's SQL with current tab content
-        this.context.sqlModel.sqlWithoutCte = this.context.tabContent;
         
-        // Get test values and filter conditions from workspace
-        const testValues = this.getTestValues();
-        const filterConditions = this.context.workspace?.filterConditions;
+        // Update the model content with current tab content
+        if (this.context.tabType === 'cte' && this.context.sqlModel.type === 'cte') {
+          console.log('[DEBUG] CTE tab execution - updating CTE model content');
+          
+          // Update the CTE model's content
+          this.context.sqlModel.updateEditorContent(this.context.tabContent);
+          this.context.sqlModel.save();
+          
+          // For CTE tabs, execute the CTE with a simple SELECT to test it independently
+          console.log('[DEBUG] Executing CTE independently with SELECT wrapper');
+          
+        } else {
+          console.log('[DEBUG] Non-CTE tab execution - updating sqlWithoutCte');
+          // Update model's SQL with current tab content  
+          this.context.sqlModel.updateEditorContent(this.context.tabContent);
+          if (this.context.tabType === 'main') {
+            this.context.sqlModel.save();
+          }
+        }
         
-        console.log('[DEBUG] Test values:', !!testValues, 'Filter conditions:', !!filterConditions);
-        
-        // Generate dynamic SQL with parameterization for execution
-        dynamicResult = await this.context.sqlModel.getDynamicSql(testValues, filterConditions, true);
-        console.log('[DEBUG] Generated dynamic SQL length:', dynamicResult.formattedSql.length);
+        // Only generate dynamic SQL if not already set (e.g., from CTE execution)
+        if (!dynamicResult) {
+          // Get test values and filter conditions from workspace
+          const testValues = this.getTestValues();
+          const filterConditions = this.context.workspace?.filterConditions;
+          
+          console.log('[DEBUG] Test values:', !!testValues, 'Filter conditions:', !!filterConditions);
+          
+          // Generate dynamic SQL with parameterization for execution
+          dynamicResult = await this.context.sqlModel.getDynamicSql(testValues, filterConditions, true);
+          console.log('[DEBUG] Generated dynamic SQL length:', dynamicResult.formattedSql.length);
+        }
         
       } else if (this.context.tabType === 'main' && this.context.workspace) {
         console.log('[DEBUG] Using fallback main model path for execution');

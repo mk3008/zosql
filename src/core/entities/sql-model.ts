@@ -191,9 +191,12 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
       let query = SelectQueryParser.parse(baseSql);
 
       // Step 4: Apply filter conditions if provided
-      if (filterConditions) {
+      // TEMPORARY FIX: Disable filter conditions due to PostgreSQL UNION ORDER BY issue
+      // TODO: Fix the DynamicQueryBuilder to handle UNION queries properly
+      if (filterConditions && false) { // Temporarily disabled
         const conditions = filterConditions.getFilterConditions();
         if (conditions && Object.keys(conditions).length > 0) {
+          console.log('[DEBUG] Filter conditions temporarily disabled due to UNION ORDER BY issue');
           const builder = new DynamicQueryBuilder();
           query = builder.buildFilteredQuery(baseSql, conditions);
         }

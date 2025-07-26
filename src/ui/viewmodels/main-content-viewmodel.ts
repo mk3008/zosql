@@ -47,6 +47,7 @@ export class MainContentViewModel extends BaseViewModel {
       this.notifyChange('activeTabId', value);
       this.notifyChange('activeTab', this.activeTab);
       this.notifyChange('canExecute', this.canExecute);
+      this.notifyChange('queryResult', this.queryResult); // Notify query result change
     }
   }
 
@@ -67,6 +68,17 @@ export class MainContentViewModel extends BaseViewModel {
   }
 
   get queryResult(): QueryExecutionResult | null {
+    // Get result from active tab's model, fallback to global result
+    if (this.activeTab) {
+      const model = this.tabModelMap.get(this.activeTab.id);
+      if (model && 'getQueryResult' in model && typeof (model as any).getQueryResult === 'function') {
+        const result = (model as any).getQueryResult();
+        if (result) {
+          return result;
+        }
+      }
+    }
+    // Fallback to global result for backward compatibility
     return this._queryResult;
   }
 
@@ -186,6 +198,9 @@ export class MainContentViewModel extends BaseViewModel {
       const model = this.tabModelMap.get(this.activeTab.id);
       if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
         (model as any).setQueryResult(result);
+        // Notify that query result has changed for this tab
+        this.notifyChange('queryResult', this.queryResult);
+        console.log('[DEBUG] Saved query result to model:', this.activeTab.id);
       }
 
     } catch (error) {
