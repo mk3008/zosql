@@ -71,14 +71,18 @@ export class MainContentViewModel extends BaseViewModel {
     // Get result from active tab's model, fallback to global result
     if (this.activeTab) {
       const model = this.tabModelMap.get(this.activeTab.id);
+      console.log('[DEBUG] Getting query result for tab:', this.activeTab.id, 'model:', !!model);
+      
       if (model && 'getQueryResult' in model && typeof (model as any).getQueryResult === 'function') {
         const result = (model as any).getQueryResult();
+        console.log('[DEBUG] Model has result:', !!result, 'for tab:', this.activeTab.id);
         if (result) {
           return result;
         }
       }
     }
     // Fallback to global result for backward compatibility
+    console.log('[DEBUG] Using fallback global result for tab:', this.activeTab?.id);
     return this._queryResult;
   }
 
@@ -190,8 +194,26 @@ export class MainContentViewModel extends BaseViewModel {
       this.queryResult = result;
 
       // Notify parent component about executed SQL
-      if (result.executedSql && this._onSqlExecuted) {
-        this._onSqlExecuted(result.executedSql);
+      // Show the formatted tab content (without CTE wrapping)
+      if (this._onSqlExecuted && this.activeTab) {
+        try {
+          // Format the tab content using SqlFormatter
+          const { SqlFormatter } = await import('rawsql-ts');
+          const formatter = new SqlFormatter({
+            preset: 'postgres',
+            keywordCase: 'lower',
+            identifierEscape: { start: '"', end: '"' }
+          });
+          
+          // Use the tab content (without CTE composition)
+          const formattedSql = formatter.formatQuery(this.activeTab.content);
+          this._onSqlExecuted(formattedSql);
+          console.log('[DEBUG] Sent formatted tab content to LastExecutedSQL');
+        } catch (error) {
+          console.error('[DEBUG] Failed to format SQL for LastExecutedSQL:', error);
+          // Fallback to unformatted content
+          this._onSqlExecuted(this.activeTab.content);
+        }
       }
 
       // Save result to model if available
@@ -205,11 +227,22 @@ export class MainContentViewModel extends BaseViewModel {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.queryResult = {
+      const errorResult = {
         success: false,
         error: errorMessage,
         executionTime: 0
       };
+      
+      this.queryResult = errorResult;
+      
+      // Save error result to model if available
+      const model = this.tabModelMap.get(this.activeTab.id);
+      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
+        (model as any).setQueryResult(errorResult);
+        // Notify that query result has changed for this tab
+        this.notifyChange('queryResult', this.queryResult);
+        console.log('[DEBUG] Saved error result to model:', this.activeTab.id);
+      }
       
       // Send error to error panel
       this.notifyChange('errorWithDetails', {
@@ -494,8 +527,16 @@ export class MainContentViewModel extends BaseViewModel {
   }
 
   closeTab(tabId: string): void {
+    console.log('[DEBUG] Closing tab:', tabId);
     const newTabs = this._tabs.filter(tab => tab.id !== tabId);
     this.tabs = newTabs;
+
+    // Clear query result from model before removing
+    const model = this._tabModelMap.get(tabId);
+    if (model && 'clearQueryResult' in model && typeof (model as any).clearQueryResult === 'function') {
+      (model as any).clearQueryResult();
+      console.log('[DEBUG] Cleared query result for closing tab:', tabId);
+    }
 
     // Remove from model map
     this._tabModelMap.delete(tabId);
@@ -528,8 +569,10 @@ export class MainContentViewModel extends BaseViewModel {
   // Model Management
 
   setTabModel(tabId: string, model: SqlModelEntity): void {
+    console.log('[DEBUG] Setting tab model for tab:', tabId, 'model:', model.name);
     this._tabModelMap.set(tabId, model);
     this.notifyChange('tabModelMap', this._tabModelMap);
+    console.log('[DEBUG] Tab model map size:', this._tabModelMap.size);
   }
 
   // Private Methods

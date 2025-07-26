@@ -42,6 +42,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   const tabContainerRef = useRef<HTMLDivElement>(null);
   // const [jumpToPosition, setJumpToPosition] = useState<number | undefined>(undefined); // Position jump temporarily disabled
   const [searchTerm, setSearchTerm] = useState<string | undefined>(undefined); // Search term for Monaco editor
+  const [resultTrigger, setResultTrigger] = useState(0); // Force re-render when results change
   
   if (!viewModelRef.current) {
     if (!globalViewModel) {
@@ -181,10 +182,14 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       } else if (propertyName === 'analysisUpdated') {
         console.log('[DEBUG] Analysis updated, forcing re-render');
         // Force re-render to update error displays
+      } else if (propertyName === 'queryResult') {
+        console.log('[DEBUG] Query result changed, forcing re-render');
+        // Force re-render when query result changes
+        setResultTrigger(prev => prev + 1);
       }
     };
 
-    if (viewModelRef.current && (showSuccess || showError || showErrorWithDetails)) {
+    if (viewModelRef.current) {
       console.log('[DEBUG] Subscribing to ViewModel property changes');
       const unsubscribe = viewModelRef.current.subscribe(handlePropertyChange);
       return unsubscribe;
@@ -691,15 +696,24 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
               </div>
               
               {/* Query Results - only shown when needed */}
-              {vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult && (
-                <div className="flex-shrink-0">
-                  <QueryResults
-                    result={vm.queryResult}
-                    isVisible={vm.resultsVisible}
-                    onClose={() => vm.closeResults()}
-                  />
-                </div>
-              )}
+              {vm.activeTab.type !== 'values' && vm.resultsVisible && (() => {
+                // Get the current tab's model and its result
+                const model = vm.tabModelMap.get(vm.activeTabId);
+                const result = model && 'getQueryResult' in model && typeof (model as any).getQueryResult === 'function'
+                  ? (model as any).getQueryResult()
+                  : vm.queryResult;
+                
+                return result ? (
+                  <div className="flex-shrink-0">
+                    <QueryResults
+                      key={`results-${vm.activeTabId}-${resultTrigger}`} // Force remount on tab change and result update
+                      result={result}
+                      isVisible={vm.resultsVisible}
+                      onClose={() => vm.closeResults()}
+                    />
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
         </div>
