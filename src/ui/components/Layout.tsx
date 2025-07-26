@@ -340,14 +340,81 @@ export const Layout: React.FC = () => {
         rightSidebarVisible={rightSidebarVisible}
         onFileOpen={handleFileOpen}
         onWorkspaceCreated={(workspace) => {
-          setCurrentWorkspace(workspace);
-          // Save to localStorage
           try {
-            localStorage.setItem('zosql_workspace_v3', JSON.stringify(workspace.toJSON()));
+            let workspaceEntity;
+            const isFromJson = workspace && typeof workspace.toJSON !== 'function';
+            
+            // Check if workspace is already a WorkspaceEntity or raw JSON data
+            if (workspace && typeof workspace.toJSON === 'function') {
+              // Already a WorkspaceEntity
+              workspaceEntity = workspace;
+            } else {
+              // Raw JSON data - restore it
+              console.log('[DEBUG] Restoring workspace from JSON:', workspace);
+              
+              // Clear all existing tabs when loading from JSON
+              if (mainContentRef.current) {
+                console.log('[DEBUG] Clearing all tabs before loading JSON workspace');
+                mainContentRef.current.clearAllTabs();
+              }
+              
+              workspaceEntity = WorkspaceEntity.fromJSON(workspace);
+            }
+            
+            setCurrentWorkspace(workspaceEntity);
+            
+            // Set initial selectedModelName for main model
+            const mainModel = workspaceEntity.sqlModels.find(m => m.type === 'main');
+            if (mainModel) {
+              setSelectedModelName(mainModel.name);
+              setActiveTabId(mainModel.name);
+            }
+            
+            // Save to localStorage
+            try {
+              localStorage.setItem('zosql_workspace_v3', JSON.stringify(workspaceEntity.toJSON()));
+              showSuccess(isFromJson ? 'Workspace loaded successfully' : 'Workspace created successfully');
+            } catch (error) {
+              console.warn('Failed to save workspace to localStorage:', error);
+            }
+            
+            // Run static analysis for JSON loaded workspaces
+            if (isFromJson && mainContentRef.current) {
+              console.log('[DEBUG] Running static analysis for loaded JSON workspace');
+              setTimeout(() => {
+                // Use setTimeout to ensure workspace is fully loaded
+                if (mainContentRef.current) {
+                  mainContentRef.current.runStaticAnalysis();
+                }
+              }, 100);
+            }
           } catch (error) {
-            console.warn('Failed to save workspace to localStorage:', error);
+            console.error('Failed to process workspace:', error);
+            showError('Failed to load workspace: ' + (error instanceof Error ? error.message : 'Unknown error'));
           }
         }}
+        onWorkspaceSave={() => {
+          if (currentWorkspace) {
+            try {
+              const workspaceJson = currentWorkspace.toJSON();
+              const dataStr = JSON.stringify(workspaceJson, null, 2);
+              const dataBlob = new Blob([dataStr], { type: 'application/json' });
+              
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(dataBlob);
+              link.download = `${workspaceJson.name || 'workspace'}.json`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              
+              showSuccess('Workspace saved successfully');
+            } catch (error) {
+              console.error('Failed to save workspace:', error);
+              showError('Failed to save workspace');
+            }
+          }
+        }}
+        currentWorkspace={currentWorkspace}
       />
       
       {/* Main Container */}

@@ -19,6 +19,7 @@ export interface MainContentRef {
   openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => void;
   setCurrentModelEntity: (model: SqlModelEntity) => void;
   clearAllTabs: () => void;
+  runStaticAnalysis: () => void;
 }
 
 export interface MainContentProps {
@@ -302,6 +303,9 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       // Clear tabs directly from ViewModel
       vm.tabs = [];
       vm.activeTabId = '';
+    },
+    runStaticAnalysis: () => {
+      vm.runStaticAnalysis();
     }
   }), [vm, workspace]);
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NewWorkspaceDialog } from './NewWorkspaceDialog';
 import { FileOpenDialog } from './FileOpenDialog';
 import { WorkspaceEntity } from '@core/entities/workspace';
@@ -10,6 +10,8 @@ interface HeaderProps {
   rightSidebarVisible: boolean;
   onFileOpen?: (file: File) => Promise<void>;  
   onWorkspaceCreated?: (workspace: WorkspaceEntity) => void;
+  onWorkspaceSave?: () => void;
+  currentWorkspace?: WorkspaceEntity | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,10 +20,27 @@ export const Header: React.FC<HeaderProps> = ({
   leftSidebarVisible,
   rightSidebarVisible,
   onFileOpen,
-  onWorkspaceCreated
+  onWorkspaceCreated,
+  onWorkspaceSave,
+  currentWorkspace
 }) => {
   const [showNewWorkspaceDialog, setShowNewWorkspaceDialog] = useState(false);
   const [showFileOpenDialog, setShowFileOpenDialog] = useState(false);
+
+  // Keyboard shortcut for Export (Ctrl+Shift+E)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        if (currentWorkspace && onWorkspaceSave) {
+          onWorkspaceSave();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [currentWorkspace, onWorkspaceSave]);
 
   return (
     <header className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-3 flex items-center justify-between h-header">
@@ -66,10 +85,12 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         
         <button
-          className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm"
-          title="Save Workspace"
+          onClick={onWorkspaceSave}
+          disabled={!currentWorkspace}
+          className="px-3 py-1 bg-dark-hover text-dark-text-primary rounded hover:bg-dark-active transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Export Workspace as JSON (Ctrl+Shift+E)"
         >
-          Save
+          Export
         </button>
         
         <div className="w-px h-6 bg-dark-border-primary mx-2"></div>
@@ -94,6 +115,7 @@ export const Header: React.FC<HeaderProps> = ({
         isOpen={showFileOpenDialog}
         onClose={() => setShowFileOpenDialog(false)}
         onFileOpen={onFileOpen}
+        onWorkspaceOpen={onWorkspaceCreated}
       />
     </header>
   );

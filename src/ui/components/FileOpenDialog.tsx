@@ -5,9 +5,10 @@ interface FileOpenDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onFileOpen?: (file: File) => Promise<void>;
+  onWorkspaceOpen?: (workspace: any) => Promise<void>;
 }
 
-export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose, onFileOpen }) => {
+export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose, onFileOpen, onWorkspaceOpen }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
@@ -17,13 +18,14 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose,
   const { createWorkspace } = useWorkspace();
 
   const handleFileSelect = (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.sql')) {
-      alert('Please select a .sql file');
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.sql') && !fileName.endsWith('.json')) {
+      alert('Please select a .sql or .json file');
       return;
     }
 
     setSelectedFile(file);
-    setWorkspaceName(file.name.replace('.sql', ''));
+    setWorkspaceName(file.name.replace(/\.(sql|json)$/, ''));
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -70,16 +72,34 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose,
     setIsLoading(true);
     
     try {
-      // If custom file handler is provided, use it
-      if (onFileOpen) {
-        await onFileOpen(selectedFile);
-      } else {
-        // Default behavior: create workspace
-        await createWorkspace({
-          name: workspaceName.trim(),
-          sql: fileContent.trim(),
-          originalFilePath: selectedFile.name
-        });
+      const fileName = selectedFile.name.toLowerCase();
+      
+      if (fileName.endsWith('.json')) {
+        // Handle JSON workspace file
+        try {
+          const workspaceData = JSON.parse(fileContent);
+          if (onWorkspaceOpen) {
+            await onWorkspaceOpen(workspaceData);
+          } else {
+            alert('Workspace open handler not available');
+          }
+        } catch (jsonError) {
+          alert('Invalid JSON file format');
+          console.error('JSON parsing error:', jsonError);
+          return;
+        }
+      } else if (fileName.endsWith('.sql')) {
+        // Handle SQL file
+        if (onFileOpen) {
+          await onFileOpen(selectedFile);
+        } else {
+          // Default behavior: create workspace
+          await createWorkspace({
+            name: workspaceName.trim(),
+            sql: fileContent.trim(),
+            originalFilePath: selectedFile.name
+          });
+        }
       }
       
       // Reset form and close dialog
@@ -89,6 +109,7 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose,
       onClose();
     } catch (error) {
       console.error('Failed to process file:', error);
+      alert('Failed to process file: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +137,7 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose,
       <div className="bg-dark-secondary border border-dark-border-primary rounded-lg w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-dark-border-primary">
-          <h2 className="text-lg font-semibold text-dark-text-white">Open SQL File</h2>
+          <h2 className="text-lg font-semibold text-dark-text-white">Open File</h2>
           <button
             onClick={handleClose}
             className="text-dark-text-secondary hover:text-dark-text-primary"
@@ -132,7 +153,7 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose,
             {/* File Selection Area */}
             <div>
               <label className="block text-sm font-medium text-dark-text-white mb-2">
-                Select SQL File
+                Select SQL or Workspace File
               </label>
               
               {!selectedFile ? (
@@ -152,10 +173,10 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose,
                   <div className="text-center">
                     <div className="text-2xl mb-2">📁</div>
                     <div className="text-sm text-dark-text-primary">
-                      Drop SQL file here or click to browse
+                      Drop file here or click to browse
                     </div>
                     <div className="text-xs text-dark-text-secondary mt-1">
-                      Supports .sql files
+                      Supports .sql and .json files
                     </div>
                   </div>
                 </div>
@@ -188,7 +209,7 @@ export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose,
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".sql"
+                accept=".sql,.json"
                 onChange={handleFileInputChange}
                 className="hidden"
                 disabled={isLoading}
