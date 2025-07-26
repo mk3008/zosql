@@ -102,21 +102,21 @@ export class FilterConditionsEntity {
       for (const column of columns) {
         const columnName = column.name;
         console.log('[DEBUG] Processing column:', columnName);
-        // Generate appropriate conditions based on likely column type with demo values
+        // Generate appropriate conditions based on likely column type
         if (columnName.includes('id') || columnName.includes('Id')) {
           console.log('[DEBUG] ID column detected:', columnName);
-          // Numeric ID columns - add demo filter
-          template[columnName] = { eq: 1 } as any;
-          console.log('[DEBUG] Set ID conditions for', columnName);
+          // Numeric ID columns - empty condition
+          template[columnName] = {} as any;
+          console.log('[DEBUG] Set empty conditions for', columnName);
         } else if (columnName.includes('name') || columnName.includes('title') || columnName.includes('description')) {
-          // Text columns - add demo like filter
-          template[columnName] = { like: "%a%" } as any;
+          // Text columns - case-insensitive like filter
+          template[columnName] = { ilike: "%a%" } as any;
         } else if (columnName.includes('date') || columnName.includes('time') || columnName.includes('created') || columnName.includes('updated')) {
-          // Date/time columns - add demo date filter
-          template[columnName] = { gte: "2024-01-01" } as any;
+          // Date/time columns - empty condition
+          template[columnName] = {} as any;
         } else {
-          // Default mixed conditions - add basic filter
-          template[columnName] = { ne: null } as any;
+          // Default - empty condition
+          template[columnName] = {} as any;
         }
       }
 
@@ -132,8 +132,8 @@ export class FilterConditionsEntity {
    */
   private static getDefaultTemplate(): string {
     const defaultTemplate: FilterConditions = {
-      user_id: { eq: 1 } as any, // Demo filter: user_id = 1
-      name: { like: "%a%" } as any, // Demo filter: name LIKE '%a%'
+      user_id: {} as any, // Empty condition for user_id
+      name: { ilike: "%a%" } as any, // Case-insensitive like filter
     };
 
     return JSON.stringify(defaultTemplate, null, 2);
