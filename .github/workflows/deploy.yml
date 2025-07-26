@@ -33,6 +33,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
         
+      - name: Run core tests
+        run: npm run test:run -- test/sql-formatter-config.test.ts test/sql-parser.test.ts test/integration.test.ts
+        
       - name: Build for GitHub Pages
         run: npm run build:github
         
