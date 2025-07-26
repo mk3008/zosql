@@ -546,7 +546,7 @@ export class MainContentViewModel extends BaseViewModel {
       content: tab.content,
       isDirty: tab.isDirty,
       modelEntity: this._tabModelMap.get(tab.id)
-    }));
+    } as import('@core/entities/workspace').OpenedObject));
 
     // Update workspace opened objects
     this.workspace.setOpenedObjects(openedObjects);
