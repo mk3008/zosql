@@ -343,54 +343,6 @@ export class MainContentViewModel extends BaseViewModel {
     }
   }
 
-  private buildAnalysisReport(totalTime: number): string {
-    if (!this.workspace) return '';
-    
-    const timestamp = new Date().toLocaleString();
-    const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
-    
-    let report = `Static Analysis Report - ${timestamp}\n`;
-    report += `${'='.repeat(60)}\n\n`;
-    
-    // Summary
-    const passedCount = models.filter(m => {
-      const result = this.workspace!.getValidationResult(m.name);
-      return result && result.success;
-    }).length;
-    
-    report += `📊 Summary:\n`;
-    report += `  - Total Models: ${models.length}\n`;
-    report += `  - Passed: ${passedCount}\n`;
-    report += `  - Failed: ${models.length - passedCount}\n`;
-    report += `  - Analysis Time: ${totalTime}ms\n\n`;
-    
-    // Detailed results
-    report += `📋 Detailed Results:\n`;
-    report += `${'─'.repeat(60)}\n\n`;
-    
-    for (const model of models) {
-      const result = this.workspace.getValidationResult(model.name);
-      const icon = result?.success ? '✅' : '❌';
-      const modelType = model.type === 'main' ? 'Main Query' : 'CTE';
-      
-      report += `${icon} ${model.name} (${modelType})\n`;
-      
-      if (result) {
-        if (result.success) {
-          report += `   Status: Success\n`;
-        } else {
-          report += `   Status: Failed\n`;
-          report += `   Error: ${result.error || 'Unknown error'}\n`;
-        }
-        report += `   Analyzed: ${result.timestamp.toLocaleTimeString()}\n`;
-      } else {
-        report += `   Status: Not analyzed\n`;
-      }
-      report += '\n';
-    }
-    
-    return report;
-  }
 
 
   async copyPrompt(): Promise<void> {

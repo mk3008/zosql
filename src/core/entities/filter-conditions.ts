@@ -106,17 +106,17 @@ export class FilterConditionsEntity {
         if (columnName.includes('id') || columnName.includes('Id')) {
           console.log('[DEBUG] ID column detected:', columnName);
           // Numeric ID columns - add demo filter
-          template[columnName] = { "eq": 1 };
+          template[columnName] = { eq: 1 } as any;
           console.log('[DEBUG] Set ID conditions for', columnName);
         } else if (columnName.includes('name') || columnName.includes('title') || columnName.includes('description')) {
           // Text columns - add demo like filter
-          template[columnName] = { "like": "%a%" };
+          template[columnName] = { like: "%a%" } as any;
         } else if (columnName.includes('date') || columnName.includes('time') || columnName.includes('created') || columnName.includes('updated')) {
           // Date/time columns - add demo date filter
-          template[columnName] = { "gte": "2024-01-01" };
+          template[columnName] = { gte: "2024-01-01" } as any;
         } else {
           // Default mixed conditions - add basic filter
-          template[columnName] = { "ne": null };
+          template[columnName] = { ne: null } as any;
         }
       }
 
@@ -132,8 +132,8 @@ export class FilterConditionsEntity {
    */
   private static getDefaultTemplate(): string {
     const defaultTemplate: FilterConditions = {
-      user_id: { "eq": 1 }, // Demo filter: user_id = 1
-      name: { "like": "%a%" }, // Demo filter: name LIKE '%a%'
+      user_id: { eq: 1 } as any, // Demo filter: user_id = 1
+      name: { like: "%a%" } as any, // Demo filter: name LIKE '%a%'
     };
 
     return JSON.stringify(defaultTemplate, null, 2);

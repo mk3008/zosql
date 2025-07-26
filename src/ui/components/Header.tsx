@@ -152,7 +152,11 @@ export const Header: React.FC<HeaderProps> = ({
         isOpen={showFileOpenDialog}
         onClose={() => setShowFileOpenDialog(false)}
         onFileOpen={onFileOpen}
-        onWorkspaceOpen={onWorkspaceCreated}
+        onWorkspaceOpen={async (workspace) => {
+          if (onWorkspaceCreated) {
+            onWorkspaceCreated(workspace);
+          }
+        }}
       />
       
       <FinalSqlDialog

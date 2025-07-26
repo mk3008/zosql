@@ -214,7 +214,7 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
             
             // Try constructor option with ignoreNonExistentColumns
             try {
-              const builderWithOptions = new DynamicQueryBuilder({ ignoreNonExistentColumns: true });
+              const builderWithOptions = new DynamicQueryBuilder({ ignoreNonExistentColumns: true } as any);
               query = builderWithOptions.buildFilteredQuery(baseSql, conditions);
               console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (constructor)');
             } catch (error1) {
@@ -222,7 +222,7 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
               
               // Try method parameter with ignoreNonExistentColumns
               try {
-                query = builder.buildFilteredQuery(baseSql, conditions, { ignoreNonExistentColumns: true });
+                query = builder.buildFilteredQuery(baseSql, conditions);
                 console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (parameter)');
               } catch (error2) {
                 console.log('[DEBUG] Parameter option failed, trying property setting');
@@ -233,7 +233,8 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
                   query = builder.buildFilteredQuery(baseSql, conditions);
                   console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (property)');
                 } catch (error3) {
-                  console.log('[DEBUG] All ignoreNonExistentColumns patterns failed, original error:', error1.message);
+                  const errorMessage = error1 instanceof Error ? error1.message : 'Unknown error';
+                  console.log('[DEBUG] All ignoreNonExistentColumns patterns failed, original error:', errorMessage);
                   throw error1; // Re-throw the original error
                 }
               }
@@ -472,49 +473,11 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
     }
   }
 
-  /**
-   * Calculate position in editor content from full SQL position
-   */
-  private calculateEditorPosition(fullSql: string, fullSqlPosition: number, editorSql: string): number {
-    // If fullSql and editorSql are the same, return position as-is
-    if (fullSql === editorSql) {
-      return fullSqlPosition;
-    }
-    
-    // Find where the editor SQL starts in the full SQL
-    const editorSqlIndex = fullSql.indexOf(editorSql);
-    if (editorSqlIndex === -1) {
-      console.log('[DEBUG] Could not find editor SQL in full SQL, returning original position');
-      return fullSqlPosition;
-    }
-    
-    // If error is before the editor SQL starts, it's in the CTE part
-    if (fullSqlPosition < editorSqlIndex) {
-      console.log('[DEBUG] Error is in CTE part, returning 0');
-      return 0;
-    }
-    
-    // Calculate relative position within editor SQL
-    const relativePosition = fullSqlPosition - editorSqlIndex;
-    
-    // Clamp to editor SQL bounds
-    const adjustedPosition = Math.min(relativePosition, editorSql.length - 1);
-    
-    console.log('[DEBUG] Position calculation:', {
-      fullSqlPosition,
-      editorSqlIndex,
-      relativePosition,
-      adjustedPosition,
-      editorSqlLength: editorSql.length
-    });
-    
-    return Math.max(0, adjustedPosition);
-  }
 
   /**
    * Convert technical error messages to user-friendly ones using only rawsql-ts provided data
    */
-  private createUserFriendlyErrorMessage(errorMessage: string): { success: false; error: string } {
+  private createUserFriendlyErrorMessage(_errorMessage: string): { success: false; error: string } {
     // Position display temporarily disabled due to rawsql-ts position accuracy issues
     return { 
       success: false, 
