@@ -134,6 +134,16 @@ export class WorkspaceEntity {
     }
   }
 
+  setActiveObjectId(objectId: string): void {
+    this._activeObjectId = objectId;
+    this.updateModified();
+  }
+
+  setOpenedObjects(objects: OpenedObject[]): void {
+    this._openedObjects = [...objects];
+    this.updateModified();
+  }
+
   updateObjectContent(objectId: string, content: string): void {
     const object = this._openedObjects.find(obj => obj.id === objectId);
     if (object) {

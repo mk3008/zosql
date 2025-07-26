@@ -49,6 +49,9 @@ export class MainContentViewModel extends BaseViewModel {
       this.notifyChange('activeTab', this.activeTab);
       this.notifyChange('canExecute', this.canExecute);
       this.notifyChange('queryResult', this.queryResult); // Notify query result change
+      
+      // Sync active tab change to workspace
+      this.syncTabsToWorkspace();
     }
   }
 
@@ -493,6 +496,9 @@ export class MainContentViewModel extends BaseViewModel {
     if (this.activeTabId === tabId && newTabs.length > 0) {
       this.activeTabId = newTabs[0].id;
     }
+
+    // Sync tabs to workspace
+    this.syncTabsToWorkspace();
   }
 
   addTab(tab: Tab): void {
@@ -503,6 +509,7 @@ export class MainContentViewModel extends BaseViewModel {
       console.log('[DEBUG] Tab already exists, making it active:', existingTab.id);
       // If tab exists, just make it active
       this.activeTabId = tab.id;
+      this.syncTabsToWorkspace();
       return;
     }
     
@@ -511,6 +518,9 @@ export class MainContentViewModel extends BaseViewModel {
     this.tabs = [...this._tabs, tab];
     this.activeTabId = tab.id;
     console.log('[DEBUG] New tabs count:', this._tabs.length);
+    
+    // Sync tabs to workspace
+    this.syncTabsToWorkspace();
   }
 
   // Model Management
@@ -520,6 +530,37 @@ export class MainContentViewModel extends BaseViewModel {
     this._tabModelMap.set(tabId, model);
     this.notifyChange('tabModelMap', this._tabModelMap);
     console.log('[DEBUG] Tab model map size:', this._tabModelMap.size);
+  }
+
+  // Sync tabs to workspace opened objects
+  private syncTabsToWorkspace(): void {
+    if (!this.workspace) return;
+
+    console.log('[DEBUG] Syncing tabs to workspace opened objects');
+    
+    // Convert tabs to opened objects
+    const openedObjects = this._tabs.map(tab => ({
+      id: tab.id,
+      title: tab.title,
+      type: tab.type,
+      content: tab.content,
+      isDirty: tab.isDirty,
+      modelEntity: this._tabModelMap.get(tab.id)
+    }));
+
+    // Update workspace opened objects
+    this.workspace.setOpenedObjects(openedObjects);
+    this.workspace.setActiveObjectId(this._activeTabId);
+
+    console.log('[DEBUG] Synced', openedObjects.length, 'tabs to workspace, active:', this._activeTabId);
+
+    // Save to localStorage
+    try {
+      localStorage.setItem('zosql_workspace_v3', JSON.stringify(this.workspace.toJSON()));
+      console.log('[DEBUG] Saved workspace state to localStorage');
+    } catch (error) {
+      console.warn('Failed to save workspace to localStorage:', error);
+    }
   }
 
   // Private Methods
