@@ -194,15 +194,52 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
       if (filterConditions) {
         const conditions = filterConditions.getFilterConditions();
         if (conditions && Object.keys(conditions).length > 0) {
-          console.log('[DEBUG] Applying filter conditions:', Object.keys(conditions));
-          try {
+          console.log('[DEBUG] Found filter conditions with keys:', Object.keys(conditions));
+          
+          // Check if any conditions have actual values (not just empty objects or null/undefined)
+          const hasActualConditions = Object.values(conditions).some(condition => {
+            // Accept non-empty objects, strings, numbers, booleans
+            if (typeof condition === 'object' && condition !== null) {
+              return Object.keys(condition).length > 0;
+            }
+            // Accept primitive values (string, number, boolean)
+            return condition !== null && condition !== undefined && condition !== '';
+          });
+          
+          if (hasActualConditions) {
+            console.log('[DEBUG] Applying filter conditions with actual values');
+            
+            // Use ignoreNonExistentColumns option (0.11.25-beta)
             const builder = new DynamicQueryBuilder();
-            query = builder.buildFilteredQuery(baseSql, conditions);
-            console.log('[DEBUG] Filter conditions applied successfully');
-          } catch (error) {
-            console.error('[DEBUG] Failed to apply filter conditions:', error);
-            console.log('[DEBUG] Continuing without filter conditions due to error');
-            // Continue without filter conditions if they cause issues
+            
+            // Try constructor option with ignoreNonExistentColumns
+            try {
+              const builderWithOptions = new DynamicQueryBuilder({ ignoreNonExistentColumns: true });
+              query = builderWithOptions.buildFilteredQuery(baseSql, conditions);
+              console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (constructor)');
+            } catch (error1) {
+              console.log('[DEBUG] Constructor option failed, trying method parameter');
+              
+              // Try method parameter with ignoreNonExistentColumns
+              try {
+                query = builder.buildFilteredQuery(baseSql, conditions, { ignoreNonExistentColumns: true });
+                console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (parameter)');
+              } catch (error2) {
+                console.log('[DEBUG] Parameter option failed, trying property setting');
+                
+                // Try property setting
+                try {
+                  (builder as any).ignoreNonExistentColumns = true;
+                  query = builder.buildFilteredQuery(baseSql, conditions);
+                  console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (property)');
+                } catch (error3) {
+                  console.log('[DEBUG] All ignoreNonExistentColumns patterns failed, original error:', error1.message);
+                  throw error1; // Re-throw the original error
+                }
+              }
+            }
+          } else {
+            console.log('[DEBUG] Filter conditions found but all are empty - skipping');
           }
         } else {
           console.log('[DEBUG] No filter conditions to apply');

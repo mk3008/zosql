@@ -20,12 +20,17 @@ export class FilterConditionsEntity {
    * @returns Parsed FilterConditions object, undefined if not set, or empty object if parsing fails
    */
   getFilterConditions(): FilterConditions | undefined {
+    console.log('[DEBUG] FilterConditionsEntity.getFilterConditions - conditions string:', this.conditions);
+    
     if (this.conditions === 'undefined') {
+      console.log('[DEBUG] FilterConditionsEntity - returning undefined (conditions string is "undefined")');
       return undefined;
     }
     
     try {
       const parsed = JSON.parse(this.conditions);
+      console.log('[DEBUG] FilterConditionsEntity - parsed conditions:', parsed);
+      console.log('[DEBUG] FilterConditionsEntity - parsed conditions keys:', Object.keys(parsed || {}));
       return parsed as FilterConditions;
     } catch (error) {
       console.warn('Failed to parse filter conditions:', error);
@@ -97,21 +102,21 @@ export class FilterConditionsEntity {
       for (const column of columns) {
         const columnName = column.name;
         console.log('[DEBUG] Processing column:', columnName);
-        // Generate appropriate conditions based on likely column type
+        // Generate appropriate conditions based on likely column type with demo values
         if (columnName.includes('id') || columnName.includes('Id')) {
           console.log('[DEBUG] ID column detected:', columnName);
-          // Numeric ID columns - use empty string instead of undefined
-          template[columnName] = {};
+          // Numeric ID columns - add demo filter
+          template[columnName] = { "eq": 1 };
           console.log('[DEBUG] Set ID conditions for', columnName);
         } else if (columnName.includes('name') || columnName.includes('title') || columnName.includes('description')) {
-          // Text columns - use empty object
-          template[columnName] = {};
+          // Text columns - add demo like filter
+          template[columnName] = { "like": "%a%" };
         } else if (columnName.includes('date') || columnName.includes('time') || columnName.includes('created') || columnName.includes('updated')) {
-          // Date/time columns - use empty object
-          template[columnName] = {};
+          // Date/time columns - add demo date filter
+          template[columnName] = { "gte": "2024-01-01" };
         } else {
-          // Default mixed conditions - use empty object
-          template[columnName] = {};
+          // Default mixed conditions - add basic filter
+          template[columnName] = { "ne": null };
         }
       }
 
@@ -127,10 +132,8 @@ export class FilterConditionsEntity {
    */
   private static getDefaultTemplate(): string {
     const defaultTemplate: FilterConditions = {
-      id: {},
-      name: {},
-      created_at: {},
-      status: {}
+      user_id: { "eq": 1 }, // Demo filter: user_id = 1
+      name: { "like": "%a%" }, // Demo filter: name LIKE '%a%'
     };
 
     return JSON.stringify(defaultTemplate, null, 2);

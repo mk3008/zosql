@@ -195,25 +195,18 @@ export class MainContentViewModel extends BaseViewModel {
       this.queryResult = result;
 
       // Notify parent component about executed SQL
-      // Show the formatted tab content (without CTE wrapping)
-      if (this._onSqlExecuted && this.activeTab) {
+      // Show the ACTUAL executed SQL (with CTEs, filter conditions, etc.)
+      if (this._onSqlExecuted && result.executedSql) {
         try {
-          // Format the tab content using SqlFormatter
-          const { SqlFormatter } = await import('rawsql-ts');
-          const formatter = new SqlFormatter({
-            preset: 'postgres',
-            keywordCase: 'lower',
-            identifierEscape: { start: '"', end: '"' }
-          });
-          
-          // Use the tab content (without CTE composition)
-          const formattedSql = formatter.formatQuery(this.activeTab.content);
-          this._onSqlExecuted(formattedSql);
-          console.log('[DEBUG] Sent formatted tab content to LastExecutedSQL');
+          // Use the actual executed SQL from the result
+          this._onSqlExecuted(result.executedSql);
+          console.log('[DEBUG] Sent ACTUAL executed SQL to LastExecutedSQL:', result.executedSql.substring(0, 100) + '...');
         } catch (error) {
-          console.error('[DEBUG] Failed to format SQL for LastExecutedSQL:', error);
-          // Fallback to unformatted content
-          this._onSqlExecuted(this.activeTab.content);
+          console.error('[DEBUG] Failed to send executed SQL to LastExecutedSQL:', error);
+          // Fallback to tab content
+          if (this.activeTab) {
+            this._onSqlExecuted(this.activeTab.content);
+          }
         }
       }
 

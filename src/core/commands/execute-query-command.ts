@@ -80,6 +80,11 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
           const filterConditions = this.context.workspace?.filterConditions;
           
           console.log('[DEBUG] Test values:', !!testValues, 'Filter conditions:', !!filterConditions);
+          if (filterConditions) {
+            const conditions = filterConditions.getFilterConditions();
+            console.log('[DEBUG] Filter conditions content:', conditions);
+            console.log('[DEBUG] Filter conditions keys:', Object.keys(conditions || {}));
+          }
           
           // Generate dynamic SQL with parameterization for execution
           dynamicResult = await this.context.sqlModel.getDynamicSql(testValues, filterConditions, true);
@@ -97,6 +102,11 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
           const filterConditions = this.context.workspace.filterConditions;
           
           console.log('[DEBUG] Fallback - Test values:', !!testValues, 'Filter conditions:', !!filterConditions);
+          if (filterConditions) {
+            const conditions = filterConditions.getFilterConditions();
+            console.log('[DEBUG] Fallback filter conditions content:', conditions);
+            console.log('[DEBUG] Fallback filter conditions keys:', Object.keys(conditions || {}));
+          }
           
           // Generate dynamic SQL with parameterization for execution
           dynamicResult = await mainModel.getDynamicSql(testValues, filterConditions, true);
