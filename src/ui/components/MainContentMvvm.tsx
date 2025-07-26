@@ -10,6 +10,7 @@ import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
 import { useMvvmBinding } from '@ui/hooks/useMvvm';
+import { DebugLogger } from '../../utils/debug-logger';
 
 export interface MainContentRef {
   openValuesTab: () => void;
@@ -20,6 +21,7 @@ export interface MainContentRef {
   setCurrentModelEntity: (model: SqlModelEntity) => void;
   clearAllTabs: () => void;
   runStaticAnalysis: () => void;
+  getWorkspace: () => WorkspaceEntity | null;
 }
 
 export interface MainContentProps {
@@ -30,12 +32,13 @@ export interface MainContentProps {
   showSuccess?: (message: string) => void;
   showError?: (message: string) => void;
   showErrorWithDetails?: (message: string, details?: string, stack?: string) => void;
+  onAnalysisUpdated?: () => void; // Notify parent when static analysis completes
 }
 
 // Global ViewModel instance to prevent duplication in React StrictMode
 let globalViewModel: MainContentViewModel | null = null;
 
-const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange, onSqlExecuted, showSuccess, showError, showErrorWithDetails }, ref) => {
+const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({ workspace, onWorkspaceChange, onActiveTabChange, onSqlExecuted, showSuccess, showError, showErrorWithDetails, onAnalysisUpdated }, ref) => {
   // Suppress unused variable warning
   void onWorkspaceChange;
   // MVVM: Create and bind ViewModel (singleton pattern)
@@ -47,7 +50,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   
   if (!viewModelRef.current) {
     if (!globalViewModel) {
-      console.log('[DEBUG] Creating new MainContentViewModel instance');
+      DebugLogger.info('MainContentMvvm', 'Creating new MainContentViewModel instance');
       globalViewModel = new MainContentViewModel();
     }
     viewModelRef.current = globalViewModel;
@@ -183,6 +186,8 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       } else if (propertyName === 'analysisUpdated') {
         console.log('[DEBUG] Analysis updated, forcing re-render');
         // Force re-render to update error displays
+        // Notify parent component (Layout) to update LeftSidebar
+        onAnalysisUpdated?.();
       } else if (propertyName === 'queryResult') {
         console.log('[DEBUG] Query result changed, forcing re-render');
         // Force re-render when query result changes
@@ -195,7 +200,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       const unsubscribe = viewModelRef.current.subscribe(handlePropertyChange);
       return unsubscribe;
     }
-  }, [showSuccess, showError, showErrorWithDetails]);
+  }, [showSuccess, showError, showErrorWithDetails, onAnalysisUpdated]);
 
   // Cleanup ViewModel on unmount
   useEffect(() => {
@@ -306,6 +311,9 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     },
     runStaticAnalysis: () => {
       vm.runStaticAnalysis();
+    },
+    getWorkspace: () => {
+      return vm.workspace;
     }
   }), [vm, workspace]);
 

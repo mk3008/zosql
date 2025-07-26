@@ -7,6 +7,7 @@ import { SqlModelEntity } from './sql-model';
 import { TestValuesModel } from './test-values-model';
 import { FilterConditionsEntity } from './filter-conditions';
 import { SqlFormatterEntity } from './sql-formatter';
+import { DebugLogger } from '../../utils/debug-logger';
 
 /**
  * UI-specific filter conditions for SQL models display
@@ -182,7 +183,12 @@ export class WorkspaceEntity {
   // Schema Validation Management
 
   getValidationResult(modelName: string): { success: boolean; error?: string; timestamp: Date } | null {
-    return this._validationResults.get(modelName) || null;
+    DebugLogger.debug('WorkspaceEntity', `getValidationResult called for: ${modelName}`);
+    DebugLogger.debug('WorkspaceEntity', `_validationResults map size: ${this._validationResults.size}`);
+    DebugLogger.debug('WorkspaceEntity', `_validationResults keys: ${Array.from(this._validationResults.keys()).join(', ')}`);
+    const result = this._validationResults.get(modelName) || null;
+    DebugLogger.debug('WorkspaceEntity', `getValidationResult result: ${JSON.stringify(result)}`);
+    return result;
   }
 
   setValidationResult(modelName: string, result: { success: boolean; error?: string }): void {
@@ -199,7 +205,7 @@ export class WorkspaceEntity {
   }
 
   async validateAllSchemas(useEditorContent: boolean = false): Promise<void> {
-    console.log('[DEBUG] WorkspaceEntity.validateAllSchemas started, useEditorContent:', useEditorContent);
+    DebugLogger.info('WorkspaceEntity', `validateAllSchemas started, useEditorContent: ${useEditorContent}`);
     
     // Validate only SQL models (main and cte), not data/values
     const modelsToValidate = this.sqlModels.filter(model => 
@@ -207,13 +213,13 @@ export class WorkspaceEntity {
     );
     
     for (const model of modelsToValidate) {
-      console.log('[DEBUG] Validating schema for:', model.name, 'type:', model.type);
+      DebugLogger.debug('WorkspaceEntity', `Validating schema for: ${model.name}, type: ${model.type}`);
       try {
         const result = await model.validateSchema(useEditorContent);
         this.setValidationResult(model.name, result);
-        console.log('[DEBUG] Validation result for', model.name, ':', result);
+        DebugLogger.debug('WorkspaceEntity', `Validation result for ${model.name}: ${JSON.stringify(result)}`);
       } catch (error) {
-        console.error('[DEBUG] Error validating', model.name, ':', error);
+        DebugLogger.error('WorkspaceEntity', `Error validating ${model.name}: ${error}`);
         this.setValidationResult(model.name, {
           success: false,
           error: error instanceof Error ? error.message : 'Validation failed'
@@ -221,7 +227,7 @@ export class WorkspaceEntity {
       }
     }
     
-    console.log('[DEBUG] WorkspaceEntity.validateAllSchemas completed');
+    DebugLogger.info('WorkspaceEntity', 'validateAllSchemas completed');
   }
 
   // Special Tab Management (Values, Formatter, Condition)

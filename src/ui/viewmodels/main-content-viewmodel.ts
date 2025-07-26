@@ -11,6 +11,7 @@ import { FormatQueryCommand } from '@core/commands/format-query-command';
 import { commandExecutor } from '@core/services/command-executor';
 import { PromptGenerator } from '@core/usecases/prompt-generator';
 import { SchemaExtractor } from '@adapters/parsers/schema-extractor';
+import { DebugLogger } from '../../utils/debug-logger';
 
 export class MainContentViewModel extends BaseViewModel {
   // Private state
@@ -71,18 +72,18 @@ export class MainContentViewModel extends BaseViewModel {
     // Get result from active tab's model, fallback to global result
     if (this.activeTab) {
       const model = this.tabModelMap.get(this.activeTab.id);
-      console.log('[DEBUG] Getting query result for tab:', this.activeTab.id, 'model:', !!model);
+      DebugLogger.debug('MainContentViewModel', `Getting query result for tab: ${this.activeTab.id}, model: ${!!model}`);
       
       if (model && 'getQueryResult' in model && typeof (model as any).getQueryResult === 'function') {
         const result = (model as any).getQueryResult();
-        console.log('[DEBUG] Model has result:', !!result, 'for tab:', this.activeTab.id);
+        DebugLogger.debug('MainContentViewModel', `Model has result: ${!!result} for tab: ${this.activeTab.id}`);
         if (result) {
           return result;
         }
       }
     }
     // Fallback to global result for backward compatibility
-    console.log('[DEBUG] Using fallback global result for tab:', this.activeTab?.id);
+    DebugLogger.debug('MainContentViewModel', `Using fallback global result for tab: ${this.activeTab?.id}`);
     return this._queryResult;
   }
 
@@ -293,23 +294,21 @@ export class MainContentViewModel extends BaseViewModel {
   }
 
   async runStaticAnalysis(): Promise<void> {
-    console.log('[DEBUG] runStaticAnalysis called');
+    DebugLogger.info('MainContentViewModel', 'runStaticAnalysis called');
     if (!this.workspace) {
-      console.log('[DEBUG] No workspace available for static analysis');
+      DebugLogger.warn('MainContentViewModel', 'No workspace available for static analysis');
       this.notifyChange('error', 'No workspace loaded');
       return;
     }
 
     try {
-      console.log('[DEBUG] Running static analysis for all models');
+      DebugLogger.info('MainContentViewModel', 'Running static analysis for all models');
       
       // Log current state of models and their editor content
       const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
-      console.log('[DEBUG] Models to validate:');
+      DebugLogger.debug('MainContentViewModel', `Models to validate: ${models.length}`);
       for (const model of models) {
-        console.log(`[DEBUG] - ${model.name}: editorContent(${model.editorContent.length}), sqlWithoutCte(${model.sqlWithoutCte.length}), hasUnsavedChanges: ${model.hasUnsavedChanges}`);
-        console.log(`[DEBUG] - ${model.name} editorContent preview:`, model.editorContent.substring(0, 200) + '...');
-        console.log(`[DEBUG] - ${model.name} sqlWithoutCte preview:`, model.sqlWithoutCte.substring(0, 200) + '...');
+        DebugLogger.debug('MainContentViewModel', `- ${model.name}: editorContent(${model.editorContent.length}), sqlWithoutCte(${model.sqlWithoutCte.length}), hasUnsavedChanges: ${model.hasUnsavedChanges}`);
       }
       
       const startTime = performance.now();
@@ -334,12 +333,15 @@ export class MainContentViewModel extends BaseViewModel {
         this.notifyChange('error', `Static analysis completed: ${passedCount}/${models.length} models passed`);
       }
       
-      // Force re-render to update error displays in tabs
+      // Force re-render to update error displays in tabs and left sidebar
       this.notifyChange('analysisUpdated', Date.now());
       
-      console.log('[DEBUG] Static analysis completed in', totalTime, 'ms');
+      // Also notify workspace change to ensure all UI components update
+      this.notifyChange('workspace', this.workspace);
+      
+      DebugLogger.info('MainContentViewModel', `Static analysis completed in ${totalTime}ms`);
     } catch (error) {
-      console.error('[DEBUG] Static analysis failed:', error);
+      DebugLogger.error('MainContentViewModel', `Static analysis failed: ${error}`);
       this.notifyChange('errorWithDetails', {
         message: 'Static analysis failed',
         details: error instanceof Error ? error.message : 'Unknown error',

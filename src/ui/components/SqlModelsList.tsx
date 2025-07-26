@@ -5,6 +5,7 @@
 
 import React, { useMemo } from 'react';
 import { SqlModelEntity } from '@core/entities/sql-model';
+import { DebugLogger } from '../../utils/debug-logger';
 
 interface SqlModelsListProps {
   models: SqlModelEntity[];
@@ -15,7 +16,7 @@ interface SqlModelsListProps {
   workspace?: any; // WorkspaceEntity for validation results
 }
 
-export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({ 
+export const SqlModelsList: React.FC<SqlModelsListProps> = ({ 
   models, 
   onModelClick,
   selectedModelName,
@@ -23,7 +24,8 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
   isValuesTabActive = false,
   workspace
 }) => {
-  console.log('[DEBUG] SqlModelsList render - selectedModelName:', selectedModelName, 'isValuesTabActive:', isValuesTabActive);
+  DebugLogger.debug('SqlModelsList', `render - selectedModelName: ${selectedModelName}, isValuesTabActive: ${isValuesTabActive}`);
+  DebugLogger.debug('SqlModelsList', `workspace validation results available: ${!!workspace?.getValidationResult}`);
   
   // Simplified selection logic - always use selectedModelName for model selection
   // Values tab selection is handled separately via isValuesTabActive
@@ -35,27 +37,27 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
   // Helper function to get validation status for a model
   const getValidationStatus = (modelName: string) => {
     if (!workspace || !workspace.getValidationResult) {
-      console.log('[DEBUG] getValidationStatus: no workspace or getValidationResult method');
+      DebugLogger.debug('SqlModelsList', 'getValidationStatus: no workspace or getValidationResult method');
       return null;
     }
+    
     const result = workspace.getValidationResult(modelName);
-    console.log('[DEBUG] getValidationStatus for', modelName, ':', result);
+    DebugLogger.debug('SqlModelsList', `getValidationStatus for ${modelName}: ${JSON.stringify(result)}`);
     return result;
   };
 
   // Helper function to render validation indicator
   const renderValidationIndicator = (modelName: string) => {
     const validationResult = getValidationStatus(modelName);
-    console.log('[DEBUG] renderValidationIndicator for', modelName, ':', validationResult);
     if (!validationResult) {
       return null;
     }
     
     if (validationResult.success) {
-      console.log('[DEBUG] Rendering success icon for', modelName);
+      DebugLogger.debug('SqlModelsList', `Rendering success icon for ${modelName}`);
       return <span className="text-xs text-green-400" title="Static analysis passed">✅</span>;
     } else {
-      console.log('[DEBUG] Rendering error icon for', modelName);
+      DebugLogger.debug('SqlModelsList', `Rendering error icon for ${modelName}`);
       return <span className="text-xs text-red-400" title={`Static analysis failed: ${validationResult.error}`}>❌</span>;
     }
   };
@@ -84,7 +86,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
             {mainModels.map((model) => {
               // Model is selected if selectedModelName matches AND values tab is not active
               const isSelected = !selectionState.isValuesTabActive && selectionState.selectedModelName === model.name;
-              console.log('[DEBUG] Root model', model.name, 'isSelected:', isSelected, 'selectedModelName:', selectionState.selectedModelName, 'isValuesTabActive:', selectionState.isValuesTabActive);
+              DebugLogger.debug('SqlModelsList', `Root model ${model.name} isSelected: ${isSelected}, selectedModelName: ${selectionState.selectedModelName}, isValuesTabActive: ${selectionState.isValuesTabActive}`);
               
               return (
                 <div
@@ -149,7 +151,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
           <div className="space-y-1">
             {cteModels.map((model) => {
               const isSelected = !selectionState.isValuesTabActive && selectionState.selectedModelName === model.name;
-              console.log('[DEBUG] CTE model', model.name, 'isSelected:', isSelected, 'selectedModelName:', selectionState.selectedModelName, 'isValuesTabActive:', selectionState.isValuesTabActive);
+              DebugLogger.debug('SqlModelsList', `CTE model ${model.name} isSelected: ${isSelected}, selectedModelName: ${selectionState.selectedModelName}, isValuesTabActive: ${selectionState.isValuesTabActive}`);
               
               return (
                 <div
@@ -228,7 +230,7 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = React.memo(({
       )}
     </div>
   );
-});
+};
 
 /**
  * Calculate maximum dependency depth in the model graph

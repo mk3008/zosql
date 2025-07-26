@@ -13,6 +13,7 @@ import { WorkspaceEntity } from '@core/entities/workspace';
 import { createValidatedDemoWorkspace } from '@core/factories/demo-workspace-factory';
 import { CreateWorkspaceCommand } from '@ui/commands/create-workspace-command';
 import { commandExecutor } from '@core/services/command-executor';
+import { DebugLogger } from '../../utils/debug-logger';
 
 /**
  * Read file content as text
@@ -46,6 +47,7 @@ export const Layout: React.FC = () => {
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(false);
   const [lastExecutedSql, setLastExecutedSql] = useState<string>('');
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [leftSidebarKey, setLeftSidebarKey] = useState(0); // Force re-render key
   const hasLoadedWorkspace = useRef(false);
   const mainContentRef = useRef<MainContentRef>(null);
   
@@ -422,6 +424,7 @@ export const Layout: React.FC = () => {
         {/* Left Sidebar */}
         {leftSidebarVisible && (
           <LeftSidebar 
+            key={leftSidebarKey} // Force re-render when static analysis completes
             onOpenValuesTab={() => {
               console.log('[DEBUG] onOpenValuesTab called');
               console.log('[DEBUG] Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
@@ -440,6 +443,7 @@ export const Layout: React.FC = () => {
             activeTabId={activeTabId}
             showErrorWithDetails={addError}
             showSuccess={showSuccess}
+            mainContentRef={mainContentRef}
           />
         )}
         
@@ -475,6 +479,21 @@ export const Layout: React.FC = () => {
             }
           }}
           onSqlExecuted={(sql) => setLastExecutedSql(sql)}
+          onAnalysisUpdated={() => {
+            DebugLogger.info('Layout', 'Analysis updated notification from MainContent');
+            // Get the updated workspace from MainContent's ViewModel
+            const updatedWorkspace = mainContentRef.current?.getWorkspace?.();
+            if (updatedWorkspace) {
+              DebugLogger.info('Layout', 'Updating Layout currentWorkspace with validation results');
+              setCurrentWorkspace(updatedWorkspace);
+            }
+            // Force LeftSidebar re-render to update validation icons
+            setLeftSidebarKey(prev => {
+              const newKey = prev + 1;
+              DebugLogger.debug('Layout', `LeftSidebar key updated: ${prev} -> ${newKey}`);
+              return newKey;
+            });
+          }}
         />
         
         {/* Right Sidebar */}

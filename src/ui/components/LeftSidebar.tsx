@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { SqlModelsList } from './SqlModelsList';
 import { SqlModelEntity, WorkspaceEntity } from '@shared/types';
+import { MainContentRef } from './MainContentMvvm';
+import { DebugLogger } from '../../utils/debug-logger';
 
 interface LeftSidebarProps {
   onOpenValuesTab?: () => void;
@@ -14,6 +16,7 @@ interface LeftSidebarProps {
   activeTabId?: string | null;
   showErrorWithDetails?: (message: string, details?: string, stack?: string) => void;
   showSuccess?: (message: string) => void;
+  mainContentRef?: React.RefObject<MainContentRef>;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
@@ -26,7 +29,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   workspace,
   activeTabId,
   showErrorWithDetails,
-  showSuccess
+  showSuccess: _showSuccess,
+  mainContentRef
 }) => {
   // Suppress unused variable warning
   void isDecomposing;
@@ -43,6 +47,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   
   // Force re-render when workspace state changes
   const [, forceUpdate] = useState({});
+  // Additional state to force SqlModelsList re-render
+  const [sqlModelsListKey, setSqlModelsListKey] = useState(0);
   
   // Collapsible section states - get from workspace or use fallback
   const getCollapsedState = (section: string, defaultValue: boolean) => {
@@ -72,49 +78,27 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   });
 
   const handleValidateWorkspace = async () => {
-    if (!workspace) return;
+    if (!workspace || !mainContentRef?.current) return;
     
     _setIsValidating(true);
     try {
-      console.log('[DEBUG] Starting static analysis for all models');
-      await workspace.validateAllSchemas();
-      console.log('[DEBUG] Static analysis completed');
-      
-      // Check for any validation failures and show detailed errors
-      const modelsToValidate = workspace.sqlModels.filter(model => 
-        model.type === 'main' || model.type === 'cte'
-      );
-      
-      const failedModels = modelsToValidate
-        .map(model => ({ 
-          model, 
-          result: workspace.getValidationResult(model.name) 
-        }))
-        .filter(({ result }) => result && !result.success);
-      
-      if (failedModels.length > 0) {
-        if (showErrorWithDetails) {
-          const errorSummary = `Static analysis failed for ${failedModels.length} model(s)`;
-          const errorDetails = failedModels
-            .map(({ model, result }) => `${model.name}: ${result?.error || 'Unknown error'}`)
-            .join('\n');
-          
-          showErrorWithDetails(errorSummary, errorDetails);
-        }
-      } else {
-        // All validations passed
-        const successCount = modelsToValidate.length;
-        if (showSuccess) {
-          showSuccess(`Static analysis completed successfully for ${successCount} model(s)`);
-        }
-      }
+      DebugLogger.info('LeftSidebar', 'Delegating static analysis to MainContentViewModel');
+      // Delegate to MainContentViewModel for unified entity management and UI binding
+      await mainContentRef.current.runStaticAnalysis();
+      DebugLogger.info('LeftSidebar', 'Static analysis delegation completed');
       
       // Force component re-render to show updated validation icons
       forceUpdate({});
+      // Also force SqlModelsList re-render to update validation icons
+      setSqlModelsListKey(prev => {
+        const newKey = prev + 1;
+        DebugLogger.debug('LeftSidebar', `SqlModelsList key updated: ${prev} -> ${newKey}`);
+        return newKey;
+      });
     } catch (error) {
-      console.error('Static analysis failed:', error);
+      DebugLogger.error('LeftSidebar', `Static analysis delegation failed: ${error}`);
       if (showErrorWithDetails) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+        const errorMessage = error instanceof Error ? error.message : 'Static analysis delegation error';
         const errorStack = error instanceof Error ? error.stack : undefined;
         showErrorWithDetails('Static analysis process failed', errorMessage, errorStack);
       }
@@ -245,6 +229,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             
             {/* SQL Models List */}
             <SqlModelsList 
+              key={sqlModelsListKey} // Force re-render when validation updates
               models={sqlModels as any}
               onModelClick={onModelClick}
               selectedModelName={selectedModelName}
