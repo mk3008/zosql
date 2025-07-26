@@ -5,6 +5,7 @@
 
 import { BaseViewModel } from './base-viewmodel';
 import { Tab, QueryExecutionResult, WorkspaceEntity, SqlModelEntity } from '@shared/types';
+import { OpenedObject } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { ExecuteQueryCommand } from '@core/commands/execute-query-command';
 import { FormatQueryCommand } from '@core/commands/format-query-command';
@@ -539,13 +540,13 @@ export class MainContentViewModel extends BaseViewModel {
     console.log('[DEBUG] Syncing tabs to workspace opened objects');
     
     // Convert tabs to opened objects
-    const openedObjects = this._tabs.map(tab => ({
+    const openedObjects: OpenedObject[] = this._tabs.map(tab => ({
       id: tab.id,
       title: tab.title,
       type: tab.type,
       content: tab.content,
       isDirty: tab.isDirty,
-      modelEntity: this._tabModelMap.get(tab.id)
+      modelEntity: this._tabModelMap.get(tab.id) as any
     }));
 
     // Update workspace opened objects
