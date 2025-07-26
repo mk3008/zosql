@@ -107,6 +107,13 @@ dist
 # Docusaurus cache and generated files
 .docusaurus
 
+# Temporary files for development
+.tmp/
+
+# Workspace directories - runtime generated content
+zosql/workspace/
+zosql/resources/cache/
+
 # Serverless directories
 .serverless/
 

@@ -1,0 +1,32 @@
+/* cte-tree.css - CTE dependency tree component styles */
+
+.cte-tree {
+  @apply space-y-1 p-2;
+}
+
+.cte-tree-item {
+  @apply flex items-center py-1 px-2 text-sm cursor-pointer 
+         transition-colors hover:bg-gray-100 rounded;
+}
+
+.cte-tree-item.active {
+  @apply bg-blue-500 text-white;
+}
+
+.cte-tree-item[data-level="0"] { margin-left: 0; }
+.cte-tree-item[data-level="1"] { margin-left: 1rem; }
+.cte-tree-item[data-level="2"] { margin-left: 2rem; }
+.cte-tree-item[data-level="3"] { margin-left: 3rem; }
+
+.cte-tree-icon {
+  @apply mr-2 text-base;
+}
+
+.cte-tree-name {
+  @apply font-medium text-gray-900;
+  font-size: 14px;
+}
+
+.cte-tree-item.active .cte-tree-name {
+  @apply text-white;
+}

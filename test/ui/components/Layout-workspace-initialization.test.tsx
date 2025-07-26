@@ -1,0 +1,248 @@
+/**
+ * Layout Workspace Initialization Test
+ * UI Layer - Hexagonal Architecture  
+ * t-wada style integration tests for workspace initialization in Layout component
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { Layout } from '../../../src/ui/components/Layout';
+import { WorkspaceEntity } from '../../../src/core/entities/workspace';
+
+// Mock dependencies
+vi.mock('../../../src/ui/hooks/useSqlDecomposer', () => ({
+  useSqlDecomposer: () => ({
+    decomposeSql: vi.fn(),
+    isDecomposing: false,
+    error: null
+  })
+}));
+
+vi.mock('../../../src/ui/hooks/useFileOpen', () => ({
+  useFileOpen: () => ({
+    openFile: vi.fn()
+  })
+}));
+
+vi.mock('../../../src/ui/hooks/useToast', () => ({
+  useToast: () => ({
+    showSuccess: vi.fn(),
+    showError: vi.fn()
+  })
+}));
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+};
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock
+});
+
+// Mock console methods to capture debug logs
+const consoleSpy = {
+  log: vi.spyOn(console, 'log').mockImplementation(() => {}),
+  warn: vi.spyOn(console, 'warn').mockImplementation(() => {})
+};
+
+describe('Layout - demoworkspace initialization integration', () => {
+  beforeEach(() => {
+    // Clear all mocks
+    vi.clearAllMocks();
+    localStorageMock.getItem.mockReturnValue(null); // No saved workspace
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('Initial workspace creation', () => {
+    it('should create demoworkspace when no saved workspace exists', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        expect(localStorageMock.getItem).toHaveBeenCalledWith('zosql_workspace_v3');
+      });
+
+      // Should create new workspace and save it
+      await waitFor(() => {
+        expect(localStorageMock.setItem).toHaveBeenCalledWith(
+          'zosql_workspace_v3',
+          expect.stringContaining('demoworkspace')
+        );
+      });
+    });
+
+    it('should initialize FilterConditions during workspace creation', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        // Check if FilterConditions initialization debug log appears
+        expect(consoleSpy.log).toHaveBeenCalledWith(
+          expect.stringContaining('[DEBUG] Initialized FilterConditions:'),
+          expect.any(String)
+        );
+      });
+    });
+
+    it('should not create FilterConditions with undefined value', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        const calls = localStorageMock.setItem.mock.calls;
+        const workspaceCall = calls.find(call => call[0] === 'zosql_workspace_v3');
+        
+        expect(workspaceCall).toBeDefined();
+        const workspaceData = JSON.parse(workspaceCall[1]);
+        
+        // FilterConditions should not be 'undefined'
+        expect(workspaceData.filterConditions.conditions).not.toBe('undefined');
+        expect(workspaceData.filterConditions.conditions).not.toBe('{}');
+      });
+    });
+
+    it('should detect and replace old syokiworkspace', async () => {
+      // Mock old workspace data
+      localStorageMock.getItem.mockReturnValue(JSON.stringify({
+        name: 'syokiworkspace',
+        testValues: { withClause: '' }
+      }));
+
+      render(<Layout />);
+
+      await waitFor(() => {
+        expect(localStorageMock.removeItem).toHaveBeenCalledWith('zosql_workspace_v3');
+      });
+
+      await waitFor(() => {
+        expect(consoleSpy.log).toHaveBeenCalledWith(
+          '[DEBUG] Old workspace detected, creating new demoworkspace'
+        );
+      });
+    });
+  });
+
+  describe('Workspace content validation', () => {
+    it('should create workspace with expected main SQL query', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        const calls = localStorageMock.setItem.mock.calls;
+        const workspaceCall = calls.find(call => call[0] === 'zosql_workspace_v3');
+        
+        expect(workspaceCall).toBeDefined();
+        const workspaceData = JSON.parse(workspaceCall[1]);
+        
+        expect(workspaceData.sqlModels).toHaveLength(1);
+        expect(workspaceData.sqlModels[0].sqlWithoutCte).toBe('SELECT user_id, name FROM users;');
+        expect(workspaceData.sqlModels[0].originalSql).toBe('SELECT user_id, name FROM users;');
+      });
+    });
+
+    it('should create workspace with proper test values', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        const calls = localStorageMock.setItem.mock.calls;
+        const workspaceCall = calls.find(call => call[0] === 'zosql_workspace_v3');
+        
+        expect(workspaceCall).toBeDefined();
+        const workspaceData = JSON.parse(workspaceCall[1]);
+        
+        expect(workspaceData.testValues.withClause).toContain('users(user_id, name)');
+        expect(workspaceData.testValues.withClause).toContain('alice');
+        expect(workspaceData.testValues.withClause).toContain('bob');
+      });
+    });
+
+    it('should initialize FilterConditions with user_id and name columns', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        const calls = localStorageMock.setItem.mock.calls;
+        const workspaceCall = calls.find(call => call[0] === 'zosql_workspace_v3');
+        
+        expect(workspaceCall).toBeDefined();
+        const workspaceData = JSON.parse(workspaceCall[1]);
+        
+        const filterConditions = JSON.parse(workspaceData.filterConditions.conditions);
+        expect(filterConditions).toHaveProperty('user_id');
+        expect(filterConditions).toHaveProperty('name');
+        expect(typeof filterConditions.user_id).toBe('object');
+        expect(typeof filterConditions.name).toBe('object');
+      });
+    });
+  });
+
+  describe('Debug logging verification', () => {
+    it('should log workspace creation steps', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        expect(consoleSpy.log).toHaveBeenCalledWith(
+          '[DEBUG] Creating new demoworkspace'
+        );
+      });
+
+      await waitFor(() => {
+        expect(consoleSpy.log).toHaveBeenCalledWith(
+          '[DEBUG] Created workspace with testValues:',
+          expect.stringContaining('users(user_id, name)')
+        );
+      });
+
+      await waitFor(() => {
+        expect(consoleSpy.log).toHaveBeenCalledWith(
+          '[DEBUG] Saved new workspace to localStorage'
+        );
+      });
+    });
+
+    it('should log FilterConditions initialization', async () => {
+      render(<Layout />);
+
+      await waitFor(() => {
+        expect(consoleSpy.log).toHaveBeenCalledWith(
+          expect.stringContaining('[DEBUG] Initialized FilterConditions:'),
+          expect.stringMatching(/user_id|name/)
+        );
+      });
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should handle localStorage save failures gracefully', async () => {
+      localStorageMock.setItem.mockImplementation(() => {
+        throw new Error('Storage quota exceeded');
+      });
+
+      render(<Layout />);
+
+      await waitFor(() => {
+        expect(consoleSpy.warn).toHaveBeenCalledWith(
+          'Failed to save initial workspace to localStorage:',
+          expect.any(Error)
+        );
+      });
+    });
+
+    it('should handle workspace creation errors gracefully', async () => {
+      localStorageMock.getItem.mockImplementation(() => {
+        throw new Error('localStorage corrupted');
+      });
+
+      render(<Layout />);
+
+      // Should still create fallback workspace
+      await waitFor(() => {
+        expect(consoleSpy.warn).toHaveBeenCalledWith(
+          'Failed to load saved workspace:',
+          expect.any(Error)
+        );
+      });
+    });
+  });
+});

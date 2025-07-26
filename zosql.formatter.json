@@ -1,0 +1,16 @@
+{
+  "identifierEscape": {
+    "start": "",
+    "end": ""
+  },
+  "parameterSymbol": ":",
+  "parameterStyle": "named",
+  "indentSize": 4,
+  "indentChar": " ",
+  "newline": "\n",
+  "keywordCase": "lower",
+  "commaBreak": "before",
+  "andBreak": "before",
+  "withClauseStyle": "full-oneline",
+  "preserveComments": true
+}

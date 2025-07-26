@@ -1,0 +1,16 @@
+import React from 'react';
+import { Layout } from './components/Layout';
+import { WorkspaceProvider } from './context/WorkspaceContext';
+import { EditorProvider } from './context/EditorContext';
+
+export const App: React.FC = () => {
+  return (
+    <WorkspaceProvider>
+      <EditorProvider>
+        <div className="h-screen w-screen overflow-hidden bg-dark-primary text-dark-text-primary">
+          <Layout />
+        </div>
+      </EditorProvider>
+    </WorkspaceProvider>
+  );
+};

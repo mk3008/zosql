@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styles */
+* {
+  box-sizing: border-box;
+}
+
+/* Monaco Editor Column Highlights */
+.error-column-highlight {
+  background-color: rgba(255, 99, 71, 0.3) !important;
+  border: 1px solid rgba(255, 99, 71, 0.6) !important;
+  border-radius: 2px !important;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-secondary;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-active rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-dark-hover;
+}
+
+/* Hide scrollbar for tab container */
+.tab-container::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* AutoComplete/AutoFill dark mode support */
+.autofill-dark:-webkit-autofill,
+.autofill-dark:-webkit-autofill:hover,
+.autofill-dark:-webkit-autofill:focus,
+.autofill-dark:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #1e1e1e inset !important;
+  -webkit-text-fill-color: #cccccc !important;
+  border: 1px solid #454545 !important;
+  background-color: #1e1e1e !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* AutoComplete dropdown styling */
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 30px #1e1e1e inset !important;
+  -webkit-text-fill-color: #cccccc !important;
+  background-color: #1e1e1e !important;
+  border: 1px solid #454545 !important;
+}
