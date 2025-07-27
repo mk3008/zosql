@@ -64,7 +64,7 @@ export class SchemaApi {
 
         // Include Private CTEs from workspace if available
         let privateCtes: any[] = [];
-        let privateCteColumns: Record<string, string[]> = {};
+        const privateCteColumns: Record<string, string[]> = {};
         
         try {
           const workspaceBasePath = path.join(process.cwd(), 'zosql', 'workspace');

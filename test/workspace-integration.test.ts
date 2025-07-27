@@ -192,7 +192,7 @@ describe('WorkspaceApi with FileManager Integration', () => {
                 expect(files).toHaveLength(0);
             } catch (error) {
                 // ディレクトリが存在しない場合も正常
-                expect(error.code).toBe('ENOENT');
+                expect((error as NodeJS.ErrnoException).code).toBe('ENOENT');
             }
         });
     });

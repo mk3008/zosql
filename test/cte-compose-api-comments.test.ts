@@ -24,7 +24,7 @@ describe('CteComposeApi - Comment Support', () => {
     mockResponse = {
       json: mockJson,
       status: mockStatus
-    };
+    } as unknown as Response;
     
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});

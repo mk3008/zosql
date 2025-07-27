@@ -240,11 +240,13 @@ ORDER BY
       const models = await decomposer.decomposeSql(realUserBehaviorAnalysisSQL, 'user_behavior_analysis');
 
       // Act - Create workspace like the actual New command does
-      const workspace = new WorkspaceEntity('test', 'Test Workspace');
+      const workspace = new WorkspaceEntity('test', 'Test Workspace', null);
       
       // The models are already created by the decomposer, let's add them to workspace
       const cteModelMap = new Map();
       const mainModel = models.find(m => m.type === 'main');
+      expect(mainModel).toBeDefined();
+      if (!mainModel) throw new Error('mainModel not found');
       
       for (const model of models) {
         if (model.type === 'cte') {
@@ -256,8 +258,8 @@ ORDER BY
       // Assert
       console.log('Workspace models:', {
         totalModels: workspace.sqlModels.length,
-        mainModelDependents: mainModel.dependents.length,
-        mainModelDependentNames: mainModel.dependents.map(d => d.name),
+        mainModelDependents: mainModel!.dependents.length,
+        mainModelDependentNames: mainModel!.dependents.map(d => d.name),
         allModels: workspace.sqlModels.map(m => ({
           name: m.name,
           type: m.type,
@@ -289,10 +291,10 @@ ORDER BY
         console.log('Detected dependencies:', dependencies);
         console.log('Expected dependencies: ["user_cohorts", "channel_performance", "device_analysis"]');
       } else {
-        expect(mainModel.dependents.length).toBeGreaterThan(0);
+        expect(mainModel!.dependents.length).toBeGreaterThan(0);
         
         // Main model should depend on user_cohorts, channel_performance, device_analysis at minimum
-        const mainDepNames = mainModel.dependents.map(d => d.name);
+        const mainDepNames = mainModel!.dependents.map(d => d.name);
         expect(mainDepNames).toEqual(expect.arrayContaining(['user_cohorts', 'channel_performance', 'device_analysis']));
       }
     });
@@ -304,10 +306,12 @@ ORDER BY
       const decomposer = new SqlDecomposerUseCase(parser, analyzer);
       // Use the models from decomposer (they should have dependencies set up)
       const models = await decomposer.decomposeSql(realUserBehaviorAnalysisSQL, 'user_behavior_analysis');
-      const workspace = new WorkspaceEntity('test', 'Test Workspace');
+      const workspace = new WorkspaceEntity('test', 'Test Workspace', null);
       
       const cteModelMap = new Map();
       const mainModel = models.find(m => m.type === 'main');
+      expect(mainModel).toBeDefined();
+      if (!mainModel) throw new Error('mainModel not found');
       
       for (const model of models) {
         if (model.type === 'cte') {
@@ -317,7 +321,7 @@ ORDER BY
       }
 
       // Act
-      const dynamicResult = await mainModel.getDynamicSql(undefined, undefined, false);
+      const dynamicResult = await mainModel!.getDynamicSql(undefined, undefined, false);
 
       // Assert
       console.log('Generated SQL:', {

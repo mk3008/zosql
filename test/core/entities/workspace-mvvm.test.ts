@@ -82,7 +82,7 @@ describe('WorkspaceEntity MVVM Integration', () => {
 
     it('should open SQL model tab with correct content', () => {
       const sqlModel = new SqlModelEntity(
-        'test_query',
+        'cte',
         'test_query.sql',
         'SELECT * FROM users',
         [],

@@ -170,7 +170,7 @@ export class SqlParserApi {
             if (tableName) {
               // Check if this is a CTE table and extract columns
               let isCTE = false;
-              let cteColumns: string[] = [];
+              const cteColumns: string[] = [];
               
               if (queryAny.withClause && queryAny.withClause.tables) {
                 queryAny.withClause.tables.forEach((cte: any) => {
@@ -204,9 +204,9 @@ export class SqlParserApi {
           queryAny.fromClause.joins.forEach((join: any, index: number) => {
             if (join.source) {
               let tableName = null;
-              let tableAlias = join.source.aliasExpression?.table?.name;
+              const tableAlias = join.source.aliasExpression?.table?.name;
               let isSubquery = false;
-              let subqueryColumns: string[] = [];
+              const subqueryColumns: string[] = [];
               
               // Check if this is a regular table
               if (join.source.datasource && join.source.datasource.qualifiedName) {
@@ -302,7 +302,7 @@ export class SqlParserApi {
                 } else {
                   // Check if this is a CTE table and extract columns
                   let isCTE = false;
-                  let cteColumns: string[] = [];
+                  const cteColumns: string[] = [];
                   
                   if (queryAny.withClause && queryAny.withClause.tables) {
                     queryAny.withClause.tables.forEach((cte: any) => {

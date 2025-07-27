@@ -113,9 +113,9 @@ describe('channel_performance CTE Tests', () => {
     
     console.log('CTE definition order:', cteOrder);
     
-    const channelPerformanceIndex = cteOrder.find(cte => cte.name === 'channel_performance')?.index;
-    const sessionDataIndex = cteOrder.find(cte => cte.name === 'session_data')?.index;
-    const funnelAnalysisIndex = cteOrder.find(cte => cte.name === 'funnel_analysis')?.index;
+    const channelPerformanceIndex = cteOrder.find((cte: any) => cte.name === 'channel_performance')?.index;
+    const sessionDataIndex = cteOrder.find((cte: any) => cte.name === 'session_data')?.index;
+    const funnelAnalysisIndex = cteOrder.find((cte: any) => cte.name === 'funnel_analysis')?.index;
     
     // channel_performanceの依存関係が先に定義されているか確認
     expect(sessionDataIndex).toBeDefined();
@@ -147,11 +147,11 @@ describe('channel_performance CTE Tests', () => {
     expect(conversionEventsCTE).toBeTruthy(); // funnel_analysisが依存
     
     // 依存関係を含む実行可能なSQLを構築する必要がある
-    const formatter = new SqlFormatter({
-      identifierEscape: { start: '', end: '' },
-      keywordCase: 'lower',
-      withClauseStyle: 'full-oneline'
-    });
+    // const formatter = new SqlFormatter({
+    //   identifierEscape: { start: '', end: '' },
+    //   keywordCase: 'lower',
+    //   withClauseStyle: 'full-oneline'
+    // });
     
     // 簡易的な依存関係チェーン
     const requiredCTEs = [

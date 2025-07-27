@@ -30,12 +30,40 @@ interface ExecutionSession {
 }
 
 /**
+ * Database row for column metadata queries
+ */
+interface ColumnInfoRow {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  column_default: string | null;
+  character_maximum_length: number | null;
+  numeric_precision: number | null;
+  numeric_scale: number | null;
+}
+
+/**
+ * Database row for index queries
+ */
+interface IndexInfoRow {
+  indexname: string;
+}
+
+/**
+ * Simple PGlite interface - basic query functionality
+ */
+interface PGliteDatabase {
+  query(sql: string, params?: unknown[]): Promise<{ rows: unknown[] }>;
+  close(): Promise<void>;
+}
+
+/**
  * PGlite implementation of SqlExecutorPort
  * Provides secure SQL execution using WASM PostgreSQL engine
  */
 export class PGliteSqlExecutor implements SqlExecutorPort {
   private readonly sessions = new Map<string, ExecutionSession>();
-  private connectionPool = new Map<string, any>(); // PGlite instances
+  private connectionPool = new Map<string, PGliteDatabase>(); // PGlite instances
 
   async executeQuery(
     sql: string,
@@ -90,7 +118,7 @@ export class PGliteSqlExecutor implements SqlExecutorPort {
 
       const executionResult = createSuccessResult(
         sql,
-        limitedRows,
+        limitedRows as readonly Record<string, unknown>[],
         [], // columns - would need to extract from result
         {
           rowsReturned: limitedRows.length,
@@ -204,14 +232,14 @@ export class PGliteSqlExecutor implements SqlExecutorPort {
       `;
       
       const columnResult = await db.query(columnQuery, [tableName]);
-      const columns: ColumnMetadata[] = columnResult.rows.map((row: any) => ({
+      const columns: ColumnMetadata[] = (columnResult.rows as ColumnInfoRow[]).map((row: ColumnInfoRow) => ({
         name: row.column_name,
         type: row.data_type,
         nullable: row.is_nullable === 'YES',
         defaultValue: row.column_default,
-        maxLength: row.character_maximum_length,
-        precision: row.numeric_precision,
-        scale: row.numeric_scale
+        maxLength: row.character_maximum_length ?? undefined,
+        precision: row.numeric_precision ?? undefined,
+        scale: row.numeric_scale ?? undefined
       }));
 
       // Get indexes (simplified for PGlite)
@@ -222,7 +250,7 @@ export class PGliteSqlExecutor implements SqlExecutorPort {
       `;
       
       const indexResult = await db.query(indexQuery, [tableName]);
-      const indexes = indexResult.rows.map((row: any) => row.indexname);
+      const indexes = (indexResult.rows as IndexInfoRow[]).map((row: IndexInfoRow) => row.indexname);
 
       return {
         columns,
@@ -305,7 +333,7 @@ export class PGliteSqlExecutor implements SqlExecutorPort {
   /**
    * Get or create PGlite database connection
    */
-  private async getConnection(connection: DatabaseConnection): Promise<any> {
+  private async getConnection(connection: DatabaseConnection): Promise<PGliteDatabase> {
     // Check if connection already exists in pool
     let db = this.connectionPool.get(connection.id);
     
@@ -314,7 +342,7 @@ export class PGliteSqlExecutor implements SqlExecutorPort {
       const { PGlite } = await import('@electric-sql/pglite');
       
       // Create new in-memory PGlite instance
-      db = new PGlite();
+      db = new PGlite() as PGliteDatabase;
       
       // Store in connection pool
       this.connectionPool.set(connection.id, db);
@@ -329,12 +357,12 @@ export class PGliteSqlExecutor implements SqlExecutorPort {
    * Execute query with timeout and row limit protection
    */
   private async executeWithTimeout(
-    db: any,
+    db: PGliteDatabase,
     sql: string,
     params: readonly unknown[],
     timeout: number,
     _maxRows: number
-  ): Promise<any> {
+  ): Promise<{ rows: unknown[] }> {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         reject(new Error(`Query execution timeout after ${timeout}ms`));

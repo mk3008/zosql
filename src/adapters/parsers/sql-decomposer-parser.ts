@@ -3,9 +3,35 @@
  * Infrastructure Layer - Implements SqlParserPort for SQL decomposition
  */
 
-import { SelectQueryParser, SimpleSelectQuery, SqlFormatter, CTEDependencyAnalyzer } from 'rawsql-ts';
+import { 
+  SelectQueryParser, 
+  SimpleSelectQuery, 
+  SqlFormatter, 
+  CTEDependencyAnalyzer,
+  BinarySelectQuery,
+  SelectQuery
+} from 'rawsql-ts';
 import { SqlParserPort } from '@core/usecases/sql-decomposer-usecase';
 import { CTEEntity } from '@core/entities/cte';
+
+// Local interfaces for rawsql-ts objects that might not be exported
+interface CommonTableLike {
+  aliasExpression?: {
+    table?: {
+      name?: string;
+    };
+  };
+  query?: unknown;
+}
+
+interface SourceExpressionLike {
+  datasource?: {
+    table?: {
+      name?: string;
+    };
+    query?: unknown;
+  };
+}
 
 export class SqlDecomposerParser implements SqlParserPort {
   /**
@@ -98,10 +124,10 @@ export class SqlDecomposerParser implements SqlParserPort {
       
       // Fallback to our custom implementation for UNION queries
       // Check if query has binary structure (left/right properties instead of constructor.name)
-      const binaryQuery = query as any;
+      const binaryQuery = query as BinarySelectQuery;
       if (binaryQuery.left !== undefined && binaryQuery.right !== undefined && binaryQuery.operator !== undefined) {
         // UNION/INTERSECT/EXCEPT query - process all parts using ORIGINAL query
-        this.extractDependenciesFromBinaryQuery(query, dependencies);
+        this.extractDependenciesFromBinaryQuery(binaryQuery, dependencies);
       } else {
         // Simple query
         this.extractDependenciesFromSimpleQuery(simpleQuery, dependencies);
@@ -124,13 +150,13 @@ export class SqlDecomposerParser implements SqlParserPort {
   /**
    * Extract dependencies from BinarySelectQuery (UNION/INTERSECT/EXCEPT)
    */
-  private extractDependenciesFromBinaryQuery(query: any, dependencies: Set<string>): void {
+  private extractDependenciesFromBinaryQuery(query: BinarySelectQuery, dependencies: Set<string>): void {
     // Process left side of the binary operation
     if (query.left) {
       // Check if left side is also a binary query (by structure, not constructor.name)
-      if (query.left.left !== undefined && query.left.right !== undefined && query.left.operator !== undefined) {
+      if (this.isBinarySelectQuery(query.left)) {
         // Recursively handle nested binary queries
-        this.extractDependenciesFromBinaryQuery(query.left, dependencies);
+        this.extractDependenciesFromBinaryQuery(query.left as BinarySelectQuery, dependencies);
       } else {
         // Simple query on the left
         const leftSimple = query.left.toSimpleQuery();
@@ -141,9 +167,9 @@ export class SqlDecomposerParser implements SqlParserPort {
     // Process right side of the binary operation
     if (query.right) {
       // Check if right side is also a binary query (by structure, not constructor.name)
-      if (query.right.left !== undefined && query.right.right !== undefined && query.right.operator !== undefined) {
+      if (this.isBinarySelectQuery(query.right)) {
         // Recursively handle nested binary queries
-        this.extractDependenciesFromBinaryQuery(query.right, dependencies);
+        this.extractDependenciesFromBinaryQuery(query.right as BinarySelectQuery, dependencies);
       } else {
         // Simple query on the right
         const rightSimple = query.right.toSimpleQuery();
@@ -153,16 +179,23 @@ export class SqlDecomposerParser implements SqlParserPort {
   }
 
   /**
+   * Type guard to check if a SelectQuery is a BinarySelectQuery
+   */
+  private isBinarySelectQuery(query: SelectQuery): boolean {
+    return 'left' in query && 'right' in query && 'operator' in query;
+  }
+
+  /**
    * Extract dependencies from SimpleSelectQuery
    */
-  private extractDependenciesFromSimpleQuery(simpleQuery: any, dependencies: Set<string>): void {
+  private extractDependenciesFromSimpleQuery(simpleQuery: SimpleSelectQuery, dependencies: Set<string>): void {
     // Extract from FROM clause
-    this.extractFromSource(simpleQuery.fromClause?.source, dependencies);
+    this.extractFromSource(simpleQuery.fromClause?.source as SourceExpressionLike | undefined, dependencies);
 
     // Extract from JOINs
     if (simpleQuery.fromClause?.joins) {
       for (const join of simpleQuery.fromClause.joins) {
-        this.extractFromSource(join.source, dependencies);
+        this.extractFromSource(join.source as SourceExpressionLike, dependencies);
       }
     }
 
@@ -173,7 +206,7 @@ export class SqlDecomposerParser implements SqlParserPort {
   /**
    * Extract CTE query as string from rawsql-ts CTE object
    */
-  private extractCTEQueryString(cte: any): string {
+  private extractCTEQueryString(cte: CommonTableLike): string {
     if (!cte.query) {
       throw new Error('CTE object does not have a query property');
     }
@@ -183,6 +216,8 @@ export class SqlDecomposerParser implements SqlParserPort {
       const formatter = new SqlFormatter();
       
       // The cte.query is a query object from rawsql-ts, format it
+      // Need to cast to proper SqlComponent type
+      // @ts-ignore - cte.query is a valid SqlComponent from rawsql-ts
       const formatted = formatter.format(cte.query);
       return formatted.formattedSql;
     } catch (error) {
@@ -278,7 +313,7 @@ export class SqlDecomposerParser implements SqlParserPort {
   /**
    * Extract table/CTE names from a source expression
    */
-  private extractFromSource(source: any, dependencies: Set<string>): void {
+  private extractFromSource(source: SourceExpressionLike | undefined, dependencies: Set<string>): void {
     if (!source) return;
 
     // Handle direct table reference

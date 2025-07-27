@@ -91,7 +91,7 @@ export class WorkspaceApi {
       // Clear FileManager for this operation
       this.fileManager.clear();
       
-      let privateCtes: Record<string, PrivateCte> = {};
+      const privateCtes: Record<string, PrivateCte> = {};
       let decomposedQuery = sql;
       let flowDiagram: string | undefined;
       
@@ -510,7 +510,7 @@ ${formattedQuery}`;
           
           // For compose functionality, use the complete SQL as-is
           // Since compose needs to rebuild the WITH clause structure
-          let query = fullQuery;
+          const query = fullQuery;
           const cteName = nameMatch ? nameMatch[1] : path.basename(file, '.sql');
           
           privateCtes[cteName] = {

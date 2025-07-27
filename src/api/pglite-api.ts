@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import { PGlite } from '@electric-sql/pglite';
 import { Logger } from '../utils/logging.js';
 
+interface PGliteQueryResult {
+  rows: unknown[];
+  fields?: Array<{ name: string }>;
+}
+
 class PGliteManager {
   private static instance: PGliteManager;
   private db: PGlite | null = null;
@@ -36,7 +41,7 @@ class PGliteManager {
     }
   }
 
-  async executeQuery(sql: string): Promise<any> {
+  async executeQuery(sql: string): Promise<PGliteQueryResult> {
     if (!this.db) {
       await this.initialize();
     }
@@ -62,13 +67,13 @@ class PGliteManager {
         }
         
         // Convert object to array based on field order
-        const values: any[] = [];
+        const values: unknown[] = [];
         const seenFields: { [key: string]: boolean } = {};
-        const rowObj = row as { [key: string]: any };
+        const rowObj = row as Record<string, unknown>;
         
         for (const field of result.fields || []) {
           const fieldName = field.name;
-          if (rowObj.hasOwnProperty(fieldName)) {
+          if (Object.prototype.hasOwnProperty.call(rowObj, fieldName)) {
             if (seenFields[fieldName]) {
               // For duplicate field names, we can't reliably get the value
               // This is a limitation of object-based response
@@ -90,9 +95,8 @@ class PGliteManager {
 
       return {
         rows: processedRows,
-        fields: result.fields || [],
-        executionTime
-      };
+        fields: result.fields || []
+      } as any;
     } catch (error) {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);

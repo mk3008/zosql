@@ -56,7 +56,7 @@ describe('CTE Composition Test', () => {
     );
 
     // Create workspace
-    workspace = new WorkspaceEntity('test', 'Test Workspace');
+    workspace = new WorkspaceEntity('test', 'Test Workspace', null);
     workspace.addSqlModel(mainModel);
     workspace.addSqlModel(cteModel1);
     workspace.addSqlModel(cteModel2);

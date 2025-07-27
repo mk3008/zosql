@@ -26,7 +26,7 @@ describe('CteComposeApi', () => {
     mockResponse = {
       json: mockJson,
       status: mockStatus
-    };
+    } as unknown as Response;
     
     // コンソールログをモック（テスト出力を静かにするため）
     vi.spyOn(console, 'log').mockImplementation(() => {});

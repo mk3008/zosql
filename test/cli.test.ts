@@ -20,7 +20,7 @@ describe('CLI', () => {
     fileManager.writeFile('input.sql', inputSql);
     
     // CLIコマンドを実行
-    const result = await cli.decompose(fileManager, 'input.sql');
+    const result = await cli.decompose(fileManager, 'input.sql', 'output');
     
     expect(result.success).toBe(true);
     expect(result.outputFiles).toEqual(['user_stats.cte.sql', 'main.sql']);
@@ -41,7 +41,7 @@ describe('CLI', () => {
     );
     
     // CLIコマンドを実行
-    const result = await cli.compose(fileManager);
+    const result = await cli.compose(fileManager, 'develop', 'original');
     
     expect(result.success).toBe(true);
     expect(result.sql).toContain('WITH');

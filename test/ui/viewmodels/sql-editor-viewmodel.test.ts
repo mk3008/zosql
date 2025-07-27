@@ -5,7 +5,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SqlEditorViewModel } from '@ui/viewmodels/sql-editor-viewmodel';
-import { WorkspaceEntity } from '@core/entities/workspace';
 
 // Mock command executor
 vi.mock('@core/services/command-executor', () => ({
@@ -94,7 +93,7 @@ describe('SqlEditorViewModel', () => {
     
     it('should manage isExecuting state during execution', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
-      let resolveExecution: (value: any) => void;
+      let resolveExecution!: (value: any) => void;
       const executionPromise = new Promise(resolve => {
         resolveExecution = resolve;
       });

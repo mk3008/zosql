@@ -3,7 +3,7 @@
  * テストファーストでビジネスロジックを実装
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { CreateWorkspaceCommand } from '@ui/commands/create-workspace-command';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';

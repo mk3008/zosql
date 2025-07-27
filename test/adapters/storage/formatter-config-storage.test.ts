@@ -10,17 +10,25 @@ import { FormatterConfig } from '@core/usecases/formatter-manager';
 // Mock localStorage
 const mockLocalStorage = {
   store: {} as Record<string, string>,
-  getItem: vi.fn((key: string) => mockLocalStorage.store[key] || null),
-  setItem: vi.fn((key: string, value: string) => {
-    mockLocalStorage.store[key] = value;
-  }),
-  removeItem: vi.fn((key: string) => {
-    delete mockLocalStorage.store[key];
-  }),
-  clear: vi.fn(() => {
-    mockLocalStorage.store = {};
-  })
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+  length: 0,
+  key: vi.fn()
 };
+
+// Setup actual mock behavior
+mockLocalStorage.getItem.mockImplementation((key: string) => mockLocalStorage.store[key] || null);
+mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
+  mockLocalStorage.store[key] = value;
+});
+mockLocalStorage.removeItem.mockImplementation((key: string) => {
+  delete mockLocalStorage.store[key];
+});
+mockLocalStorage.clear.mockImplementation(() => {
+  mockLocalStorage.store = {};
+});
 
 // Setup localStorage mock
 Object.defineProperty(globalThis, 'localStorage', {
@@ -98,7 +106,7 @@ describe('FormatterConfigStorage', () => {
       const circularConfig: any = { ...sampleConfig };
       circularConfig.circular = circularConfig; // Create circular reference
 
-      mockLocalStorage.setItem.mockImplementation((key, value) => {
+      mockLocalStorage.setItem.mockImplementation((_key: string, value: string) => {
         JSON.parse(value); // This will throw for circular references
       });
 

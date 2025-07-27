@@ -3,7 +3,7 @@
  * Hexagonal Architecture - Core Layer Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { 
   FormatterManager, 
   FormatterConfig, 
@@ -47,7 +47,7 @@ class MockSqlFormatter implements SqlFormatterPort {
     this.shouldThrowError = shouldThrow;
   }
 
-  async format(sql: string, config: FormatterConfig): Promise<string> {
+  async format(sql: string, _config: FormatterConfig): Promise<string> {
     if (this.shouldThrowError) {
       throw new Error('Formatter error');
     }

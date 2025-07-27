@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SqlDecomposerUseCase, SqlParserPort, CteDependencyAnalyzerPort } from '@core/usecases/sql-decomposer-usecase';
 import { CTEEntity } from '@core/entities/cte';
-import { SqlModelEntity } from '@shared/types';
 import { SqlModelEntity as SqlModelEntityClass } from '@core/entities/sql-model';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 
@@ -58,7 +57,7 @@ class MockCteDependencyAnalyzer implements CteDependencyAnalyzerPort {
     this.mockDependents = dependents;
   }
 
-  findDependents(cteName: string, allCTEs: Record<string, CTEEntity>): string[] {
+  findDependents(cteName: string, _allCTEs: Record<string, CTEEntity>): string[] {
     return this.mockDependents[cteName] || [];
   }
 
@@ -318,13 +317,11 @@ describe('SqlDecomposerUseCase', () => {
 
       // Create SqlFormatterEntity
       const formatterEntity = new SqlFormatterEntity();
-      const formatter = formatterEntity.getSqlFormatter();
-
       console.log('\n[DEBUG] Testing SqlFormatter with query:', longQuery);
       console.log('[DEBUG] Formatter config:', formatterEntity.config);
 
       try {
-        const models = await decomposer.decomposeSql(longQuery, fileName, formatter);
+        const models = await decomposer.decomposeSql(longQuery, fileName, formatterEntity);
 
         expect(models).toHaveLength(1);
         const mainModel = models[0];

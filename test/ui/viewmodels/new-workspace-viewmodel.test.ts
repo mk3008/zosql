@@ -130,7 +130,7 @@ describe('NewWorkspaceViewModel', () => {
 
       // Assert
       expect(createdWorkspace).toBeInstanceOf(WorkspaceEntity);
-      expect(createdWorkspace?.name).toBe('test-workspace');
+      expect(createdWorkspace!.name).toBe('test-workspace');
     });
 
     it('実行中はisLoadingがtrueになる', async () => {
@@ -216,7 +216,7 @@ describe('NewWorkspaceViewModel', () => {
     it('プロパティ変更時にイベントが発火される', () => {
       // Arrange
       const mockCallback = vi.fn();
-      viewModel.addPropertyChangeListener(mockCallback);
+      viewModel.subscribe(mockCallback);
 
       // Act
       viewModel.name = 'test';
@@ -229,7 +229,7 @@ describe('NewWorkspaceViewModel', () => {
       // Arrange
       viewModel.name = 'test';
       const mockCallback = vi.fn();
-      viewModel.addPropertyChangeListener(mockCallback);
+      viewModel.subscribe(mockCallback);
 
       // Act
       viewModel.name = 'test'; // 同じ値
@@ -243,7 +243,7 @@ describe('NewWorkspaceViewModel', () => {
     it('disposeでリスナーがクリアされる', () => {
       // Arrange
       const mockCallback = vi.fn();
-      viewModel.addPropertyChangeListener(mockCallback);
+      viewModel.subscribe(mockCallback);
 
       // Act
       viewModel.dispose();

@@ -3,7 +3,7 @@
  * Hexagonal Architecture - Core Layer Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PromptGenerator, SqlParserPort, PromptGeneratorConfig } from '@core/usecases/prompt-generator';
 
 // Mock SQL Parser for testing

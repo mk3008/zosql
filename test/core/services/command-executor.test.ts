@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CommandExecutor } from '@core/services/command-executor';
-import { Command, BaseCommand } from '@core/commands/base';
+import { BaseCommand } from '@core/commands/base';
 
 // Mock command for testing
 class TestCommand extends BaseCommand<string> {
