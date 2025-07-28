@@ -129,7 +129,7 @@ describe('MainContentViewModel', () => {
     it('should execute query command', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
       const mockResult = { success: true, data: [{ id: 1 }], executionTime: 100 };
-      (commandExecutor.execute as any).mockResolvedValue(mockResult);
+      (commandExecutor.execute as vi.MockedFunction<typeof commandExecutor.execute>).mockResolvedValue(mockResult);
 
       await viewModel.executeQuery();
 
@@ -144,7 +144,7 @@ describe('MainContentViewModel', () => {
 
     it('should handle query execution errors', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
-      (commandExecutor.execute as any).mockRejectedValue(new Error('SQL error'));
+      (commandExecutor.execute as vi.MockedFunction<typeof commandExecutor.execute>).mockRejectedValue(new Error('SQL error'));
 
       await viewModel.executeQuery();
 
@@ -166,7 +166,7 @@ describe('MainContentViewModel', () => {
 
     it('should format query', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
-      (commandExecutor.execute as any).mockResolvedValue('SELECT\n  *\nFROM\n  users');
+      (commandExecutor.execute as vi.MockedFunction<typeof commandExecutor.execute>).mockResolvedValue('SELECT\n  *\nFROM\n  users');
 
       await viewModel.formatQuery();
 

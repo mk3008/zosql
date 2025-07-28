@@ -79,8 +79,8 @@ export class ContainerFactory {
       workspaceRepository,
       workspaceSerialization,
       secureFileAccess,
-      null as any, // BackupRestorePort - TODO: implement BackupManagerAdapter
-      null as any // SqlDecomposerUseCase - TODO: implement
+      null, // BackupRestorePort - TODO: implement BackupManagerAdapter
+      null // SqlDecomposerUseCase - TODO: implement
     );
     
     const container: DIContainer = {
@@ -205,7 +205,7 @@ export class ServiceLocator {
  * Decorator for dependency injection (experimental)
  */
 export function inject<K extends keyof DIContainer>(service: K) {
-  return function (target: any, propertyKey: string) {
+  return function (target: unknown, propertyKey: string) {
     Object.defineProperty(target, propertyKey, {
       get() {
         return ServiceLocator.get(service);

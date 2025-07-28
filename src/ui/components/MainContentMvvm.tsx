@@ -5,7 +5,8 @@
 
 import React, { forwardRef, useImperativeHandle, useEffect, useRef, memo, useState } from 'react';
 import '../styles/tab-scrollbar.css';
-import { WorkspaceEntity, SqlModelEntity } from '@shared/types';
+import { WorkspaceEntity } from '@shared/types';
+import { SqlModelEntity } from '@core/entities/sql-model';
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';

@@ -4,7 +4,8 @@
  */
 
 import { BaseViewModel } from './base-viewmodel';
-import { Tab, QueryExecutionResult, WorkspaceEntity, SqlModelEntity } from '@shared/types';
+import { Tab, QueryExecutionResult, WorkspaceEntity } from '@shared/types';
+import { SqlModelEntity } from '@core/entities/sql-model';
 import { OpenedObject } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { ExecuteQueryCommand } from '@core/commands/execute-query-command';
@@ -78,8 +79,8 @@ export class MainContentViewModel extends BaseViewModel {
       const model = this.tabModelMap.get(this.activeTab.id);
       DebugLogger.debug('MainContentViewModel', `Getting query result for tab: ${this.activeTab.id}, model: ${!!model}`);
       
-      if (model && 'getQueryResult' in model && typeof (model as any).getQueryResult === 'function') {
-        const result = (model as any).getQueryResult();
+      if (model && 'getQueryResult' in model && typeof (model as { getQueryResult?: () => unknown }).getQueryResult === 'function') {
+        const result = (model as { getQueryResult: () => QueryExecutionResult | null }).getQueryResult();
         DebugLogger.debug('MainContentViewModel', `Model has result: ${!!result} for tab: ${this.activeTab.id}`);
         if (result) {
           return result;
@@ -193,7 +194,7 @@ export class MainContentViewModel extends BaseViewModel {
       });
 
       // Execute command
-      const command = new ExecuteQueryCommand(context as any);
+      const command = new ExecuteQueryCommand(context);
       const result = await commandExecutor.execute(command);
 
       this.queryResult = result;
@@ -216,8 +217,8 @@ export class MainContentViewModel extends BaseViewModel {
 
       // Save result to model if available
       const model = this.tabModelMap.get(this.activeTab.id);
-      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
-        (model as any).setQueryResult(result);
+      if (model && 'setQueryResult' in model && typeof (model as unknown as { setQueryResult?: (result: unknown) => void }).setQueryResult === 'function') {
+        (model as unknown as { setQueryResult: (result: unknown) => void }).setQueryResult(result as unknown);
         // Notify that query result has changed for this tab
         this.notifyChange('queryResult', this.queryResult);
         console.log('[DEBUG] Saved query result to model:', this.activeTab.id);
@@ -235,8 +236,8 @@ export class MainContentViewModel extends BaseViewModel {
       
       // Save error result to model if available
       const model = this.tabModelMap.get(this.activeTab.id);
-      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
-        (model as any).setQueryResult(errorResult);
+      if (model && 'setQueryResult' in model && typeof (model as unknown as { setQueryResult?: (result: unknown) => void }).setQueryResult === 'function') {
+        (model as unknown as { setQueryResult: (result: unknown) => void }).setQueryResult(errorResult as unknown);
         // Notify that query result has changed for this tab
         this.notifyChange('queryResult', this.queryResult);
         console.log('[DEBUG] Saved error result to model:', this.activeTab.id);
@@ -484,8 +485,8 @@ export class MainContentViewModel extends BaseViewModel {
 
     // Clear query result from model before removing
     const model = this._tabModelMap.get(tabId);
-    if (model && 'clearQueryResult' in model && typeof (model as any).clearQueryResult === 'function') {
-      (model as any).clearQueryResult();
+    if (model && 'clearQueryResult' in model && typeof (model as { clearQueryResult?: () => void }).clearQueryResult === 'function') {
+      (model as { clearQueryResult: () => void }).clearQueryResult();
       console.log('[DEBUG] Cleared query result for closing tab:', tabId);
     }
 
@@ -546,7 +547,7 @@ export class MainContentViewModel extends BaseViewModel {
       type: tab.type,
       content: tab.content,
       isDirty: tab.isDirty,
-      modelEntity: this._tabModelMap.get(tab.id) as any
+      modelEntity: this._tabModelMap.get(tab.id) as SqlModelEntity | undefined
     }));
 
     // Update workspace opened objects

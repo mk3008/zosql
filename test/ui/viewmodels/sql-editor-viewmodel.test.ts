@@ -93,7 +93,7 @@ describe('SqlEditorViewModel', () => {
     
     it('should manage isExecuting state during execution', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
-      let resolveExecution!: (value: any) => void;
+      let resolveExecution!: (value: unknown) => void;
       const executionPromise = new Promise(resolve => {
         resolveExecution = resolve;
       });

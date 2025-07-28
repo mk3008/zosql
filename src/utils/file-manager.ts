@@ -172,7 +172,7 @@ export class FileManager {
                 }
             } catch (error) {
                 // ディレクトリが存在しない場合は無視
-                if ((error as any).code !== 'ENOENT') {
+                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
                     throw error;
                 }
             }

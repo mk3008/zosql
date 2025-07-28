@@ -609,18 +609,19 @@ export class WorkspaceEntity {
   /**
    * Create from plain object (for deserialization)
    */
-  static fromJSON(data: any): WorkspaceEntity {
+  static fromJSON(data: Record<string, unknown>): WorkspaceEntity {
+    const testValues = data.testValues as { withClause?: string } | undefined;
     const workspace = new WorkspaceEntity(
-      data.id,
-      data.name,
-      data.originalFilePath,
+      data.id as string,
+      data.name as string,
+      data.originalFilePath as string | null,
       [],
-      new TestValuesModel(data.testValues?.withClause || ''),
-      SqlFormatterEntity.fromJSON(data.formatter || {}),
-      FilterConditionsEntity.fromJSON(data.filterConditions || {}),
-      data.modelFilterConditions || {},
-      data.created,
-      data.lastModified
+      new TestValuesModel(testValues?.withClause || ''),
+      SqlFormatterEntity.fromJSON((data.formatter as Record<string, unknown>) || {}),
+      FilterConditionsEntity.fromJSON((data.filterConditions as Record<string, unknown>) || {}),
+      (data.modelFilterConditions as ModelFilterConditions) || {},
+      data.created as string,
+      data.lastModified as string
     );
 
     // Reconstruct SQL models
@@ -650,18 +651,18 @@ export class WorkspaceEntity {
 
     // Restore opened objects and layout state
     if (data.openedObjects && Array.isArray(data.openedObjects)) {
-      workspace._openedObjects = data.openedObjects.map((obj: any) => ({
+      workspace._openedObjects = (data.openedObjects as OpenedObject[]).map((obj: OpenedObject) => ({
         ...obj,
-        modelEntity: obj.modelEntity ? workspace.sqlModels.find(m => m.name === obj.modelEntity.name) : undefined
+        modelEntity: obj.modelEntity ? workspace.sqlModels.find(m => m.name === obj.modelEntity!.name) : undefined
       }));
     }
     
     if (data.activeObjectId) {
-      workspace._activeObjectId = data.activeObjectId;
+      workspace._activeObjectId = data.activeObjectId as string;
     }
     
     if (data.layoutState) {
-      workspace._layoutState = { ...workspace._layoutState, ...data.layoutState };
+      workspace._layoutState = { ...workspace._layoutState, ...(data.layoutState as Partial<WorkspaceLayoutState>) };
     }
 
     return workspace;

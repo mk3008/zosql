@@ -16,7 +16,7 @@ export interface SqlParser {
 export interface ParsedQuery {
   type: 'simple' | 'binary' | 'values';
   withClause?: {
-    tables: any[];
+    tables: Record<string, unknown>[];
   };
   ctes: CTE[];
 }
@@ -26,6 +26,8 @@ export interface FormatOptions {
   keywordCase?: 'lower' | 'upper';
   indentSize?: number;
   withClauseStyle?: 'standard' | 'cte-oneline' | 'full-oneline';
+  uppercase?: boolean;
+  linesBetweenQueries?: number;
 }
 
 export interface CTEDependencyResolver {

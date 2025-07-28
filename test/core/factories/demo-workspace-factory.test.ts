@@ -137,7 +137,7 @@ describe('Demo Workspace Factory', () => {
     });
 
     it('should detect missing TestValuesModel', () => {
-      // @ts-ignore - testing edge case
+      // @ts-expect-error - testing edge case
       validWorkspace.testValues = null;
       const result = validateDemoWorkspace(validWorkspace);
       
@@ -154,7 +154,7 @@ describe('Demo Workspace Factory', () => {
     });
 
     it('should detect missing SqlFormatterEntity', () => {
-      // @ts-ignore - testing edge case
+      // @ts-expect-error - testing edge case
       validWorkspace.formatter = null;
       const result = validateDemoWorkspace(validWorkspace);
       

@@ -13,7 +13,7 @@ import { FilterConditionsEntity } from '@core/entities/filter-conditions';
 
 // Mock Monaco Editor
 vi.mock('@ui/components/MonacoEditor', () => ({
-  MonacoEditor: ({ value, onChange }: any) => (
+  MonacoEditor: ({ value, onChange }: { value: string; onChange?: (value: string) => void }) => (
     <textarea
       data-testid="monaco-editor"
       value={value}
@@ -24,7 +24,7 @@ vi.mock('@ui/components/MonacoEditor', () => ({
 
 // Mock QueryResults
 vi.mock('@ui/components/QueryResults', () => ({
-  QueryResults: ({ result, onClose }: any) => (
+  QueryResults: ({ result, onClose }: { result: { success: boolean }; onClose: () => void }) => (
     <div data-testid="query-results">
       <button onClick={onClose}>Close Results</button>
       <div>{result.success ? 'Success' : 'Error'}</div>
@@ -119,16 +119,26 @@ describe('MainContentMvvm Component', () => {
   });
 
   it('should handle tab operations', () => {
-    const ref = { current: null } as any;
+    const ref = { current: null } as React.MutableRefObject<{
+      openValuesTab: () => void;
+      openFormatterTab: () => void;
+      openConditionTab: () => void;
+      getCurrentSql: () => string;
+      openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: any) => void;
+      setCurrentModelEntity: (model: any) => void;
+      clearAllTabs: () => void;
+      runStaticAnalysis: () => void;
+      getWorkspace: () => any;
+    } | null>;
     render(<MainContentMvvm ref={ref} workspace={workspace} />);
 
     // Test imperative interface
     expect(ref.current).toBeDefined();
-    expect(typeof ref.current.openValuesTab).toBe('function');
-    expect(typeof ref.current.getCurrentSql).toBe('function');
+    expect(typeof ref.current!.openValuesTab).toBe('function');
+    expect(typeof ref.current!.getCurrentSql).toBe('function');
 
     // Test getCurrentSql
-    const sql = ref.current.getCurrentSql();
+    const sql = ref.current!.getCurrentSql();
     expect(sql).toBe('SELECT user_id, name FROM users;');
   });
 
@@ -146,11 +156,11 @@ describe('MainContentMvvm Component', () => {
     const { commandExecutor } = await import('@core/services/command-executor');
     
     // Mock slow execution
-    let resolveExecution: (value: any) => void;
+    let resolveExecution: (value: unknown) => void;
     const executionPromise = new Promise(resolve => {
       resolveExecution = resolve;
     });
-    (commandExecutor.execute as any).mockReturnValueOnce(executionPromise);
+    (commandExecutor.execute as ReturnType<typeof vi.fn>).mockReturnValueOnce(executionPromise);
 
     render(<MainContentMvvm workspace={workspace} />);
 

@@ -4,8 +4,23 @@ import fs from 'fs';
 import { Logger } from '../utils/logging.js';
 import { SelectQueryParser, SqlFormatter } from 'rawsql-ts';
 
-// Use any for now to avoid type compatibility issues
-type FormatterConfig = any;
+interface FormatterConfig {
+  identifierEscape: {
+    start: string;
+    end: string;
+  };
+  parameterSymbol: string;
+  parameterStyle: string;
+  indentSize: number;
+  indentChar: string;
+  newline: string;
+  keywordCase: string;
+  commaBreak: string;
+  andBreak: string;
+  withClauseStyle: string;
+  preserveComments: boolean;
+  [key: string]: unknown;
+}
 
 export class SqlFormatterApi {
   private logger: Logger;
@@ -70,8 +85,22 @@ export class SqlFormatterApi {
         // Load formatter configuration
         const config = this.loadFormatterConfig();
         
+        // Convert config to SqlFormatterOptions format
+        const sqlFormatterOptions = {
+          identifierEscape: config.identifierEscape,
+          parameterSymbol: config.parameterSymbol,
+          parameterStyle: config.parameterStyle as "named" | "anonymous" | "indexed" | undefined,
+          indentSize: config.indentSize,
+          indentChar: config.indentChar as " " | "\t" | undefined,
+          newline: config.newline as "\n" | "\r\n" | undefined,
+          keywordCase: config.keywordCase as "upper" | "lower" | "none" | undefined,
+          commaBreak: config.commaBreak as "after" | "before" | "none" | undefined,
+          andBreak: config.andBreak as "after" | "before" | "none" | undefined,
+          exportComment: config.preserveComments ?? true
+        };
+        
         // Create formatter with config
-        const formatter = new SqlFormatter(config);
+        const formatter = new SqlFormatter(sqlFormatterOptions);
         
         // Format the query
         const formatResult = formatter.format(query);

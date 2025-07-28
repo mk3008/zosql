@@ -23,6 +23,10 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock Monaco Editor worker for tests
-(globalThis as any).MonacoEnvironment = {
+interface MonacoEnvironment {
+  getWorkerUrl: () => string;
+}
+
+(globalThis as unknown as { MonacoEnvironment: MonacoEnvironment }).MonacoEnvironment = {
   getWorkerUrl: () => '',
 };

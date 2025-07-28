@@ -50,8 +50,8 @@ class UnexecutableCommand extends BaseCommand<void> {
 
 describe('CommandExecutor', () => {
   let executor: CommandExecutor;
-  let consoleLogSpy: any;
-  let consoleErrorSpy: any;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   
   beforeEach(() => {
     executor = new CommandExecutor();

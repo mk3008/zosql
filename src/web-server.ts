@@ -26,7 +26,7 @@ export interface WebServerOptions {
 
 export class WebServer {
   private app: express.Application;
-  private server?: any;
+  private server?: import('http').Server;
   private port: number;
   private host: string;
   private logger: Logger;
@@ -207,7 +207,7 @@ export class WebServer {
           res.type('text/plain').send(content);
         } catch (error) {
           this.logger.error(`File read error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          if ((error as any).code === 'ENOENT') {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
             res.status(404).json({ error: 'File not found' });
           } else {
             res.status(500).json({ error: 'Failed to read file' });
@@ -252,7 +252,7 @@ export class WebServer {
         resolve();
       });
 
-      this.server.on('error', (err: any) => {
+      this.server.on('error', (err: Error) => {
         this.logger.error(`Server error: ${err.message}`);
         reject(err);
       });

@@ -1,6 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 
+type OriginalConsole = {
+  log: typeof console.log;
+  error: typeof console.error;
+  warn: typeof console.warn;
+  info: typeof console.info;
+};
+
 export interface LoggerConfig {
   enabled: boolean;
   console: boolean;
@@ -45,7 +52,7 @@ export class Logger {
       intellisense: process.env.ZOSQL_LOG_INTELLISENSE !== 'false',
       query: process.env.ZOSQL_LOG_QUERY !== 'false',
       debug: process.env.ZOSQL_LOG_DEBUG !== 'false',
-      logLevel: (process.env.ZOSQL_LOG_LEVEL as any) || 'debug'
+      logLevel: (process.env.ZOSQL_LOG_LEVEL as LoggerConfig['logLevel']) || 'debug'
     };
 
     // Try to load from config file
@@ -114,7 +121,7 @@ export class Logger {
     // Check log level
     const levels = ['debug', 'info', 'warn', 'error'];
     const currentLevelIndex = levels.indexOf(this.config.logLevel);
-    const messageIndex = levels.indexOf(logType as any);
+    const messageIndex = levels.indexOf(logType as 'debug' | 'info' | 'warn' | 'error');
     
     return messageIndex >= currentLevelIndex;
   }
@@ -189,38 +196,38 @@ export class Logger {
     };
 
     // Replace console methods
-    console.log = (...args: any[]) => {
+    console.log = (...args: unknown[]) => {
       const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
       logger.writeToFile(logger.logFile, `[CONSOLE.LOG] ${message}`, 'console');
     };
 
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
       logger.writeToFile(logger.errorLogFile, `[CONSOLE.ERROR] ${message}`, 'console');
     };
 
-    console.warn = (...args: any[]) => {
+    console.warn = (...args: unknown[]) => {
       const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
       logger.writeToFile(logger.logFile, `[CONSOLE.WARN] ${message}`, 'console');
     };
 
-    console.info = (...args: any[]) => {
+    console.info = (...args: unknown[]) => {
       const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
       logger.writeToFile(logger.logFile, `[CONSOLE.INFO] ${message}`, 'console');
     };
 
     // Store reference to original methods for potential restoration
-    (console as any)._original = originalConsole;
+    (console as unknown as { _original: OriginalConsole })._original = originalConsole;
   }
 
   public static restoreConsole(): void {
-    if ((console as any)._original) {
-      const original = (console as any)._original;
+    if ((console as unknown as { _original?: OriginalConsole })._original) {
+      const original = (console as unknown as { _original: OriginalConsole })._original;
       console.log = original.log;
       console.error = original.error;
       console.warn = original.warn;
       console.info = original.info;
-      delete (console as any)._original;
+      delete (console as unknown as { _original?: OriginalConsole })._original;
     }
   }
 

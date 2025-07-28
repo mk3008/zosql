@@ -96,7 +96,7 @@ class PGliteManager {
       return {
         rows: processedRows,
         fields: result.fields || []
-      } as any;
+      };
     } catch (error) {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);

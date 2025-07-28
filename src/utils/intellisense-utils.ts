@@ -86,14 +86,22 @@ export function extractAliasFromText(textBeforeCursor: string, charBeforeCursor:
 /**
  * Find table name by alias from parse results
  */
-export function findTableByAlias(parseResult: any, alias: string): string | null {
-  if (!parseResult || !parseResult.tables) {
+export function findTableByAlias(parseResult: unknown, alias: string): string | null {
+  if (!parseResult || typeof parseResult !== 'object' || parseResult === null) {
+    return null;
+  }
+  
+  const result = parseResult as Record<string, unknown>;
+  if (!Array.isArray(result.tables)) {
     return null;
   }
 
-  for (const table of parseResult.tables) {
-    if (table.alias === alias) {
-      return table.name;
+  for (const table of result.tables) {
+    if (table && typeof table === 'object') {
+      const tableObj = table as Record<string, unknown>;
+      if (tableObj.alias === alias && typeof tableObj.name === 'string') {
+        return tableObj.name;
+      }
     }
   }
   
@@ -103,14 +111,22 @@ export function findTableByAlias(parseResult: any, alias: string): string | null
 /**
  * Find table object by alias from parse results (for CTE/subquery support)
  */
-export function findTableObjectByAlias(parseResult: any, alias: string): any | null {
-  if (!parseResult || !parseResult.tables) {
+export function findTableObjectByAlias(parseResult: unknown, alias: string): Record<string, unknown> | null {
+  if (!parseResult || typeof parseResult !== 'object' || parseResult === null) {
+    return null;
+  }
+  
+  const result = parseResult as Record<string, unknown>;
+  if (!Array.isArray(result.tables)) {
     return null;
   }
 
-  for (const table of parseResult.tables) {
-    if (table.alias === alias) {
-      return table;
+  for (const table of result.tables) {
+    if (table && typeof table === 'object') {
+      const tableObj = table as Record<string, unknown>;
+      if (tableObj.alias === alias) {
+        return tableObj;
+      }
     }
   }
   
@@ -120,14 +136,17 @@ export function findTableObjectByAlias(parseResult: any, alias: string): any | n
 /**
  * Combine tables and shared CTE schema data for IntelliSense
  */
-export function combineSchemaData(tablesData: any, sharedCteData: any): any {
+export function combineSchemaData(tablesData: unknown, sharedCteData: unknown): Record<string, unknown> {
+  const tables = tablesData && typeof tablesData === 'object' ? tablesData as Record<string, unknown> : {};
+  const sharedCte = sharedCteData && typeof sharedCteData === 'object' ? sharedCteData as Record<string, unknown> : {};
+  
   return {
-    success: tablesData.success,
-    tables: [...(tablesData.tables || []), ...(sharedCteData.sharedCteTables || [])],
-    columns: {...(tablesData.columns || {}), ...(sharedCteData.sharedCteColumns || {})},
-    functions: tablesData.functions || [],
-    keywords: tablesData.keywords || [],
-    sharedCtes: sharedCteData.sharedCtes || {}
+    success: tables.success,
+    tables: [...(Array.isArray(tables.tables) ? tables.tables : []), ...(Array.isArray(sharedCte.sharedCteTables) ? sharedCte.sharedCteTables : [])],
+    columns: {...(tables.columns && typeof tables.columns === 'object' ? tables.columns : {}), ...(sharedCte.sharedCteColumns && typeof sharedCte.sharedCteColumns === 'object' ? sharedCte.sharedCteColumns : {})},
+    functions: Array.isArray(tables.functions) ? tables.functions : [],
+    keywords: Array.isArray(tables.keywords) ? tables.keywords : [],
+    sharedCtes: sharedCte.sharedCtes && typeof sharedCte.sharedCtes === 'object' ? sharedCte.sharedCtes : {}
   };
 }
 
@@ -137,32 +156,63 @@ export function combineSchemaData(tablesData: any, sharedCteData: any): any {
 export function getColumnsForTable(
   tableName: string, 
   alias: string, 
-  parseResult: any, 
-  schemaData: any
+  parseResult: unknown, 
+  schemaData: unknown
 ): string[] {
   let columns: string[] = [];
+  const schema = schemaData && typeof schemaData === 'object' ? schemaData as Record<string, unknown> : {};
   
   // Check if it's a CTE or subquery table with columns in parse result
   if (parseResult) {
     const tableObject = findTableObjectByAlias(parseResult, alias);
-    if (tableObject && (tableObject.type === 'cte' || tableObject.type === 'subquery') && tableObject.columns && tableObject.columns.length > 0) {
-      columns = tableObject.columns;
-    } else if (schemaData.columns && schemaData.columns[tableName]) {
-      columns = schemaData.columns[tableName];
+    if (tableObject && (tableObject.type === 'cte' || tableObject.type === 'subquery') && Array.isArray(tableObject.columns) && tableObject.columns.length > 0) {
+      columns = tableObject.columns as string[];
+    } else if (schema.columns && typeof schema.columns === 'object' && schema.columns !== null) {
+      const columnsObj = schema.columns as Record<string, unknown>;
+      if (Array.isArray(columnsObj[tableName])) {
+        columns = columnsObj[tableName] as string[];
+      }
     } else {
       // Check if it's a shared CTE
-      const sharedCte = schemaData.sharedCtes && schemaData.sharedCtes[tableName];
-      if (sharedCte && sharedCte.columns) {
-        columns = sharedCte.columns.map((col: any) => col.name);
+      if (schema.sharedCtes && typeof schema.sharedCtes === 'object' && schema.sharedCtes !== null) {
+        const sharedCtes = schema.sharedCtes as Record<string, unknown>;
+        const sharedCte = sharedCtes[tableName];
+        if (sharedCte && typeof sharedCte === 'object' && sharedCte !== null) {
+          const cteObj = sharedCte as Record<string, unknown>;
+          if (Array.isArray(cteObj.columns)) {
+            columns = cteObj.columns.map((col: unknown) => {
+              if (col && typeof col === 'object' && col !== null) {
+                const colObj = col as Record<string, unknown>;
+                return typeof colObj.name === 'string' ? colObj.name : '';
+              }
+              return '';
+            }).filter(name => name !== '');
+          }
+        }
       }
     }
   } else {
     // Check shared CTEs first when no parse result
-    const sharedCte = schemaData.sharedCtes && schemaData.sharedCtes[tableName];
-    if (sharedCte && sharedCte.columns) {
-      columns = sharedCte.columns.map((col: any) => col.name);
-    } else if (schemaData.columns && schemaData.columns[tableName]) {
-      columns = schemaData.columns[tableName];
+    if (schema.sharedCtes && typeof schema.sharedCtes === 'object' && schema.sharedCtes !== null) {
+      const sharedCtes = schema.sharedCtes as Record<string, unknown>;
+      const sharedCte = sharedCtes[tableName];
+      if (sharedCte && typeof sharedCte === 'object' && sharedCte !== null) {
+        const cteObj = sharedCte as Record<string, unknown>;
+        if (Array.isArray(cteObj.columns)) {
+          columns = cteObj.columns.map((col: unknown) => {
+            if (col && typeof col === 'object' && col !== null) {
+              const colObj = col as Record<string, unknown>;
+              return typeof colObj.name === 'string' ? colObj.name : '';
+            }
+            return '';
+          }).filter(name => name !== '');
+        }
+      }
+    } else if (schema.columns && typeof schema.columns === 'object' && schema.columns !== null) {
+      const columnsObj = schema.columns as Record<string, unknown>;
+      if (Array.isArray(columnsObj[tableName])) {
+        columns = columnsObj[tableName] as string[];
+      }
     }
   }
   

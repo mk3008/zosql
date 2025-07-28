@@ -16,9 +16,9 @@ vi.mock('@ui/commands/create-workspace-command', () => ({
       name,
       `${name}.sql`,
       [],
-      {} as any,
-      {} as any,
-      {} as any,
+      {} as unknown,
+      {} as unknown,
+      {} as unknown,
       {}
     ))
   }))

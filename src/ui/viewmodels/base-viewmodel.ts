@@ -3,7 +3,7 @@
  * UI Layer - Foundation for all ViewModels
  */
 
-export type PropertyChangeCallback = (propertyName: string, value: any) => void;
+export type PropertyChangeCallback = (propertyName: string, value: unknown) => void;
 
 /**
  * Base class for all ViewModels providing change notification
@@ -33,7 +33,7 @@ export abstract class BaseViewModel {
    * @param propertyName - Name of the changed property
    * @param value - New value of the property
    */
-  protected notifyChange(propertyName: string, value?: any): void {
+  protected notifyChange(propertyName: string, value?: unknown): void {
     this._listeners.forEach(callback => callback(propertyName, value));
   }
   

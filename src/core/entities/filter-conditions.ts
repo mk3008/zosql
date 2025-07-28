@@ -106,17 +106,17 @@ export class FilterConditionsEntity {
         if (columnName.includes('id') || columnName.includes('Id')) {
           console.log('[DEBUG] ID column detected:', columnName);
           // Numeric ID columns - empty condition
-          template[columnName] = {} as any;
+          template[columnName] = {} as Record<string, unknown>;
           console.log('[DEBUG] Set empty conditions for', columnName);
         } else if (columnName.includes('name') || columnName.includes('title') || columnName.includes('description')) {
           // Text columns - case-insensitive like filter
-          template[columnName] = { ilike: "%a%" } as any;
+          template[columnName] = { ilike: "%a%" } as Record<string, unknown>;
         } else if (columnName.includes('date') || columnName.includes('time') || columnName.includes('created') || columnName.includes('updated')) {
           // Date/time columns - empty condition
-          template[columnName] = {} as any;
+          template[columnName] = {} as Record<string, unknown>;
         } else {
           // Default - empty condition
-          template[columnName] = {} as any;
+          template[columnName] = {} as Record<string, unknown>;
         }
       }
 
@@ -132,8 +132,8 @@ export class FilterConditionsEntity {
    */
   private static getDefaultTemplate(): string {
     const defaultTemplate: FilterConditions = {
-      user_id: {} as any, // Empty condition for user_id
-      name: { ilike: "%a%" } as any, // Case-insensitive like filter
+      user_id: {} as Record<string, unknown>, // Empty condition for user_id
+      name: { ilike: "%a%" } as Record<string, unknown>, // Case-insensitive like filter
     };
 
     return JSON.stringify(defaultTemplate, null, 2);
@@ -199,7 +199,7 @@ export class FilterConditionsEntity {
   /**
    * Create from plain object (for deserialization)
    */
-  static fromJSON(data: any): FilterConditionsEntity {
+  static fromJSON(data: { conditions?: string }): FilterConditionsEntity {
     return new FilterConditionsEntity(data.conditions || '{}');
   }
 

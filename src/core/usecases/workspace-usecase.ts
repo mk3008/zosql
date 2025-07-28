@@ -39,15 +39,16 @@ export class WorkspaceUseCase {
       console.log(`[WORKSPACE] Extracted ${extractedCTEs.length} CTEs`);
       
       // Set original and decomposed queries
-      (workspace as any).originalQuery = params.sql;
-      (workspace as any).decomposedQuery = decomposedQuery;
+      const workspaceData = workspace as unknown as Record<string, unknown>;
+      workspaceData.originalQuery = params.sql;
+      workspaceData.decomposedQuery = decomposedQuery;
 
       // Save workspace (legacy implementation with type casting)
-      await this.workspaceRepository.save(workspace as any);
+      await this.workspaceRepository.save(workspaceData as unknown as import('../entities/workspace').WorkspaceEntity);
 
       return {
         success: true,
-        data: workspace as any,
+        data: workspaceData as unknown as import('../entities/workspace').WorkspaceEntity,
         message: 'Workspace created successfully'
       };
     } catch (error) {
@@ -98,9 +99,10 @@ export class WorkspaceUseCase {
       // Legacy CTE update functionality
       // TODO: Implement proper CTE update mechanism
       console.log(`[WORKSPACE] Would update CTE ${params.cteName}`);
-      (workspaceEntity as any).privateCtes = workspace.privateCtes;
+      const entityData = workspaceEntity as unknown as Record<string, unknown>;
+      entityData.privateCtes = workspace.privateCtes;
 
-      await this.workspaceRepository.save(workspaceEntity as any);
+      await this.workspaceRepository.save(entityData as unknown as import('../entities/workspace').WorkspaceEntity);
 
       return {
         success: true,

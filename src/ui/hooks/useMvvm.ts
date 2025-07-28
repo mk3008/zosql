@@ -40,8 +40,8 @@ export function useMvvmBinding<T extends BaseViewModel>(viewModel: T): T {
  * @returns The ViewModel instance
  */
 export function useViewModel<T extends BaseViewModel>(
-  ViewModelClass: new (...args: any[]) => T,
-  _deps: any[] = []
+  ViewModelClass: new (...args: unknown[]) => T,
+  _deps: unknown[] = []
 ): T {
   const viewModelRef = useRef<T | null>(null);
 

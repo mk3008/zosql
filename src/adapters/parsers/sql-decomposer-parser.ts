@@ -217,7 +217,7 @@ export class SqlDecomposerParser implements SqlParserPort {
       
       // The cte.query is a query object from rawsql-ts, format it
       // Need to cast to proper SqlComponent type
-      // @ts-ignore - cte.query is a valid SqlComponent from rawsql-ts
+      // @ts-expect-error - cte.query is a valid SqlComponent from rawsql-ts
       const formatted = formatter.format(cte.query);
       return formatted.formattedSql;
     } catch (error) {

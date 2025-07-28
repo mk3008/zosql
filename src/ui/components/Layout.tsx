@@ -389,7 +389,7 @@ export const Layout: React.FC = () => {
                 mainContentRef.current.clearAllTabs();
               }
               
-              workspaceEntity = WorkspaceEntity.fromJSON(workspace);
+              workspaceEntity = WorkspaceEntity.fromJSON(workspace as unknown as Record<string, unknown>);
             }
             
             setCurrentWorkspace(workspaceEntity);

@@ -18,7 +18,7 @@ export interface DynamicSqlResult {
   /** Formatted SQL string with parameters replaced by placeholders */
   formattedSql: string;
   /** Parameter values to be passed to SQL executor */
-  params: any[];
+  params: unknown[];
 }
 
 export interface SqlModel {
@@ -214,7 +214,7 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
             
             // Try constructor option with ignoreNonExistentColumns
             try {
-              const builderWithOptions = new DynamicQueryBuilder({ ignoreNonExistentColumns: true } as any);
+              const builderWithOptions = new DynamicQueryBuilder(() => []); // Provide table column getter function
               query = builderWithOptions.buildFilteredQuery(baseSql, conditions);
               console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (constructor)');
             } catch (error1) {
@@ -229,7 +229,7 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
                 
                 // Try property setting
                 try {
-                  (builder as any).ignoreNonExistentColumns = true;
+                  (builder as { ignoreNonExistentColumns?: boolean }).ignoreNonExistentColumns = true;
                   query = builder.buildFilteredQuery(baseSql, conditions);
                   console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (property)');
                 } catch (error3) {
@@ -339,14 +339,14 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
    * Create from plain object (for deserialization)
    * Note: Dependencies must be resolved separately after all models are created
    */
-  static fromJSON(data: any, formatter?: SqlFormatter): SqlModelEntity {
+  static fromJSON(data: Record<string, unknown>, formatter?: SqlFormatter): SqlModelEntity {
     return new SqlModelEntity(
-      data.type,
-      data.name,
-      data.sqlWithoutCte,
+      data.type as 'main' | 'cte',
+      data.name as string,
+      data.sqlWithoutCte as string,
       [], // Dependencies will be resolved later
-      data.columns,
-      data.originalSql,
+      data.columns as string[] | undefined,
+      data.originalSql as string | undefined,
       formatter
     );
   }

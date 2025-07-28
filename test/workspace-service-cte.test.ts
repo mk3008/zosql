@@ -12,7 +12,7 @@ import { CTE } from '@shared/types';
 
 describe('WorkspaceService CTE Processing', () => {
   let userBehaviorAnalysisSQL: string;
-  let parsedQuery: any;
+  let parsedQuery: ReturnType<typeof SelectQueryParser.parse>;
   const privateCtes: Record<string, CTE> = {};
   
   beforeAll(async () => {
@@ -25,9 +25,14 @@ describe('WorkspaceService CTE Processing', () => {
     
     // WorkspaceServiceが行う処理をシミュレート
     // CTEを抽出して依存関係を解析
-    if (parsedQuery.withClause && parsedQuery.withClause.tables) {
-      for (const cte of parsedQuery.withClause.tables) {
-        const cteName = cte.aliasExpression?.table?.name || 'unknown';
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown> | undefined;
+    const tables = withClause?.tables as unknown[] | undefined;
+    if (tables) {
+      for (const cte of tables) {
+        const cteObj = cte as Record<string, unknown>;
+        const aliasExpression = cteObj.aliasExpression as Record<string, unknown> | undefined;
+        const table = aliasExpression?.table as Record<string, unknown> | undefined;
+        const cteName = table?.name as string || 'unknown';
         
         // CTEの内部クエリを抽出（WorkspaceServiceのextractCTEQueryをシミュレート）
         const cteQuery = extractCTEQueryContent(cte);
@@ -46,7 +51,7 @@ describe('WorkspaceService CTE Processing', () => {
   });
 
   // CTEクエリの内容を抽出する関数（WorkspaceServiceの処理をシミュレート）
-  function extractCTEQueryContent(cte: any): string {
+  function extractCTEQueryContent(cte: { aliasExpression?: { table?: { name?: string } } }): string {
     const cteName = cte.aliasExpression?.table?.name || 'unknown';
     
     // 実際のCTEクエリごとの内容を手動で設定（本来はSqlFormatterが生成）

@@ -34,7 +34,7 @@ export interface Workspace {
 
 export interface QueryExecutionResult {
   success: boolean;
-  data?: any[];
+  data?: unknown[];
   error?: string;
   executionTime?: number;
   rowCount?: number;
@@ -53,9 +53,9 @@ export interface SqlModelEntity {
   hasUnsavedChanges: boolean;
   updateEditorContent(content: string): void;
   save(): void;
-  getFullSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean, useEditorContent?: boolean): Promise<string>;
+  getFullSql(testValues?: TestValuesModel | string, filterConditions?: unknown, forExecution?: boolean, useEditorContent?: boolean): Promise<string>;
   getDependentNames(): string[];
-  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean, useEditorContent?: boolean): Promise<any>;
+  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: unknown, forExecution?: boolean, useEditorContent?: boolean): Promise<unknown>;
 }
 
 export interface SqlModel {
@@ -121,7 +121,7 @@ export interface FilterConditionsModel {
 export interface SqlFormatterModel {
   config: string;
   getSqlFormatter(): import('rawsql-ts').SqlFormatter;
-  setFormatterConfig(options: any): void;
+  setFormatterConfig(options: unknown): void;
   isValid(): boolean;
   clone(): SqlFormatterModel;
   displayString: string; // getter for GUI binding

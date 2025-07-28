@@ -2,13 +2,13 @@ import { SelectQueryParser } from 'rawsql-ts';
 
 export interface CTEInfo {
   name: string;
-  query: any;
+  query: unknown;
 }
 
 export interface ParseResult {
   type: string;
   ctes: CTEInfo[];
-  query: any;
+  query: unknown;
 }
 
 export function parseSQL(sql: string): ParseResult {

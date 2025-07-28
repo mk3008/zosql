@@ -103,7 +103,7 @@ describe('FormatterConfigStorage', () => {
     });
 
     it('should handle JSON serialization errors', async () => {
-      const circularConfig: any = { ...sampleConfig };
+      const circularConfig: FormatterConfig & { circular?: unknown } = { ...sampleConfig };
       circularConfig.circular = circularConfig; // Create circular reference
 
       mockLocalStorage.setItem.mockImplementation((_key: string, value: string) => {

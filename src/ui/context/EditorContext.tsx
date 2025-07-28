@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState } from 'react';
+import type { editor } from 'monaco-editor';
 
 interface EditorContextType {
   insertAtCursor: (text: string) => void;
   replaceContent: (text: string) => void;
   getCurrentContent: () => string;
-  setEditorRef: (ref: any) => void;
+  setEditorRef: (ref: editor.IStandaloneCodeEditor | null) => void;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -22,7 +23,7 @@ interface EditorProviderProps {
 }
 
 export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
-  const [editorRef, setEditorRef] = useState<any>(null);
+  const [editorRef, setEditorRef] = useState<editor.IStandaloneCodeEditor | null>(null);
 
   const insertAtCursor = (text: string) => {
     if (!editorRef) return;

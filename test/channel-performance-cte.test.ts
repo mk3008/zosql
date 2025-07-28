@@ -8,9 +8,20 @@ import fs from 'fs/promises';
 import path from 'path';
 import { SelectQueryParser, SqlFormatter } from 'rawsql-ts';
 
+// Type guard for CTE validation
+function isValidCteForTest(cte: unknown): cte is { 
+  aliasExpression?: { table?: { name?: string } };
+} {
+  return (
+    typeof cte === 'object' &&
+    cte !== null &&
+    'aliasExpression' in cte
+  );
+}
+
 describe('channel_performance CTE Tests', () => {
   let userBehaviorAnalysisSQL: string;
-  let parsedQuery: any;
+  let parsedQuery: ReturnType<typeof SelectQueryParser.parse>;
   
   beforeAll(async () => {
     // テスト用SQLファイルを読み込み
@@ -23,14 +34,29 @@ describe('channel_performance CTE Tests', () => {
 
   it('should parse SQL successfully with rawsql-ts', () => {
     expect(parsedQuery).toBeTruthy();
-    expect(parsedQuery.withClause).toBeTruthy();
-    expect(parsedQuery.withClause.tables).toBeTruthy();
+    // Check if query has WITH clause
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause;
+    expect(withClause).toBeTruthy();
+    if (withClause && typeof withClause === 'object') {
+      const tables = (withClause as Record<string, unknown>).tables;
+      expect(tables).toBeTruthy();
+    }
   });
 
   it('should extract all CTE names using rawsql-ts', () => {
-    const cteNames = parsedQuery.withClause.tables.map(
-      (cte: any) => cte.aliasExpression?.table?.name || 'unknown'
-    );
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown> | undefined;
+    const tables = withClause?.tables as unknown[] | undefined;
+    const cteNames = tables?.map(
+      (cte: unknown) => {
+        if (cte && typeof cte === 'object') {
+          const cteObj = cte as Record<string, unknown>;
+          const aliasExpression = cteObj.aliasExpression as Record<string, unknown> | undefined;
+          const table = aliasExpression?.table as Record<string, unknown> | undefined;
+          return table?.name as string || 'unknown';
+        }
+        return 'unknown';
+      }
+    ) || [];
     
     console.log('Extracted CTE names with rawsql-ts:', cteNames);
     
@@ -53,8 +79,10 @@ describe('channel_performance CTE Tests', () => {
   });
 
   it('should find channel_performance CTE and extract its content', () => {
-    const channelPerformanceCTE = parsedQuery.withClause.tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'channel_performance'
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
+    const tables = withClause.tables as unknown[];
+    const channelPerformanceCTE = tables.find(
+      (cte: { aliasExpression?: { table?: { name?: string } }; query?: unknown }) => cte.aliasExpression?.table?.name === 'channel_performance'
     );
     
     expect(channelPerformanceCTE).toBeTruthy();
@@ -78,8 +106,10 @@ describe('channel_performance CTE Tests', () => {
   });
 
   it('should extract dependencies from channel_performance CTE', () => {
-    const channelPerformanceCTE = parsedQuery.withClause.tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'channel_performance'
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
+    const tables = withClause.tables as unknown[];
+    const channelPerformanceCTE = tables.find(
+      (cte: { aliasExpression?: { table?: { name?: string } }; query?: { fromClause?: unknown } }) => cte.aliasExpression?.table?.name === 'channel_performance'
     );
     
     // CTEのFROM句とJOIN句からテーブル参照を抽出
@@ -93,7 +123,7 @@ describe('channel_performance CTE Tests', () => {
     
     // JOINテーブル（funnel_analysis）
     const joins = fromClause.joins || [];
-    const joinTables = joins.map((join: any) => 
+    const joinTables = joins.map((join: { source?: { datasource?: { qualifiedName?: { name?: { name?: string } }; table?: { name?: string } } } }) => 
       join.source?.datasource?.qualifiedName?.name?.name ||
       join.source?.datasource?.table?.name
     );
@@ -104,18 +134,20 @@ describe('channel_performance CTE Tests', () => {
   });
 
   it('should validate CTE definition order', () => {
-    const cteOrder = parsedQuery.withClause.tables.map(
-      (cte: any, index: number) => ({
-        name: cte.aliasExpression?.table?.name || 'unknown',
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
+    const tables = withClause.tables as unknown[];
+    const cteOrder = tables.map(
+      (cte: unknown, index: number) => ({
+        name: isValidCteForTest(cte) ? cte.aliasExpression?.table?.name || 'unknown' : 'unknown',
         index
       })
     );
     
     console.log('CTE definition order:', cteOrder);
     
-    const channelPerformanceIndex = cteOrder.find((cte: any) => cte.name === 'channel_performance')?.index;
-    const sessionDataIndex = cteOrder.find((cte: any) => cte.name === 'session_data')?.index;
-    const funnelAnalysisIndex = cteOrder.find((cte: any) => cte.name === 'funnel_analysis')?.index;
+    const channelPerformanceIndex = cteOrder.find((cte: { name: string }) => cte.name === 'channel_performance')?.index;
+    const sessionDataIndex = cteOrder.find((cte: { name: string }) => cte.name === 'session_data')?.index;
+    const funnelAnalysisIndex = cteOrder.find((cte: { name: string }) => cte.name === 'funnel_analysis')?.index;
     
     // channel_performanceの依存関係が先に定義されているか確認
     expect(sessionDataIndex).toBeDefined();
@@ -128,17 +160,19 @@ describe('channel_performance CTE Tests', () => {
 
   it('should generate executable SQL for channel_performance with dependencies', () => {
     // channel_performanceとその依存関係のCTEを抽出
-    const channelPerformanceCTE = parsedQuery.withClause.tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'channel_performance'
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
+    const tables = withClause.tables as unknown[];
+    const channelPerformanceCTE = tables.find(
+      (cte: unknown) => isValidCteForTest(cte) && cte.aliasExpression?.table?.name === 'channel_performance'
     );
-    const sessionDataCTE = parsedQuery.withClause.tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'session_data'
+    const sessionDataCTE = tables.find(
+      (cte: unknown) => isValidCteForTest(cte) && cte.aliasExpression?.table?.name === 'session_data'
     );
-    const funnelAnalysisCTE = parsedQuery.withClause.tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'funnel_analysis'
+    const funnelAnalysisCTE = tables.find(
+      (cte: unknown) => isValidCteForTest(cte) && cte.aliasExpression?.table?.name === 'funnel_analysis'
     );
-    const conversionEventsCTE = parsedQuery.withClause.tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'conversion_events'
+    const conversionEventsCTE = tables.find(
+      (cte: unknown) => isValidCteForTest(cte) && cte.aliasExpression?.table?.name === 'conversion_events'
     );
     
     expect(channelPerformanceCTE).toBeTruthy();

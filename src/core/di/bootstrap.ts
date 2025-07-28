@@ -146,7 +146,8 @@ export async function shutdownApplication(container: DIContainer): Promise<void>
   try {
     // Clean up SQL executor connections
     if ('cleanup' in container.sqlExecutor) {
-      await (container.sqlExecutor as any).cleanup();
+      const executor = container.sqlExecutor as unknown as { cleanup: () => Promise<void> };
+      await executor.cleanup();
     }
     
     // Clean up temporary files
@@ -199,5 +200,5 @@ export function useBootstrap(options?: BootstrapOptions): {
   return { container, loading, error };
 }
 
-// Import React only if available (for browser environment)
-declare const React: any;
+// Import React for hook usage
+import * as React from 'react';

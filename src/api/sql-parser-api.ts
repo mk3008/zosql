@@ -1,11 +1,62 @@
 import { Request, Response } from 'express';
 import { Logger } from '../utils/logging.js';
 
+interface TableInfo {
+  table: string;
+  alias?: string;
+  [key: string]: unknown;
+}
+
+// Type guards for safe unknown type handling
+function isValidCte(cte: unknown): cte is { 
+  aliasExpression?: { table?: { name?: string } };
+  query?: { selectClause?: { items?: unknown[] } };
+} {
+  return (
+    typeof cte === 'object' &&
+    cte !== null &&
+    'aliasExpression' in cte &&
+    'query' in cte
+  );
+}
+
+function isValidSelectItem(item: unknown): item is { 
+  identifier?: { name?: string };
+} {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    'identifier' in item
+  );
+}
+
+
+interface ParsedQuery {
+  fromClause?: {
+    tables?: unknown[];
+    constructor?: { name: string };
+    [key: string]: unknown;
+  };
+  withClause?: {
+    [key: string]: unknown;
+  };
+  toSimpleQuery?: () => ParsedQuery;
+  constructor: { name: string };
+  [key: string]: unknown;
+}
+
 export class SqlParserApi {
   private logger: Logger;
 
   constructor() {
     this.logger = Logger.getInstance();
+  }
+
+  /**
+   * Type guard for rawsql-ts query object
+   */
+  private isValidQueryObject(obj: unknown): obj is Record<string, unknown> {
+    return obj !== null && typeof obj === 'object';
   }
 
   public async handleParseSql(req: Request, res: Response): Promise<void> {
@@ -29,13 +80,13 @@ export class SqlParserApi {
         this.logger.log(`[PARSE-SQL] Query type: ${query.constructor.name}`);
 
         // Extract table information with aliases for IntelliSense
-        const tables: any[] = [];
+        const tables: TableInfo[] = [];
 
         // Convert to SimpleSelectQuery if needed (for WITH clause support)
-        let queryAny = query as any;
+        let queryAny = query as unknown as ParsedQuery;
         if (query.constructor.name !== 'SimpleSelectQuery') {
           this.logger.log(`[PARSE-SQL] Converting to SimpleSelectQuery`);
-          queryAny = query.toSimpleQuery();
+          queryAny = query.toSimpleQuery() as unknown as ParsedQuery;
           this.logger.log(`[PARSE-SQL] Converted query type: ${queryAny.constructor.name}`);
         }
 
@@ -59,7 +110,7 @@ export class SqlParserApi {
         if (queryAny.withClause) {
           this.logger.log(`[PARSE-SQL] withClause processing started`);
           this.logger.log(`[PARSE-SQL] withClause has tables: ${!!queryAny.withClause.tables}`);
-          this.logger.log(`[PARSE-SQL] withClause tables length: ${queryAny.withClause.tables?.length || 0}`);
+          this.logger.log(`[PARSE-SQL] withClause tables length: ${Array.isArray(queryAny.withClause.tables) ? queryAny.withClause.tables.length : 0}`);
         } else {
           this.logger.log(`[PARSE-SQL] withClause is falsy, not processing CTE tables`);
         }
@@ -70,38 +121,65 @@ export class SqlParserApi {
           
           // Check for CTE tables in withClause.tables
           if (queryAny.withClause.tables && Array.isArray(queryAny.withClause.tables)) {
-            queryAny.withClause.tables.forEach((cte: any, index: number) => {
-              let cteName = null;
+            queryAny.withClause.tables.forEach((cte: unknown, index: number) => {
+              let cteName: string | null = null;
               let cteColumns: string[] = [];
               
               // Extract CTE name from aliasExpression
-              if (cte.aliasExpression && cte.aliasExpression.table) {
-                cteName = cte.aliasExpression.table.name;
+              if (cte && typeof cte === 'object' && 'aliasExpression' in cte) {
+                const aliasExpression = (cte as Record<string, unknown>).aliasExpression;
+                if (aliasExpression && typeof aliasExpression === 'object' && 'table' in aliasExpression) {
+                  const table = (aliasExpression as Record<string, unknown>).table;
+                  if (table && typeof table === 'object' && 'name' in table) {
+                    const name = (table as Record<string, unknown>).name;
+                    if (typeof name === 'string') {
+                      cteName = name;
+                    }
+                  }
+                }
               }
               
               // Extract columns from CTE definition if available
-              if (cte.aliasExpression && cte.aliasExpression.columns) {
-                cteColumns = cte.aliasExpression.columns.map((col: any) => col.name || col);
+              if (cte && typeof cte === 'object' && 'aliasExpression' in cte) {
+                const aliasExpression = (cte as Record<string, unknown>).aliasExpression;
+                if (aliasExpression && typeof aliasExpression === 'object' && 'columns' in aliasExpression) {
+                  const columns = (aliasExpression as Record<string, unknown>).columns;
+                  if (Array.isArray(columns)) {
+                    cteColumns = columns.map((col: unknown) => {
+                      if (col && typeof col === 'object' && 'name' in col) {
+                        return (col as Record<string, unknown>).name as string;
+                      }
+                      return String(col);
+                    });
+                  }
+                }
               }
               
               // Use SelectableColumnCollector to extract columns from CTE query
-              if (cte.query) {
+              if (cte && typeof cte === 'object' && 'query' in cte) {
+                const cteQuery = (cte as Record<string, unknown>).query;
                 try {
                   const collector = new SelectableColumnCollector();
-                  collector.collect(cte.query);
+                  // Type guard for rawsql-ts query object
+                  if (this.isValidQueryObject(cteQuery)) {
+                    collector.collect(cteQuery);
+                  }
                   const collectedColumns = collector.getValues();
                   
                   this.logger.log(`[PARSE-SQL] CTE ${index} SelectableColumnCollector result: ${JSON.stringify(collectedColumns, null, 2)}`);
                   
                   // Extract column names from collected columns
                   if (collectedColumns && Array.isArray(collectedColumns) && collectedColumns.length > 0) {
-                    collectedColumns.forEach((col: any) => {
-                      if (col.alias) {
-                        cteColumns.push(col.alias);
-                      } else if (col.name) {
-                        cteColumns.push(col.name);
-                      } else if (col.columnName) {
-                        cteColumns.push(col.columnName);
+                    collectedColumns.forEach((col: unknown) => {
+                      if (col && typeof col === 'object') {
+                        const colObj = col as Record<string, unknown>;
+                        if (typeof colObj.alias === 'string') {
+                          cteColumns.push(colObj.alias);
+                        } else if (typeof colObj.name === 'string') {
+                          cteColumns.push(colObj.name);
+                        } else if (typeof colObj.columnName === 'string') {
+                          cteColumns.push(colObj.columnName);
+                        }
                       } else if (typeof col === 'string') {
                         cteColumns.push(col);
                       }
@@ -115,30 +193,57 @@ export class SqlParserApi {
                   this.logger.log(`[PARSE-SQL] SelectableColumnCollector failed for CTE ${index}: ${collectorError instanceof Error ? collectorError.message : 'Unknown error'}`);
                   
                   // Fallback to manual extraction
-                  if (cte.query.selectClause && cte.query.selectClause.items) {
-                    const selectItems = cte.query.selectClause.items;
-                    this.logger.log(`[PARSE-SQL] CTE ${index} fallback selectClause.items: ${JSON.stringify(selectItems, null, 2)}`);
-                    
-                    selectItems.forEach((item: any) => {
-                      let columnName = null;
+                  if (cteQuery && typeof cteQuery === 'object' && 'selectClause' in cteQuery) {
+                    const selectClause = (cteQuery as Record<string, unknown>).selectClause;
+                    if (selectClause && typeof selectClause === 'object' && 'items' in selectClause) {
+                      const selectItems = (selectClause as Record<string, unknown>).items;
+                      this.logger.log(`[PARSE-SQL] CTE ${index} fallback selectClause.items: ${JSON.stringify(selectItems, null, 2)}`);
                       
-                      // Check identifier first (for "SELECT 1 as value")
-                      if (item.identifier && item.identifier.name) {
-                        columnName = item.identifier.name;
-                      }
-                      // Check value.qualifiedName for column references
-                      else if (item.value && item.value.qualifiedName && item.value.qualifiedName.name) {
-                        columnName = item.value.qualifiedName.name.name;
-                      }
-                      // Check alias expressions
-                      else if (item.aliasExpression && item.aliasExpression.column) {
-                        columnName = item.aliasExpression.column.name;
-                      }
+                      if (Array.isArray(selectItems)) {
+                        selectItems.forEach((item: unknown) => {
+                          let columnName: string | null = null;
                       
-                      if (columnName) {
-                        cteColumns.push(columnName);
+                          if (item && typeof item === 'object') {
+                            const itemObj = item as Record<string, unknown>;
+                            
+                            // Check identifier first (for "SELECT 1 as value")
+                            if (itemObj.identifier && typeof itemObj.identifier === 'object') {
+                              const identifier = itemObj.identifier as Record<string, unknown>;
+                              if (typeof identifier.name === 'string') {
+                                columnName = identifier.name;
+                              }
+                            }
+                            // Check value.qualifiedName for column references
+                            else if (itemObj.value && typeof itemObj.value === 'object') {
+                              const value = itemObj.value as Record<string, unknown>;
+                              if (value.qualifiedName && typeof value.qualifiedName === 'object') {
+                                const qualifiedName = value.qualifiedName as Record<string, unknown>;
+                                if (qualifiedName.name && typeof qualifiedName.name === 'object') {
+                                  const name = qualifiedName.name as Record<string, unknown>;
+                                  if (typeof name.name === 'string') {
+                                    columnName = name.name;
+                                  }
+                                }
+                              }
+                            }
+                            // Check alias expressions
+                            else if (itemObj.aliasExpression && typeof itemObj.aliasExpression === 'object') {
+                              const aliasExpression = itemObj.aliasExpression as Record<string, unknown>;
+                              if (aliasExpression.column && typeof aliasExpression.column === 'object') {
+                                const column = aliasExpression.column as Record<string, unknown>;
+                                if (typeof column.name === 'string') {
+                                  columnName = column.name;
+                                }
+                              }
+                            }
+                          }
+                          
+                          if (columnName) {
+                            cteColumns.push(columnName);
+                          }
+                        });
                       }
-                    });
+                    }
                   }
                 }
               }
@@ -147,8 +252,9 @@ export class SqlParserApi {
               
               if (cteName) {
                 tables.push({
-                  name: cteName,
+                  table: cteName,
                   alias: cteName, // CTE name serves as both table name and alias
+                  name: cteName,
                   type: 'cte',
                   columns: cteColumns
                 });
@@ -159,103 +265,153 @@ export class SqlParserApi {
 
         // Extract tables from fromClause.source (not fromClause.tables)
         if (queryAny.fromClause && queryAny.fromClause.source) {
-          const source = queryAny.fromClause.source;
+          const source = queryAny.fromClause.source as Record<string, unknown>;
           
-          if (source.datasource && source.datasource.qualifiedName) {
-            const tableName = source.datasource.qualifiedName.name?.name;
-            const tableAlias = source.aliasExpression?.table?.name;
+          if (source && typeof source === 'object' && 'datasource' in source) {
+            const datasource = source.datasource as Record<string, unknown>;
+            if (datasource && typeof datasource === 'object' && 'qualifiedName' in datasource) {
+              const qualifiedName = datasource.qualifiedName as Record<string, unknown>;
+              const tableName = qualifiedName && typeof qualifiedName === 'object' && 'name' in qualifiedName ? 
+                (qualifiedName.name as Record<string, unknown>)?.name as string : undefined;
+              const tableAlias = source && typeof source === 'object' && 'aliasExpression' in source ?
+                ((source.aliasExpression as Record<string, unknown>)?.table as Record<string, unknown>)?.name as string : undefined;
             
             this.logger.log(`[PARSE-SQL] Found table: name="${tableName}", alias="${tableAlias}"`);
             
-            if (tableName) {
-              // Check if this is a CTE table and extract columns
-              let isCTE = false;
-              const cteColumns: string[] = [];
-              
-              if (queryAny.withClause && queryAny.withClause.tables) {
-                queryAny.withClause.tables.forEach((cte: any) => {
-                  if (cte.aliasExpression && cte.aliasExpression.table && cte.aliasExpression.table.name === tableName) {
-                    isCTE = true;
-                    
-                    // Extract columns from CTE definition
-                    if (cte.query && cte.query.selectClause && cte.query.selectClause.items) {
-                      cte.query.selectClause.items.forEach((item: any) => {
-                        if (item.identifier && item.identifier.name) {
-                          cteColumns.push(item.identifier.name);
+              if (tableName) {
+                // Check if this is a CTE table and extract columns
+                let isCTE = false;
+                const cteColumns: string[] = [];
+                
+                if (queryAny.withClause && typeof queryAny.withClause === 'object') {
+                  const withClause = queryAny.withClause as Record<string, unknown>;
+                  if (Array.isArray(withClause.tables)) {
+                    withClause.tables.forEach((cte: unknown) => {
+                      if (cte && typeof cte === 'object') {
+                        const cteObj = cte as Record<string, unknown>;
+                        if (cteObj.aliasExpression && typeof cteObj.aliasExpression === 'object') {
+                        const aliasExpression = cteObj.aliasExpression as Record<string, unknown>;
+                        if (aliasExpression.table && typeof aliasExpression.table === 'object') {
+                          const table = aliasExpression.table as Record<string, unknown>;
+                          if (table.name === tableName) {
+                            isCTE = true;
+                            
+                            // Extract columns from CTE definition
+                            if (cteObj.query && typeof cteObj.query === 'object') {
+                              const query = cteObj.query as Record<string, unknown>;
+                              if (query.selectClause && typeof query.selectClause === 'object') {
+                                const selectClause = query.selectClause as Record<string, unknown>;
+                                if (Array.isArray(selectClause.items)) {
+                                  selectClause.items.forEach((item: unknown) => {
+                                    if (item && typeof item === 'object') {
+                                      const itemObj = item as Record<string, unknown>;
+                                      if (itemObj.identifier && typeof itemObj.identifier === 'object') {
+                                        const identifier = itemObj.identifier as Record<string, unknown>;
+                                        if (typeof identifier.name === 'string') {
+                                          cteColumns.push(identifier.name);
+                                        }
+                                      }
+                                    }
+                                  });
+                                }
+                              }
+                            }
+                          }
                         }
-                      });
+                      }
                     }
-                  }
-                });
+                  });
+                }
               }
               
-              tables.push({
-                name: tableName,
-                alias: tableAlias,
-                type: isCTE ? 'cte' : 'regular',
-                columns: isCTE ? cteColumns : undefined
-              });
+                if (tableName) {
+                  tables.push({
+                    table: tableName,
+                    alias: tableAlias || undefined,
+                    type: isCTE ? 'cte' : 'regular',
+                    columns: isCTE ? cteColumns : undefined
+                  });
+                }
+              }
             }
           }
         }
 
         // Also check for JOIN tables if they exist (support both regular tables and subqueries)
-        if (queryAny.fromClause && queryAny.fromClause.joins) {
-          queryAny.fromClause.joins.forEach((join: any, index: number) => {
+        if (queryAny.fromClause && queryAny.fromClause.joins && Array.isArray(queryAny.fromClause.joins)) {
+          (queryAny.fromClause.joins as unknown[]).forEach((join: unknown, index: number) => {
+            if (!this.isValidQueryObject(join)) return;
             if (join.source) {
               let tableName = null;
-              const tableAlias = join.source.aliasExpression?.table?.name;
+              const tableAlias = table?.name as string | undefined;
               let isSubquery = false;
               const subqueryColumns: string[] = [];
               
               // Check if this is a regular table
-              if (join.source.datasource && join.source.datasource.qualifiedName) {
-                tableName = join.source.datasource.qualifiedName.name?.name;
+              if (datasource && qualifiedName) {
+                const name = qualifiedName.name as Record<string, unknown> | undefined;
+                tableName = name?.name as string | undefined;
                 this.logger.log(`[PARSE-SQL] Found JOIN table ${index}: name="${tableName}", alias="${tableAlias}"`);
               } 
               // Check if this is a subquery (stored in datasource.query)
-              else if (join.source.datasource && join.source.datasource.query) {
+              else if (datasource?.query) {
                 isSubquery = true;
                 tableName = `subquery_${index}`;
                 this.logger.log(`[PARSE-SQL] Found JOIN subquery ${index}: alias="${tableAlias}"`);
-                this.logger.log(`[PARSE-SQL] JOIN subquery ${index} structure: ${JSON.stringify(join.source.datasource.query, null, 2)}`);
+                this.logger.log(`[PARSE-SQL] JOIN subquery ${index} structure: ${JSON.stringify(datasource.query, null, 2)}`);
                 
                 // Extract columns from subquery using SelectableColumnCollector
                 try {
                   const collector = new SelectableColumnCollector();
-                  collector.collect(join.source.datasource.query);
+                  if (this.isValidQueryObject(datasource.query)) {
+                    collector.collect(datasource.query);
+                  }
                   const collectedColumns = collector.getValues();
                   
                   this.logger.log(`[PARSE-SQL] JOIN subquery ${index} SelectableColumnCollector result: ${JSON.stringify(collectedColumns, null, 2)}`);
                   
                   if (collectedColumns && Array.isArray(collectedColumns) && collectedColumns.length > 0) {
-                    collectedColumns.forEach((col: any) => {
-                      if (col.alias) {
-                        subqueryColumns.push(col.alias);
-                      } else if (col.name) {
-                        subqueryColumns.push(col.name);
-                      } else if (col.columnName) {
-                        subqueryColumns.push(col.columnName);
+                    collectedColumns.forEach((col: unknown) => {
+                      if (!this.isValidQueryObject(col)) return;
+                      if (typeof (col as Record<string, unknown>).alias === 'string') {
+                        subqueryColumns.push((col as Record<string, unknown>).alias as string);
+                      } else if (typeof (col as Record<string, unknown>).name === 'string') {
+                        subqueryColumns.push((col as Record<string, unknown>).name as string);
+                      } else if (typeof (col as Record<string, unknown>).columnName === 'string') {
+                        subqueryColumns.push((col as Record<string, unknown>).columnName as string);
                       } else if (typeof col === 'string') {
                         subqueryColumns.push(col);
                       }
                     });
                   } else {
                     // Fallback to manual extraction
-                    if (join.source.datasource.query.selectClause && join.source.datasource.query.selectClause.items) {
-                      join.source.datasource.query.selectClause.items.forEach((item: any) => {
-                        if (item.identifier && item.identifier.name) {
-                          subqueryColumns.push(item.identifier.name);
-                        } else if (item.value && item.value.qualifiedName && item.value.qualifiedName.name) {
-                          const columnName = item.value.qualifiedName.name.name;
+                    const query = datasource.query as Record<string, unknown>;
+                    const selectClause = query.selectClause as Record<string, unknown> | undefined;
+                    const items = selectClause?.items as unknown[] | undefined;
+                    if (selectClause && items) {
+                      items.forEach((item: unknown) => {
+                        if (!this.isValidQueryObject(item)) return;
+                        const itemObj = item as Record<string, unknown>;
+                        const identifier = itemObj.identifier as Record<string, unknown> | undefined;
+                        const value = itemObj.value as Record<string, unknown> | undefined;
+                        
+                        if (identifier && typeof identifier.name === 'string') {
+                          subqueryColumns.push(identifier.name);
+                        } else if (value?.qualifiedName && typeof (value.qualifiedName as Record<string, unknown>).name === 'object') {
+                          const qualifiedName = (value.qualifiedName as Record<string, unknown>).name as Record<string, unknown>;
+                          const columnName = qualifiedName.name;
                           if (columnName === '*') {
                             // Handle SELECT * case - extract actual columns from the source table
                             this.logger.log(`[PARSE-SQL] Found SELECT * in subquery, extracting from source table`);
                             
                             // Get the source table name from the subquery's FROM clause
-                            const subqueryFromClause = join.source.datasource.query.fromClause;
-                            if (subqueryFromClause && subqueryFromClause.source && subqueryFromClause.source.datasource && subqueryFromClause.source.datasource.qualifiedName) {
-                              const sourceTableName = subqueryFromClause.source.datasource.qualifiedName.name?.name;
+                            const subqueryFromClause = query.fromClause as Record<string, unknown> | undefined;
+                            const subquerySource = subqueryFromClause?.source as Record<string, unknown> | undefined;
+                            const subqueryDatasource = subquerySource?.datasource as Record<string, unknown> | undefined;
+                            const subqueryQualifiedName = subqueryDatasource?.qualifiedName as Record<string, unknown> | undefined;
+                            if (subqueryFromClause && subquerySource && subqueryDatasource && subqueryQualifiedName) {
+                              const subqueryName = subqueryQualifiedName.name as Record<string, unknown> | undefined;
+                              const sourceTableName = subqueryName?.name as string | undefined;
                               this.logger.log(`[PARSE-SQL] Subquery source table: ${sourceTableName}`);
                               
                               // Get columns from schema - use a simple approach for now
@@ -294,6 +450,7 @@ export class SqlParserApi {
                 if (isSubquery) {
                   // Add subquery table
                   tables.push({
+                    table: tableName,
                     name: tableName,
                     alias: tableAlias,
                     type: 'subquery',
@@ -304,15 +461,15 @@ export class SqlParserApi {
                   let isCTE = false;
                   const cteColumns: string[] = [];
                   
-                  if (queryAny.withClause && queryAny.withClause.tables) {
-                    queryAny.withClause.tables.forEach((cte: any) => {
+                  if (queryAny.withClause && queryAny.withClause.tables && Array.isArray(queryAny.withClause.tables)) {
+                    (queryAny.withClause.tables as unknown[]).forEach((cte: unknown) => {
                       if (cte.aliasExpression && cte.aliasExpression.table && cte.aliasExpression.table.name === tableName) {
                         isCTE = true;
                         
                         // Extract columns from CTE definition
-                        if (cte.query && cte.query.selectClause && cte.query.selectClause.items) {
-                          cte.query.selectClause.items.forEach((item: any) => {
-                            if (item.identifier && item.identifier.name) {
+                        if (isValidCte(cte) && cte.query?.selectClause?.items) {
+                          cte.query.selectClause.items.forEach((item: unknown) => {
+                            if (isValidSelectItem(item) && item.identifier?.name) {
                               cteColumns.push(item.identifier.name);
                             }
                           });
@@ -325,6 +482,7 @@ export class SqlParserApi {
                   const alreadyExists = tables.some(t => t.name === tableName && t.alias === tableAlias);
                   if (!alreadyExists) {
                     tables.push({
+                      table: tableName,
                       name: tableName,
                       alias: tableAlias,
                       type: isCTE ? 'cte' : 'regular',

@@ -338,7 +338,7 @@ export class FileBasedSharedCteApi {
     try {
       // Get schema data from SchemaApi
       const schemaData = await this.getSchemaData();
-      if (!schemaData || !(schemaData as any).tables) {
+      if (!schemaData || !(schemaData as { tables?: unknown }).tables) {
         this.logger.log('[SHARED-CTE] No schema data available for wildcard expansion');
         return undefined;
       }
@@ -346,7 +346,7 @@ export class FileBasedSharedCteApi {
       // Create table-to-columns mapping
       const tableColumns: Record<string, string[]> = {};
       
-      for (const table of (schemaData as any).tables) {
+      for (const table of (schemaData as { tables: TableColumnInfo[] }).tables) {
         if (table.columns) {
           tableColumns[table.name] = (table as TableColumnInfo).columns.map((col: { name: string }) => col.name);
           this.logger.log(`[SHARED-CTE] Table resolver: ${table.name} -> [${tableColumns[table.name].join(', ')}]`);

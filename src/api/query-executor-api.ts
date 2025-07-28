@@ -4,15 +4,26 @@ import { FileBasedSharedCteApi } from './file-based-shared-cte-api.js';
 import { SelectQueryParser, QueryFlowDiagramGenerator } from 'rawsql-ts';
 
 export interface QueryResult {
-  rows: any[];
+  rows: unknown[];
   fields: Array<{ name: string; dataTypeID: number }>;
   error?: string;
   executionTime?: number;
 }
 
+interface CteInfo {
+  name: string;
+  query: string;
+  description: string;
+}
+
+interface DatabaseInstance {
+  query: (sql: string) => Promise<QueryResult>;
+  exec: (sql: string) => Promise<unknown>;
+}
+
 export class QueryExecutorApi {
   private logger: Logger;
-  private db: any; // PGlite instance
+  private db: DatabaseInstance | null = null;
   private sharedCteApi: FileBasedSharedCteApi;
 
   constructor() {
@@ -26,7 +37,7 @@ export class QueryExecutorApi {
       const { PGlite } = await import('@electric-sql/pglite');
       
       // Initialize PGlite with in-memory database
-      this.db = new PGlite();
+      this.db = new PGlite() as DatabaseInstance;
       this.logger.query('PGlite database initialized (engine only - no schema creation)');
     } catch (error) {
       this.logger.error(`Failed to initialize database: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -141,7 +152,7 @@ export class QueryExecutorApi {
   /**
    * Get Private CTEs from workspace
    */
-  private async getPrivateCtes(): Promise<Record<string, any>> {
+  private async getPrivateCtes(): Promise<Record<string, CteInfo>> {
     try {
       const fs = await import('fs/promises');
       const path = await import('path');
@@ -157,7 +168,7 @@ export class QueryExecutorApi {
         return {};
       }
       
-      const privateCtes: Record<string, any> = {};
+      const privateCtes: Record<string, CteInfo> = {};
       const files = await fs.readdir(privateCteDir);
       
       for (const file of files) {
@@ -186,29 +197,45 @@ export class QueryExecutorApi {
   /**
    * Extract all referenced table names from a query
    */
-  private extractReferencedTableNames(query: any): string[] {
+  private extractReferencedTableNames(query: unknown): string[] {
     const tableNames: string[] = [];
     
     try {
+      if (!query || typeof query !== 'object') {
+        return tableNames;
+      }
+      
+      const queryObj = query as Record<string, unknown>;
+      
       // Check FROM clause
-      if (query.fromClause) {
+      if (queryObj.fromClause && typeof queryObj.fromClause === 'object' && queryObj.fromClause !== null) {
+        const fromClause = queryObj.fromClause as Record<string, unknown>;
+        
         // Check main table
-        const mainTable = query.fromClause.source?.datasource;
-        if (mainTable && 'qualifiedName' in mainTable) {
-          const tableName = this.extractTableName(mainTable);
-          if (tableName) {
-            tableNames.push(tableName);
+        if (fromClause.source && typeof fromClause.source === 'object' && fromClause.source !== null) {
+          const source = fromClause.source as Record<string, unknown>;
+          const mainTable = source.datasource;
+          if (mainTable && typeof mainTable === 'object' && 'qualifiedName' in mainTable) {
+            const tableName = this.extractTableName(mainTable);
+            if (tableName) {
+              tableNames.push(tableName);
+            }
           }
         }
 
         // Check JOINs
-        if (query.fromClause.joins) {
-          for (const join of query.fromClause.joins) {
-            const joinTable = join.source?.datasource;
-            if (joinTable && 'qualifiedName' in joinTable) {
-              const tableName = this.extractTableName(joinTable);
-              if (tableName) {
-                tableNames.push(tableName);
+        if (Array.isArray(fromClause.joins)) {
+          for (const join of fromClause.joins) {
+            if (join && typeof join === 'object' && 'source' in join) {
+              const joinSource = (join as Record<string, unknown>).source;
+              if (joinSource && typeof joinSource === 'object' && joinSource !== null) {
+                const joinTable = (joinSource as Record<string, unknown>).datasource;
+                if (joinTable && typeof joinTable === 'object' && 'qualifiedName' in joinTable) {
+                  const tableName = this.extractTableName(joinTable);
+                  if (tableName) {
+                    tableNames.push(tableName);
+                  }
+                }
               }
             }
           }
@@ -225,13 +252,35 @@ export class QueryExecutorApi {
   /**
    * Extract table name from table datasource object
    */
-  private extractTableName(tableObj: any): string | null {
+  private extractTableName(tableObj: unknown): string | null {
     try {
-      const qualifiedName = tableObj.qualifiedName?.name;
-      const tableName = qualifiedName && typeof qualifiedName === 'object' && 'name' in qualifiedName 
-        ? qualifiedName.name 
-        : qualifiedName;
-      return typeof tableName === 'string' ? tableName : String(tableName);
+      if (!tableObj || typeof tableObj !== 'object') {
+        return null;
+      }
+      
+      const obj = tableObj as Record<string, unknown>;
+      const qualifiedName = obj.qualifiedName;
+      
+      if (!qualifiedName) {
+        return null;
+      }
+      
+      // qualifiedName might be a string or an object with a name property
+      if (typeof qualifiedName === 'string') {
+        return qualifiedName;
+      }
+      
+      if (typeof qualifiedName === 'object' && qualifiedName !== null && 'name' in qualifiedName) {
+        const nameValue = (qualifiedName as Record<string, unknown>).name;
+        if (typeof nameValue === 'string') {
+          return nameValue;
+        }
+        if (nameValue !== null && nameValue !== undefined) {
+          return String(nameValue);
+        }
+      }
+      
+      return null;
     } catch (error) {
       return null;
     }
@@ -240,7 +289,7 @@ export class QueryExecutorApi {
   /**
    * Resolve CTE dependencies recursively
    */
-  private resolveCTEDependencies(cteNames: string[], privateCtes: Record<string, any>): string[] {
+  private resolveCTEDependencies(cteNames: string[], privateCtes: Record<string, CteInfo>): string[] {
     const resolved: string[] = [];
     const visited = new Set<string>();
     
@@ -315,6 +364,10 @@ export class QueryExecutorApi {
       
       const startTime = Date.now();
       
+      if (!this.db) {
+        throw new Error('Database not initialized');
+      }
+      
       try {
         // Execute the composed query
         const result = await this.db.query(composedSql);
@@ -364,6 +417,10 @@ export class QueryExecutorApi {
       this.logger.query('Resetting database...');
       
       // Drop all tables
+      if (!this.db) {
+        throw new Error('Database not initialized');
+      }
+      
       await this.db.exec('DROP TABLE IF EXISTS orders CASCADE');
       await this.db.exec('DROP TABLE IF EXISTS products CASCADE');
       await this.db.exec('DROP TABLE IF EXISTS users CASCADE');

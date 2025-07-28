@@ -6,6 +6,25 @@
 import { WorkspaceStorageInterface, WorkspaceInfo, PrivateCte } from './workspace-storage-interface.js';
 import { Logger } from '../utils/logging.js';
 
+// Type guards for safe storage data handling
+function isValidWorkspaceData(data: unknown): data is {
+  version?: string;
+  workspaceInfo?: WorkspaceInfo | null;
+  privateCtes?: Record<string, PrivateCte>;
+  mainQuery?: string;
+  lastSaved?: string | null;
+} {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (!('version' in data) || typeof (data as any).version === 'string') &&
+    (!('workspaceInfo' in data) || (data as any).workspaceInfo === null || typeof (data as any).workspaceInfo === 'object') &&
+    (!('privateCtes' in data) || typeof (data as any).privateCtes === 'object') &&
+    (!('mainQuery' in data) || typeof (data as any).mainQuery === 'string') &&
+    (!('lastSaved' in data) || (data as any).lastSaved === null || typeof (data as any).lastSaved === 'string')
+  );
+}
+
 export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   private logger: Logger;
   private readonly STORAGE_KEY = 'zosql_workspace';
@@ -18,7 +37,7 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   async hasWorkspace(): Promise<boolean> {
     try {
       const workspace = this.getWorkspaceFromStorage();
-      return workspace.workspaceInfo !== null;
+      return isValidWorkspaceData(workspace) && workspace.workspaceInfo !== null;
     } catch {
       return false;
     }
@@ -155,7 +174,7 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   /**
    * localStorage からワークスペースデータを取得
    */
-  private getWorkspaceFromStorage(): any {
+  private getWorkspaceFromStorage(): unknown {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) {
@@ -262,7 +281,7 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   /**
    * Import workspace from backup/sharing
    */
-  async importWorkspace(exportedData: any): Promise<void> {
+  async importWorkspace(exportedData: unknown): Promise<void> {
     try {
       if (!exportedData || !exportedData.data) {
         throw new Error('Invalid exported data format');

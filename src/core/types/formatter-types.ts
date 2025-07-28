@@ -154,12 +154,12 @@ export function isFormatterConfig(obj: unknown): obj is FormatterConfig {
     ['upper', 'lower', 'preserve'].includes(config.identifierCase) &&
     typeof config.identifierEscape === 'object' &&
     config.identifierEscape !== null &&
-    typeof (config.identifierEscape as any).start === 'string' &&
-    typeof (config.identifierEscape as any).end === 'string' &&
+    typeof (config.identifierEscape as Record<string, unknown>).start === 'string' &&
+    typeof (config.identifierEscape as Record<string, unknown>).end === 'string' &&
     typeof config.indentation === 'object' &&
     config.indentation !== null &&
-    typeof (config.indentation as any).size === 'number' &&
-    ['spaces', 'tabs'].includes((config.indentation as any).type) &&
+    typeof (config.indentation as Record<string, unknown>).size === 'number' &&
+    ['spaces', 'tabs'].includes((config.indentation as Record<string, unknown>).type as string) &&
     typeof config.maxLineLength === 'number' &&
     typeof config.alignColumns === 'boolean' &&
     typeof config.removeComments === 'boolean' &&
@@ -235,25 +235,25 @@ export function createFormatterConfig(
 /**
  * Convert legacy configuration format to new type-safe format
  */
-export function migrateLegacyConfig(legacyConfig: any): FormatterConfig {
+export function migrateLegacyConfig(legacyConfig: Record<string, unknown>): FormatterConfig {
   if (isFormatterConfig(legacyConfig)) {
     return legacyConfig;
   }
 
   // Handle common legacy format patterns
-  const preset: SqlDialect = legacyConfig?.dialect || legacyConfig?.preset || 'postgres';
+  const preset = (legacyConfig?.dialect as SqlDialect) || (legacyConfig?.preset as SqlDialect) || 'postgres';
   
   return createFormatterConfig({
     preset,
-    keywordCase: legacyConfig?.keywordCase || 'lower',
-    identifierCase: legacyConfig?.identifierCase || 'lower',
+    keywordCase: (legacyConfig?.keywordCase as KeywordCase) || 'lower',
+    identifierCase: (legacyConfig?.identifierCase as IdentifierCase) || 'lower',
     indentation: {
-      size: legacyConfig?.indentSize || legacyConfig?.tabSize || 4,
+      size: (legacyConfig?.indentSize as number) || (legacyConfig?.tabSize as number) || 4,
       type: legacyConfig?.useTabs ? 'tabs' : 'spaces'
     },
-    maxLineLength: legacyConfig?.lineLength || legacyConfig?.maxLength || 120,
-    alignColumns: legacyConfig?.alignColumns ?? true,
-    removeComments: legacyConfig?.stripComments ?? false,
-    normalizeWhitespace: legacyConfig?.normalizeSpaces ?? true
+    maxLineLength: (legacyConfig?.lineLength as number) || (legacyConfig?.maxLength as number) || 120,
+    alignColumns: (legacyConfig?.alignColumns as boolean) ?? true,
+    removeComments: (legacyConfig?.stripComments as boolean) ?? false,
+    normalizeWhitespace: (legacyConfig?.normalizeSpaces as boolean) ?? true
   });
 }

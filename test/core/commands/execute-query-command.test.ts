@@ -140,7 +140,8 @@ describe('ExecuteQueryCommand', () => {
     
     it('should handle SQL execution errors gracefully', async () => {
       // Mock error
-      const { PGlite } = await import('@electric-sql/pglite') as any;
+      const PGliteModule = await import('@electric-sql/pglite');
+      const PGlite = vi.mocked(PGliteModule.PGlite);
       PGlite.mockImplementationOnce(() => ({
         query: vi.fn().mockRejectedValue(new Error('relation "users" does not exist'))
       }));

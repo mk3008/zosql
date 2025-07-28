@@ -49,8 +49,8 @@ describe('SecureFileManager', () => {
         '',
         null,
         undefined,
-        123 as any
-      ];
+        123 as unknown
+      ] as string[];
 
       invalidPaths.forEach(filePath => {
         const result = fileManager.validatePath(filePath);

@@ -4,6 +4,28 @@ import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { Logger } from '../utils/logging.js';
 
+interface ColumnInfo {
+  name: string;
+  [key: string]: unknown;
+}
+
+interface TableInfo {
+  name: string;
+  columns: ColumnInfo[];
+  [key: string]: unknown;
+}
+
+interface SchemaInfo {
+  tables: TableInfo[];
+  [key: string]: unknown;
+}
+
+interface CteInfo {
+  name: string;
+  description: string;
+  columns?: string[];
+}
+
 export class SchemaApi {
   private logger: Logger;
 
@@ -21,7 +43,7 @@ export class SchemaApi {
         this.logger.log(`[SCHEMA] Raw import result: ${JSON.stringify(Object.keys(schemaModule))}`);
         this.logger.log(`[SCHEMA] Module content: ${JSON.stringify(schemaModule, null, 2)}`);
         
-        const schema = schemaModule.default || schemaModule;
+        const schema = (schemaModule.default || schemaModule) as SchemaInfo;
         this.logger.log(`[SCHEMA] Final schema structure: ${JSON.stringify(Object.keys(schema))}`);
         this.logger.log(`[SCHEMA] Schema loaded successfully: ${schema.tables?.length || 0} tables`);
         res.json({ success: true, schema });
@@ -42,14 +64,21 @@ export class SchemaApi {
       if (fs.existsSync(schemaPath)) {
         // Use dynamic import for ES modules
         const schemaModule = await import(schemaPath);
-        const schema = schemaModule.default || schemaModule;
+        const schema = (schemaModule.default || schemaModule) as SchemaInfo;
+        
+        // Validate schema structure
+        if (!schema.tables || !Array.isArray(schema.tables)) {
+          throw new Error('Invalid schema structure: tables must be an array');
+        }
         
         // Format for IntelliSense completion
-        const tables = schema.tables.map((t: any) => t.name);
+        const tables = schema.tables.map((t: TableInfo) => t.name);
         const columns: Record<string, string[]> = {};
         
-        schema.tables.forEach((table: any) => {
-          columns[table.name] = table.columns.map((col: any) => col.name);
+        schema.tables.forEach((table: TableInfo) => {
+          if (Array.isArray(table.columns)) {
+            columns[table.name] = table.columns.map((col: ColumnInfo) => col.name);
+          }
         });
         
         this.logger.log(`[SCHEMA-COMPLETION] Provided ${tables.length} tables for IntelliSense`);
@@ -63,7 +92,7 @@ export class SchemaApi {
         ];
 
         // Include Private CTEs from workspace if available
-        let privateCtes: any[] = [];
+        let privateCtes: CteInfo[] = [];
         const privateCteColumns: Record<string, string[]> = {};
         
         try {
@@ -72,16 +101,22 @@ export class SchemaApi {
           
           if (fs.existsSync(privateCteDir)) {
             const files = await fsPromises.readdir(privateCteDir);
-            privateCtes = files
+            const cteNames = files
               .filter(file => file.endsWith('.sql'))
               .map(file => path.basename(file, '.sql'));
+            
+            privateCtes = cteNames.map(name => ({
+              name,
+              description: `Private CTE: ${name}`,
+              columns: []
+            }));
             
             this.logger.log(`[SCHEMA-COMPLETION] Found ${privateCtes.length} private CTEs for IntelliSense`);
             
             // For now, we can't easily determine columns without parsing the SQL
             // This could be enhanced later by using rawsql-ts to parse each CTE
-            privateCtes.forEach(cteName => {
-              privateCteColumns[cteName] = []; // Empty for now
+            privateCtes.forEach(cte => {
+              privateCteColumns[cte.name] = cte.columns || []; // Empty for now
             });
           }
         } catch (error) {

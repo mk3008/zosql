@@ -10,7 +10,7 @@ interface ValidationResult {
     filePath: string;
     isValid: boolean;
     error?: string;
-    schemaInfo?: any;
+    schemaInfo?: unknown;
 }
 
 interface ValidationResponse {
@@ -86,7 +86,7 @@ export class SqlValidatorApi {
     /**
      * MAINクエリの検査
      */
-    private static async validateMainQuery(workspaceDir: string, workspaceInfo: any): Promise<ValidationResult | null> {
+    private static async validateMainQuery(workspaceDir: string, workspaceInfo: { name: string; [key: string]: unknown }): Promise<ValidationResult | null> {
         const logger = Logger.getInstance();
         try {
             // MAINクエリファイルのパス構築
@@ -128,7 +128,7 @@ export class SqlValidatorApi {
     /**
      * PrivateCTEsの検査
      */
-    private static async validatePrivateCTEs(workspaceDir: string, _workspaceInfo: any): Promise<ValidationResult[]> {
+    private static async validatePrivateCTEs(workspaceDir: string, _workspaceInfo: { [key: string]: unknown }): Promise<ValidationResult[]> {
         const logger = Logger.getInstance();
         const results: ValidationResult[] = [];
         const privateCteDir = path.join(workspaceDir, 'private-cte');
@@ -180,7 +180,7 @@ export class SqlValidatorApi {
     /**
      * SQLコンテンツの検査（SchemaCollectorを使用）
      */
-    private static validateSqlContent(sqlContent: string): { isValid: boolean; error?: string; schemaInfo?: any } {
+    private static validateSqlContent(sqlContent: string): { isValid: boolean; error?: string; schemaInfo?: unknown } {
         const logger = Logger.getInstance();
         try {
             // 空文字やコメントのみの場合はスキップ

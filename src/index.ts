@@ -54,7 +54,7 @@ async function main() {
 
   if (command === 'web') {
     let port = 3000;
-    const logOptions: any = {};
+    const logOptions: Record<string, unknown> = {};
     
     // Parse arguments
     for (let i = 1; i < args.length; i++) {
