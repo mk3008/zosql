@@ -13,7 +13,7 @@ interface SqlModelsListProps {
   selectedModelName?: string;
   onOpenValuesTab?: () => void;
   isValuesTabActive?: boolean;
-  workspace?: any; // WorkspaceEntity for validation results
+  workspace?: unknown; // WorkspaceEntity for validation results
 }
 
 export const SqlModelsList: React.FC<SqlModelsListProps> = ({ 

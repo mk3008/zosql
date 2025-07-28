@@ -5,7 +5,7 @@ interface FileOpenDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onFileOpen?: (file: File) => Promise<void>;
-  onWorkspaceOpen?: (workspace: any) => Promise<void>;
+  onWorkspaceOpen?: (workspace: unknown) => Promise<void>;
 }
 
 export const FileOpenDialog: React.FC<FileOpenDialogProps> = ({ isOpen, onClose, onFileOpen, onWorkspaceOpen }) => {

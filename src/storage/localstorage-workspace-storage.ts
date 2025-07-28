@@ -17,11 +17,11 @@ function isValidWorkspaceData(data: unknown): data is {
   return (
     typeof data === 'object' &&
     data !== null &&
-    (!('version' in data) || typeof (data as any).version === 'string') &&
-    (!('workspaceInfo' in data) || (data as any).workspaceInfo === null || typeof (data as any).workspaceInfo === 'object') &&
-    (!('privateCtes' in data) || typeof (data as any).privateCtes === 'object') &&
-    (!('mainQuery' in data) || typeof (data as any).mainQuery === 'string') &&
-    (!('lastSaved' in data) || (data as any).lastSaved === null || typeof (data as any).lastSaved === 'string')
+    (!('version' in data) || typeof (data as Record<string, unknown>).version === 'string') &&
+    (!('workspaceInfo' in data) || (data as Record<string, unknown>).workspaceInfo === null || typeof (data as Record<string, unknown>).workspaceInfo === 'object') &&
+    (!('privateCtes' in data) || typeof (data as Record<string, unknown>).privateCtes === 'object') &&
+    (!('mainQuery' in data) || typeof (data as Record<string, unknown>).mainQuery === 'string') &&
+    (!('lastSaved' in data) || (data as Record<string, unknown>).lastSaved === null || typeof (data as Record<string, unknown>).lastSaved === 'string')
   );
 }
 
@@ -270,7 +270,7 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   /**
    * Export workspace for backup/sharing
    */
-  async exportWorkspace(): Promise<any> {
+  async exportWorkspace(): Promise<unknown> {
     const workspace = this.getWorkspaceFromStorage();
     return {
       exportDate: new Date().toISOString(),

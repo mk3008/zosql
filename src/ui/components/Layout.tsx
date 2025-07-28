@@ -524,7 +524,7 @@ export const Layout: React.FC = () => {
               mainContentRef.current?.openValuesTab();
             }} 
             sqlModels={currentWorkspace?.sqlModels || []}
-            onModelClick={handleModelClick as any}
+            onModelClick={handleModelClick}
             selectedModelName={selectedModelName}
             onDecomposeQuery={handleDecomposeQuery}
             isDecomposing={isDecomposing}
