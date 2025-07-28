@@ -55,8 +55,8 @@ describe('CommandExecutor', () => {
   
   beforeEach(() => {
     executor = new CommandExecutor();
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {}) as any;
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {}) as any;
   });
   
   afterEach(() => {

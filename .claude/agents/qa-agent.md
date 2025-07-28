@@ -18,7 +18,7 @@ tools: Bash, Read, Edit, MultiEdit
 ## 主な責務
 
 1. **段階的品質チェックの実行**
-   - @docs/rules/quality-check-commands.md の段階的プロセスに従って実行
+   - @docs/rules/quality-check-commands.md の段階的チェック戦略に従って実行
    - 各フェーズでエラーを完全に解消してから次へ進む
    - 最終的に全品質チェックコマンドで全体確認
 
@@ -33,7 +33,7 @@ tools: Bash, Read, Edit, MultiEdit
 
 ## 作業フロー
 
-@docs/rules/quality-check-commands.md の「段階的品質チェックプロセス」に従って実行します。
+@docs/rules/quality-check-commands.md の「段階的チェック戦略」に従って実行します。
 各フェーズでエラーを完全に解消してから次へ進むことで、効率的に品質を保証します。
 
 ## 品質基準

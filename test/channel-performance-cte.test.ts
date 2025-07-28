@@ -82,11 +82,11 @@ describe('channel_performance CTE Tests', () => {
     const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
     const tables = withClause.tables as unknown[];
     const channelPerformanceCTE = tables.find(
-      (cte: { aliasExpression?: { table?: { name?: string } }; query?: unknown }) => cte.aliasExpression?.table?.name === 'channel_performance'
+      (cte: any) => cte.aliasExpression?.table?.name === 'channel_performance'
     );
     
     expect(channelPerformanceCTE).toBeTruthy();
-    expect(channelPerformanceCTE.query).toBeTruthy();
+    expect((channelPerformanceCTE as any).query).toBeTruthy();
     
     // CTEクエリをSQL文字列に変換
     const formatter = new SqlFormatter({
@@ -95,7 +95,7 @@ describe('channel_performance CTE Tests', () => {
     });
     
     // formatメソッドを使用
-    const formatResult = formatter.format(channelPerformanceCTE.query);
+    const formatResult = formatter.format((channelPerformanceCTE as any).query);
     const channelPerformanceSQL = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
     console.log('channel_performance CTE SQL:', channelPerformanceSQL);
     
@@ -109,11 +109,11 @@ describe('channel_performance CTE Tests', () => {
     const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
     const tables = withClause.tables as unknown[];
     const channelPerformanceCTE = tables.find(
-      (cte: { aliasExpression?: { table?: { name?: string } }; query?: { fromClause?: unknown } }) => cte.aliasExpression?.table?.name === 'channel_performance'
+      (cte: any) => cte.aliasExpression?.table?.name === 'channel_performance'
     );
     
     // CTEのFROM句とJOIN句からテーブル参照を抽出
-    const fromClause = channelPerformanceCTE.query.fromClause;
+    const fromClause = (channelPerformanceCTE as any).query.fromClause;
     expect(fromClause).toBeTruthy();
     
     // メインテーブル（session_data）

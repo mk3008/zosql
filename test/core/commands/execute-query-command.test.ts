@@ -144,7 +144,7 @@ describe('ExecuteQueryCommand', () => {
       const PGlite = vi.mocked(PGliteModule.PGlite);
       PGlite.mockImplementationOnce(() => ({
         query: vi.fn().mockRejectedValue(new Error('relation "users" does not exist'))
-      }));
+      } as any));
       
       const command = new ExecuteQueryCommand({
         workspace: null,

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Workspace, ApiResponse } from '@shared/types';
 import { WorkspaceUseCase } from '@core/usecases/workspace-usecase';
-import { LocalStorageWorkspaceRepository } from '@adapters/storage/local-storage';
+import { LocalStorageWorkspaceRepository } from '@adapters/repositories/localStorage-workspace-repository';
 import { RawSqlParser } from '@adapters/parsers/rawsql-parser';
 import { CTEDependencyResolverImpl } from '@core/usecases/cte-dependency-resolver';
 

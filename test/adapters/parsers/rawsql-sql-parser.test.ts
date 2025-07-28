@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RawsqlSqlParser } from '@adapters/parsers/rawsql-sql-parser';
+import type { SelectQuery } from 'rawsql-ts';
 
 // Mock rawsql-ts module
 vi.mock('rawsql-ts', () => ({
@@ -16,7 +17,7 @@ vi.mock('rawsql-ts', () => ({
 import { SelectQueryParser } from 'rawsql-ts';
 
 // Helper function to create proper SelectQuery mocks
-function createMockSelectQuery(simpleQuery: unknown) {
+function createMockSelectQuery(simpleQuery: any): SelectQuery {
   return {
     toSimpleQuery: () => simpleQuery,
     setParameter: vi.fn(),
@@ -24,7 +25,7 @@ function createMockSelectQuery(simpleQuery: unknown) {
     accept: vi.fn(),
     toSqlString: vi.fn().mockReturnValue('SELECT * FROM mock'),
     comments: []
-  };
+  } as SelectQuery;
 }
 
 describe('RawsqlSqlParser', () => {
