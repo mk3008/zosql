@@ -607,6 +607,43 @@ export class WorkspaceEntity {
   }
 
   /**
+   * Convert WorkspaceEntity to Workspace interface
+   */
+  toWorkspaceInterface(): import('@shared/types').Workspace {
+    // Convert CTE models to privateCtes format
+    const privateCtes: Record<string, import('@shared/types').CTE> = {};
+    
+    for (const model of this.getCteModels()) {
+      privateCtes[model.name] = {
+        name: model.name,
+        query: model.sqlWithoutCte,
+        description: undefined, // CTEs don't have descriptions in current model
+        dependencies: model.getDependentNames(),
+        columns: (model.columns || []).map(col => ({
+          name: col,
+          type: 'unknown', // Type information not available in current model
+          nullable: true
+        }))
+      };
+    }
+    
+    // Get original query from main model
+    const mainModel = this.getMainModels()[0];
+    const originalQuery = mainModel?.originalSql || mainModel?.sqlWithoutCte || '';
+    
+    return {
+      id: this.id,
+      name: this.name,
+      originalQuery,
+      originalFilePath: this.originalFilePath || undefined,
+      decomposedQuery: originalQuery, // Same as original for now
+      privateCtes,
+      created: this.created,
+      lastModified: this.lastModified
+    };
+  }
+
+  /**
    * Create from plain object (for deserialization)
    */
   static fromJSON(data: Record<string, unknown>): WorkspaceEntity {

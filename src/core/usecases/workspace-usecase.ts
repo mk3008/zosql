@@ -49,16 +49,13 @@ export class WorkspaceUseCase {
       }
 
       // Create Workspace interface from WorkspaceEntity
-      const workspaceResult: Workspace = {
-        id: workspace.id,
-        name: workspace.name,
-        originalQuery: params.sql,
-        originalFilePath: params.originalFilePath,
-        decomposedQuery: decomposedQuery,
-        privateCtes: {}, // TODO: Convert from extractedCTEs
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString()
-      };
+      const workspaceResult = workspace.toWorkspaceInterface();
+      // Override with creation-specific values
+      workspaceResult.originalQuery = params.sql;
+      workspaceResult.decomposedQuery = decomposedQuery;
+      if (params.originalFilePath) {
+        workspaceResult.originalFilePath = params.originalFilePath;
+      }
 
       return {
         success: true,
@@ -85,16 +82,7 @@ export class WorkspaceUseCase {
       }
       
       // Convert WorkspaceEntity to Workspace interface
-      const workspace: Workspace = {
-        id: workspaceResult.data.id,
-        name: workspaceResult.data.name,
-        originalQuery: '', // TODO: Get from entity
-        originalFilePath: workspaceResult.data.originalFilePath || undefined,
-        decomposedQuery: '', // TODO: Get from entity
-        privateCtes: {}, // TODO: Get from entity
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString()
-      };
+      const workspace = workspaceResult.data.toWorkspaceInterface();
       
       return {
         success: true,
@@ -136,16 +124,7 @@ export class WorkspaceUseCase {
       }
 
       // Return updated workspace with the CTE modification (converting entity to interface)
-      const updatedWorkspace: Workspace = {
-        id: workspace.id,
-        name: workspace.name,
-        originalQuery: '', // TODO: Get from workspace entity
-        originalFilePath: workspace.originalFilePath || undefined,
-        decomposedQuery: '', // TODO: Get from workspace entity  
-        privateCtes: {}, // TODO: Handle CTE update properly
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString()
-      };
+      const updatedWorkspace = workspace.toWorkspaceInterface();
 
       return {
         success: true,
@@ -162,14 +141,15 @@ export class WorkspaceUseCase {
 
   async generateExecutableCTE(cteName: string): Promise<ApiResponse<string>> {
     try {
-      const workspace = await this.workspaceRepository.findById('current');
-      if (!workspace) {
+      const workspaceResult = await this.workspaceRepository.findById('current');
+      if (!workspaceResult.success || !workspaceResult.data) {
         return {
           success: false,
           error: 'No active workspace found'
         };
       }
 
+      const workspace = workspaceResult.data.toWorkspaceInterface();
       if (!workspace.privateCtes[cteName]) {
         return {
           success: false,
@@ -196,14 +176,15 @@ export class WorkspaceUseCase {
 
   async validateWorkspace(): Promise<ApiResponse<{ isValid: boolean; errors: string[] }>> {
     try {
-      const workspace = await this.workspaceRepository.findById('current');
-      if (!workspace) {
+      const workspaceResult = await this.workspaceRepository.findById('current');
+      if (!workspaceResult.success || !workspaceResult.data) {
         return {
           success: false,
           error: 'No active workspace found'
         };
       }
 
+      const workspace = workspaceResult.data.toWorkspaceInterface();
       const errors: string[] = [];
 
       // Check for circular dependencies

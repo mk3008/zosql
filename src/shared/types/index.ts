@@ -41,42 +41,10 @@ export interface QueryExecutionResult {
   executedSql?: string; // The actual SQL that was executed (with WITH clauses)
 }
 
-// Forward declaration for circular reference
-export interface SqlModelEntity {
-  type: 'main' | 'cte';
-  name: string;
-  sqlWithoutCte: string;
-  editorContent: string;
-  dependents: SqlModelEntity[];
-  columns?: string[];
-  originalSql?: string;
-  hasUnsavedChanges: boolean;
-  updateEditorContent(content: string): void;
-  save(): void;
-  getFullSql(testValues?: TestValuesModel | string, filterConditions?: unknown, forExecution?: boolean, useEditorContent?: boolean): Promise<string>;
-  getDependentNames(): string[];
-  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: unknown, forExecution?: boolean, useEditorContent?: boolean): Promise<unknown>;
-}
+// Forward declaration for circular reference - use actual class from core/entities
+export type { SqlModelEntity } from '@core/entities/sql-model';
 
-export interface SqlModel {
-  /** Type of SQL model - main query or CTE */
-  type: 'main' | 'cte';
-  
-  /** Name of the model - file name for main, CTE name for CTEs */
-  name: string;
-  
-  /** SQL query without WITH clause */
-  sqlWithoutCte: string;
-  
-  /** List of SQL models this model depends on */
-  dependents: SqlModelEntity[];
-  
-  /** Optional: Column information if available */
-  columns?: string[];
-  
-  /** Optional: Original full SQL (for main type only) */
-  originalSql?: string;
-}
+// SqlModel interface removed - use SqlModelEntity class directly to avoid circular dependencies
 
 // UI State Types
 export interface UIState {
