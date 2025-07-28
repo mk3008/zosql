@@ -46,7 +46,10 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   async getWorkspace(): Promise<WorkspaceInfo | null> {
     try {
       const workspace = this.getWorkspaceFromStorage();
-      return workspace.workspaceInfo;
+      if (isValidWorkspaceData(workspace)) {
+        return workspace.workspaceInfo || null;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -84,7 +87,10 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   async getPrivateCtes(): Promise<Record<string, PrivateCte>> {
     try {
       const workspace = this.getWorkspaceFromStorage();
-      return workspace.privateCtes || {};
+      if (isValidWorkspaceData(workspace)) {
+        return workspace.privateCtes || {};
+      }
+      return {};
     } catch {
       return {};
     }
