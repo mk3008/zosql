@@ -425,7 +425,7 @@ async function fetchMultiple(): Promise<[Users, Posts]> {
 
 describe('UserService', () => {
   let service: UserService;
-  let mockRepository: jest.Mocked<UserRepository>;
+  let mockRepository: MockedObject<UserRepository>;
   
   beforeEach(() => {
     mockRepository = createMockRepository();
@@ -468,7 +468,7 @@ describe('UserService', () => {
 // ✅ 推奨: ViewModelの単体テスト（ブラウザ不要）
 describe('SqlEditorViewModel', () => {
   let viewModel: SqlEditorViewModel;
-  let mockCommandExecutor: jest.Mocked<CommandExecutor>;
+  let mockCommandExecutor: MockedObject<CommandExecutor>;
   
   beforeEach(() => {
     mockCommandExecutor = createMockCommandExecutor();
