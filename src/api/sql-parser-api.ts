@@ -162,7 +162,8 @@ export class SqlParserApi {
                   const collector = new SelectableColumnCollector();
                   // Type guard for rawsql-ts query object
                   if (this.isValidQueryObject(cteQuery)) {
-                    collector.collect(cteQuery);
+                    // Type assertion for rawsql-ts SqlComponent
+                    collector.collect(cteQuery as any);
                   }
                   const collectedColumns = collector.getValues();
                   
@@ -341,7 +342,14 @@ export class SqlParserApi {
         if (queryAny.fromClause && queryAny.fromClause.joins && Array.isArray(queryAny.fromClause.joins)) {
           (queryAny.fromClause.joins as unknown[]).forEach((join: unknown, index: number) => {
             if (!this.isValidQueryObject(join)) return;
-            if (join.source) {
+            const joinObj = join as Record<string, unknown>;
+            if (joinObj.source) {
+              const joinSource = joinObj.source as Record<string, unknown>;
+              const datasource = joinSource.datasource as Record<string, unknown> | undefined;
+              const qualifiedName = datasource?.qualifiedName as Record<string, unknown> | undefined;
+              const aliasExpression = joinSource.aliasExpression as Record<string, unknown> | undefined;
+              const table = aliasExpression?.table as Record<string, unknown> | undefined;
+              
               let tableName = null;
               const tableAlias = table?.name as string | undefined;
               let isSubquery = false;
@@ -364,7 +372,8 @@ export class SqlParserApi {
                 try {
                   const collector = new SelectableColumnCollector();
                   if (this.isValidQueryObject(datasource.query)) {
-                    collector.collect(datasource.query);
+                    // Type assertion for rawsql-ts SqlComponent
+                    collector.collect(datasource.query as any);
                   }
                   const collectedColumns = collector.getValues();
                   
@@ -428,14 +437,14 @@ export class SqlParserApi {
                               } else {
                                 // Unknown table, fallback to *
                                 subqueryColumns.push('*');
-                                this.logger.log(`[PARSE-SQL] Unknown table ${sourceTableName}, using * as fallback`);
+                                this.logger.log(`[PARSE-SQL] Unknown table ${String(sourceTableName)}, using * as fallback`);
                               }
                             } else {
                               // Fallback to just using *
                               subqueryColumns.push('*');
                             }
                           } else {
-                            subqueryColumns.push(columnName);
+                            subqueryColumns.push(String(columnName));
                           }
                         }
                       });
@@ -463,12 +472,12 @@ export class SqlParserApi {
                   
                   if (queryAny.withClause && queryAny.withClause.tables && Array.isArray(queryAny.withClause.tables)) {
                     (queryAny.withClause.tables as unknown[]).forEach((cte: unknown) => {
-                      if (cte.aliasExpression && cte.aliasExpression.table && cte.aliasExpression.table.name === tableName) {
+                      if (isValidCte(cte) && cte.aliasExpression?.table?.name === tableName) {
                         isCTE = true;
                         
                         // Extract columns from CTE definition
                         if (isValidCte(cte) && cte.query?.selectClause?.items) {
-                          cte.query.selectClause.items.forEach((item: unknown) => {
+                          (cte.query.selectClause.items as unknown[]).forEach((item: unknown) => {
                             if (isValidSelectItem(item) && item.identifier?.name) {
                               cteColumns.push(item.identifier.name);
                             }

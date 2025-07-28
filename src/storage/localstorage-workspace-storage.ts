@@ -107,22 +107,27 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
 
   async updatePrivateCte(cteName: string, cte: PrivateCte): Promise<void> {
     try {
-      const workspace = this.getWorkspaceFromStorage();
+      const workspaceData = this.getWorkspaceFromStorage();
       
-      if (!workspace.privateCtes) {
-        workspace.privateCtes = {};
+      if (!isValidWorkspaceData(workspaceData)) {
+        this.logger.log(`[LOCALSTORAGE-STORAGE] Invalid workspace data for CTE update: ${cteName}`);
+        return;
+      }
+      
+      if (!workspaceData.privateCtes) {
+        workspaceData.privateCtes = {};
       }
 
-      workspace.privateCtes[cteName] = cte;
+      workspaceData.privateCtes[cteName] = cte;
       
       // Update workspace info if it exists
-      if (workspace.workspaceInfo) {
-        workspace.workspaceInfo.privateCtes[cteName] = cte;
-        workspace.workspaceInfo.lastModified = new Date().toISOString();
+      if (workspaceData.workspaceInfo) {
+        workspaceData.workspaceInfo.privateCtes[cteName] = cte;
+        workspaceData.workspaceInfo.lastModified = new Date().toISOString();
       }
 
-      workspace.lastSaved = new Date().toISOString();
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(workspace));
+      workspaceData.lastSaved = new Date().toISOString();
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(workspaceData));
       
       this.logger.log(`[LOCALSTORAGE-STORAGE] Updated CTE: ${cteName}`);
     } catch (error) {
@@ -133,19 +138,24 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
 
   async deletePrivateCte(cteName: string): Promise<void> {
     try {
-      const workspace = this.getWorkspaceFromStorage();
+      const workspaceData = this.getWorkspaceFromStorage();
       
-      if (workspace.privateCtes && workspace.privateCtes[cteName]) {
-        delete workspace.privateCtes[cteName];
+      if (!isValidWorkspaceData(workspaceData)) {
+        this.logger.log(`[LOCALSTORAGE-STORAGE] Invalid workspace data for CTE deletion: ${cteName}`);
+        return;
+      }
+      
+      if (workspaceData.privateCtes && workspaceData.privateCtes[cteName]) {
+        delete workspaceData.privateCtes[cteName];
       }
 
-      if (workspace.workspaceInfo && workspace.workspaceInfo.privateCtes && workspace.workspaceInfo.privateCtes[cteName]) {
-        delete workspace.workspaceInfo.privateCtes[cteName];
-        workspace.workspaceInfo.lastModified = new Date().toISOString();
+      if (workspaceData.workspaceInfo && workspaceData.workspaceInfo.privateCtes && workspaceData.workspaceInfo.privateCtes[cteName]) {
+        delete workspaceData.workspaceInfo.privateCtes[cteName];
+        workspaceData.workspaceInfo.lastModified = new Date().toISOString();
       }
 
-      workspace.lastSaved = new Date().toISOString();
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(workspace));
+      workspaceData.lastSaved = new Date().toISOString();
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(workspaceData));
       
       this.logger.log(`[LOCALSTORAGE-STORAGE] Deleted CTE: ${cteName}`);
     } catch (error) {
@@ -156,15 +166,17 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
 
   async getWorkspaceFile(type: 'main' | 'cte', fileName: string): Promise<{ content: string; fileName: string; type: string } | null> {
     try {
-      const workspace = this.getWorkspaceFromStorage();
+      const workspaceData = this.getWorkspaceFromStorage();
       let content = '';
 
-      if (type === 'main') {
-        content = workspace.mainQuery || workspace.workspaceInfo?.decomposedQuery || '';
-      } else if (type === 'cte') {
-        const cteName = fileName.replace('.cte', '').replace('.sql', '');
-        const cte = workspace.privateCtes?.[cteName];
-        content = cte?.query || '';
+      if (isValidWorkspaceData(workspaceData)) {
+        if (type === 'main') {
+          content = workspaceData.mainQuery || workspaceData.workspaceInfo?.decomposedQuery || '';
+        } else if (type === 'cte') {
+          const cteName = fileName.replace('.cte', '').replace('.sql', '');
+          const cte = workspaceData.privateCtes?.[cteName];
+          content = cte?.query || '';
+        }
       }
 
       if (content) {
@@ -226,25 +238,30 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
    */
   async validateWorkspace(): Promise<{ isValid: boolean; issues: string[] }> {
     try {
-      const workspace = this.getWorkspaceFromStorage();
+      const workspaceData = this.getWorkspaceFromStorage();
       const issues: string[] = [];
 
+      if (!isValidWorkspaceData(workspaceData)) {
+        issues.push('Invalid workspace data structure');
+        return { isValid: false, issues };
+      }
+
       // Check structure
-      if (!workspace.version) {
+      if (!workspaceData.version) {
         issues.push('Missing version information');
       }
 
-      if (workspace.workspaceInfo) {
-        if (!workspace.workspaceInfo.name) {
+      if (workspaceData.workspaceInfo) {
+        if (!workspaceData.workspaceInfo.name) {
           issues.push('Missing workspace name');
         }
-        if (!workspace.workspaceInfo.decomposedQuery) {
+        if (!workspaceData.workspaceInfo.decomposedQuery) {
           issues.push('Missing decomposed query');
         }
       }
 
       // Check CTEs
-      const privateCtes = workspace.privateCtes || {};
+      const privateCtes = workspaceData.privateCtes || {};
       for (const [cteName, cte] of Object.entries(privateCtes)) {
         if (!cte || typeof cte !== 'object') {
           issues.push(`Invalid CTE structure: ${cteName}`);
