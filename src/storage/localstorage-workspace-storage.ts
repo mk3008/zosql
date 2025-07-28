@@ -302,11 +302,20 @@ export class LocalStorageWorkspaceStorage implements WorkspaceStorageInterface {
   }
 
   /**
+   * Type guard for exported workspace data
+   */
+  private isValidExportedData(data: unknown): data is { data: Record<string, unknown> } {
+    return typeof data === 'object' && data !== null && 'data' in data &&
+           typeof (data as { data: unknown }).data === 'object' &&
+           (data as { data: unknown }).data !== null;
+  }
+
+  /**
    * Import workspace from backup/sharing
    */
   async importWorkspace(exportedData: unknown): Promise<void> {
     try {
-      if (!exportedData || !exportedData.data) {
+      if (!this.isValidExportedData(exportedData)) {
         throw new Error('Invalid exported data format');
       }
 

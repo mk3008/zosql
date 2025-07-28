@@ -5,6 +5,7 @@
 
 import React, { useMemo } from 'react';
 import { SqlModelEntity } from '@core/entities/sql-model';
+import { WorkspaceEntity } from '@core/entities/workspace';
 import { DebugLogger } from '../../utils/debug-logger';
 
 interface SqlModelsListProps {
@@ -13,7 +14,7 @@ interface SqlModelsListProps {
   selectedModelName?: string;
   onOpenValuesTab?: () => void;
   isValuesTabActive?: boolean;
-  workspace?: unknown; // WorkspaceEntity for validation results
+  workspace?: WorkspaceEntity; // WorkspaceEntity for validation results
 }
 
 export const SqlModelsList: React.FC<SqlModelsListProps> = ({ 
@@ -36,8 +37,8 @@ export const SqlModelsList: React.FC<SqlModelsListProps> = ({
 
   // Helper function to get validation status for a model
   const getValidationStatus = (modelName: string) => {
-    if (!workspace || !workspace.getValidationResult) {
-      DebugLogger.debug('SqlModelsList', 'getValidationStatus: no workspace or getValidationResult method');
+    if (!workspace) {
+      DebugLogger.debug('SqlModelsList', 'getValidationStatus: no workspace');
       return null;
     }
     

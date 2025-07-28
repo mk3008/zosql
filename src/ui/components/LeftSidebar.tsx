@@ -235,7 +235,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               selectedModelName={selectedModelName}
               onOpenValuesTab={onOpenValuesTab}
               isValuesTabActive={activeTabId === 'values'}
-              workspace={workspace}
+              workspace={workspace || undefined}
             />
           </>
         )}

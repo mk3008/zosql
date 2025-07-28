@@ -29,6 +29,11 @@ function generateDependencyComments(cteNames: string[], outputPath: string): str
   return comments;
 }
 
+// Type guard for CTE query structure
+function isQueryObject(obj: unknown): obj is { query: unknown } {
+  return typeof obj === 'object' && obj !== null && 'query' in obj;
+}
+
 export function decomposeSQL(sql: string, outputPath: string, formatterConfig?: FormatterConfig): DecomposeResult {
   const parsed = parseSQL(sql);
   const files: DecomposedFile[] = [];
@@ -37,6 +42,10 @@ export function decomposeSQL(sql: string, outputPath: string, formatterConfig?: 
   
   // CTEファイルの生成（/cte/フォルダ内）
   for (const cte of parsed.ctes) {
+    // Type-safe access to CTE query
+    if (!isQueryObject(cte.query)) {
+      continue; // Skip invalid CTE structures
+    }
     const cteQuery = cte.query.query; // CommonTable内のSimpleSelectQuery
     
     // rawsql-tsのSqlFormatterを使用（構造化フォーマット）
@@ -50,7 +59,8 @@ export function decomposeSQL(sql: string, outputPath: string, formatterConfig?: 
       keywordCase: config.keywordCase
     });
     
-    const formatResult = formatter.format(cteQuery);
+    // TypeScript workaround: SqlFormatter expects SqlComponent, but we have unknown
+    const formatResult = formatter.format(cteQuery as any);
     
     const fileName = `${outputPath}/cte/${cte.name}.sql`;
     const content = formatResult.formattedSql;

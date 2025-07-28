@@ -1,6 +1,16 @@
 import React from 'react';
 import { QueryExecutionResult } from '@shared/types';
 
+// Type guard to check if a value is a record (object with string keys)
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// Type guard to check if data is an array of records
+function isRecordArray(data: unknown[]): data is Record<string, unknown>[] {
+  return data.length === 0 || data.every(isRecord);
+}
+
 interface QueryResultsProps {
   result: QueryExecutionResult | null;
   isVisible: boolean;
@@ -19,7 +29,16 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
       );
     }
 
-    const columns = Object.keys(result.data[0]);
+    // Type-safe data access with guard
+    if (!isRecordArray(result.data)) {
+      return (
+        <div className="text-center text-dark-text-muted py-8">
+          Invalid data format returned from query
+        </div>
+      );
+    }
+    
+    const columns = result.data.length > 0 ? Object.keys(result.data[0]) : [];
     
     return (
       <div className="overflow-auto">
