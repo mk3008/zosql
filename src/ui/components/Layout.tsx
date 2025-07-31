@@ -505,14 +505,14 @@ export const Layout: React.FC = () => {
               setActiveTabId(mainModel.name);
             }
             
-            // Restore tabs from workspace opened objects (JSON restored workspace)
-            if (isFromJson && workspaceEntity.openedObjects.length > 0 && mainContentRef.current) {
-              DebugLogger.debug('Layout', 'Restoring tabs from JSON workspace opened objects');
+            // Restore tabs from workspace opened objects (for both new and restored workspaces)
+            if (workspaceEntity.openedObjects.length > 0 && mainContentRef.current) {
+              DebugLogger.debug('Layout', isFromJson ? 'Restoring tabs from JSON workspace' : 'Opening tabs for new workspace');
               setTimeout(() => {
                 // Use setTimeout to ensure mainContentRef is ready
                 if (mainContentRef.current) {
                   for (const openedObject of workspaceEntity.openedObjects) {
-                    DebugLogger.debug('Layout', 'Restoring JSON tab:', openedObject.id, openedObject.type);
+                    DebugLogger.debug('Layout', 'Opening tab:', openedObject.id, openedObject.type);
                     
                     if (openedObject.type === 'main' || openedObject.type === 'cte') {
                       // Find the corresponding SQL model
@@ -536,7 +536,7 @@ export const Layout: React.FC = () => {
                   
                   // Set active tab to the workspace's active object
                   if (workspaceEntity.activeObjectId) {
-                    DebugLogger.debug('Layout', 'Setting active tab from JSON to:', workspaceEntity.activeObjectId);
+                    DebugLogger.debug('Layout', 'Setting active tab to:', workspaceEntity.activeObjectId);
                     setActiveTabId(workspaceEntity.activeObjectId);
                     
                     // Also set selectedModelName if it's a SQL model
