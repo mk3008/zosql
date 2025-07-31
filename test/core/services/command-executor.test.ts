@@ -3,7 +3,7 @@
  * Testing command execution management
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { CommandExecutor } from '@core/services/command-executor';
 import { BaseCommand } from '@core/commands/base';
 
@@ -50,13 +50,13 @@ class UnexecutableCommand extends BaseCommand<void> {
 
 describe('CommandExecutor', () => {
   let executor: CommandExecutor;
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleLogSpy: MockInstance;
+  let consoleErrorSpy: MockInstance;
   
   beforeEach(() => {
     executor = new CommandExecutor();
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {}) as any;
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {}) as any;
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
   
   afterEach(() => {

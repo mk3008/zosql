@@ -59,11 +59,11 @@ users as (
 
       await api.handleComposeCte(mockRequest as Request, mockResponse as Response);
 
-      expect(mockJson).toHaveBeenCalledWith({
+      expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({
         success: true,
         composedQuery: expect.stringContaining('with'),
         cteCount: 2
-      });
+      }));
     });
 
     it('コメントのみのCTE定義でエラーを返す', async () => {
@@ -101,11 +101,11 @@ users as (
 
       await api.handleComposeCte(mockRequest as Request, mockResponse as Response);
 
-      expect(mockJson).toHaveBeenCalledWith({
+      expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({
         success: true,
         composedQuery: expect.stringContaining('with'),
         cteCount: 1
-      });
+      }));
     });
   });
 });

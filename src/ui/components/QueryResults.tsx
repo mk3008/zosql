@@ -1,5 +1,5 @@
 import React from 'react';
-import { QueryExecutionResult } from '@shared/types';
+import { QueryExecutionResult } from '@core/types/query-types';
 
 // Type guard to check if a value is a record (object with string keys)
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -7,7 +7,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // Type guard to check if data is an array of records
-function isRecordArray(data: unknown[]): data is Record<string, unknown>[] {
+function isRecordArray(data: readonly unknown[]): data is readonly Record<string, unknown>[] {
   return data.length === 0 || data.every(isRecord);
 }
 
@@ -18,19 +18,45 @@ interface QueryResultsProps {
 }
 
 export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, onClose }) => {
+  // Handle both old and new result formats at component level
+  const rows = result?.rows || (result as any)?.data || [];
+  const status = result?.status || ((result as any)?.success ? 'completed' : 'failed');
+  
+  console.log('[DEBUG] QueryResults component:', {
+    isVisible,
+    result,
+    resultStatus: result?.status,
+    resultRowsLength: result?.rows?.length,
+    resultRowsType: typeof result?.rows,
+    firstRowSample: result?.rows?.[0],
+    computedRows: rows,
+    computedStatus: status
+  });
+  
   if (!isVisible) return null;
 
   const renderTable = () => {
-    if (!result?.success || !result.data || result.data.length === 0) {
+    const isError = status === 'failed' || (result as any)?.error;
+    
+    console.log('[DEBUG] renderTable check:', {
+      hasResult: !!result,
+      status,
+      isError,
+      rowsCount: rows.length,
+      rowsType: typeof rows,
+      firstRow: rows[0]
+    });
+    
+    if (!result || isError || !rows || rows.length === 0) {
       return (
         <div className="text-center text-dark-text-muted py-8">
-          {result?.success ? 'No data returned from query' : 'Query execution failed'}
+          {status === 'completed' ? 'No data returned from query' : 'Query execution failed'}
         </div>
       );
     }
 
     // Type-safe data access with guard
-    if (!isRecordArray(result.data)) {
+    if (!isRecordArray(rows)) {
       return (
         <div className="text-center text-dark-text-muted py-8">
           Invalid data format returned from query
@@ -38,7 +64,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
       );
     }
     
-    const columns = result.data.length > 0 ? Object.keys(result.data[0]) : [];
+    const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
     
     return (
       <div className="overflow-auto">
@@ -61,7 +87,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
             </tr>
           </thead>
           <tbody>
-            {result.data.map((row, rowIndex) => (
+            {rows.map((row, rowIndex) => (
               <tr 
                 key={rowIndex}
                 className={`border-b border-dark-border-primary hover:bg-dark-hover ${
@@ -98,10 +124,11 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   };
 
   const renderError = () => {
-    if (!result?.error) return null;
+    if (!result?.errors || result.errors.length === 0) return null;
+    const errorMessage = result.errors[0].message;
     
     const handleCopyError = () => {
-      navigator.clipboard.writeText(result.error || '').then(() => {
+      navigator.clipboard.writeText(errorMessage || '').then(() => {
         // Could add a toast notification here
         console.log('Error message copied to clipboard');
       }).catch(err => {
@@ -123,10 +150,10 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
         </div>
         <textarea
           readOnly
-          value={result.error}
+          value={errorMessage}
           className="w-full text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3 resize-none"
           style={{ minHeight: '200px', height: 'auto' }}
-          rows={result.error.split('\n').length + 1}
+          rows={errorMessage.split('\n').length + 1}
           onClick={(e) => {
             // Select all text when clicked
             e.currentTarget.select();
@@ -143,14 +170,14 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-dark-text-white">Query Results</span>
           
-          {result?.success && (
+          {((result as any)?.success || result?.status === 'completed') && (
             <span className="flex items-center gap-1 text-xs text-success">
               <span>✓</span>
               <span>Success</span>
             </span>
           )}
           
-          {result?.success === false && (
+          {((result as any)?.error || result?.status === 'failed') && (
             <span className="flex items-center gap-1 text-xs text-error">
               <span>✗</span>
               <span>Error</span>
@@ -160,10 +187,10 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
         
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-4 text-xs text-dark-text-secondary">
-            {result?.success && (
+            {((result as any)?.success || result?.status === 'completed') && (
               <>
-                <span>Rows: {result.rowCount ?? result.data?.length ?? 0}</span>
-                <span>Time: {result.executionTime ?? 0}ms</span>
+                <span>Rows: {result.stats?.rowsReturned ?? (result as any)?.rowCount ?? rows.length ?? 0}</span>
+                <span>Time: {result.stats?.executionTimeMs ?? (result as any)?.executionTime ?? 0}ms</span>
               </>
             )}
           </div>
@@ -180,7 +207,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
 
       {/* Results Content */}
       <div className="flex-1 overflow-hidden">
-        {result?.error ? renderError() : renderTable()}
+        {result?.errors && result.errors.length > 0 ? renderError() : renderTable()}
       </div>
     </div>
   );

@@ -144,7 +144,12 @@ export class FilterConditionsEntity {
    * @param sqlModels - Array of SQL models to analyze
    */
   initializeFromModels(sqlModels: SqlModelEntity[]): void {
-    this.conditions = FilterConditionsEntity.generateTemplate(sqlModels);
+    try {
+      this.conditions = FilterConditionsEntity.generateTemplate(sqlModels);
+    } catch (error) {
+      console.warn('Failed to initialize filter conditions from models:', error);
+      this.conditions = FilterConditionsEntity.getDefaultTemplate();
+    }
   }
 
   /**

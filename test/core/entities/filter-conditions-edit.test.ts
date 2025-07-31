@@ -43,17 +43,17 @@ describe('FilterConditionsEntity Editing', () => {
     // Act
     const template = FilterConditionsEntity.generateTemplate(models);
     
-    // Assert - 空のオブジェクトが生成される
+    // Assert - テンプレートが生成される（IDは空、nameには初期値）
     expect(template).toBe(JSON.stringify({
       user_id: {},
-      name: {}
+      name: { ilike: "%a%" }
     }, null, 2));
     
     // Verify it's valid JSON
     const parsed = JSON.parse(template);
     expect(parsed).toEqual({
       user_id: {},
-      name: {}
+      name: { ilike: "%a%" }
     });
   });
 

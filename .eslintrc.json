@@ -12,7 +12,7 @@
   "parserOptions": {
     "ecmaVersion": "latest",
     "sourceType": "module",
-    "project": "./tsconfig.json"
+    "project": ["./tsconfig.json", "./tsconfig.node.json"]
   },
   "plugins": ["react-refresh"],
   "rules": {
@@ -24,5 +24,13 @@
     "@typescript-eslint/no-unused-vars": "warn",
     "@typescript-eslint/no-unused-expressions": "warn"
   },
-  "ignorePatterns": ["dist", "node_modules", "*.js", "*.cjs", "backup-old-implementation"]
+  "ignorePatterns": ["dist", "node_modules", "*.js", "*.cjs", "backup-old-implementation"],
+  "overrides": [
+    {
+      "files": ["*.config.ts", "*.config.js"],
+      "parserOptions": {
+        "project": "./tsconfig.node.json"
+      }
+    }
+  ]
 }

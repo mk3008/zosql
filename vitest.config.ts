@@ -5,6 +5,8 @@ import path from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  // Environment variables loaded but not currently used in config
+  void env;
   
   return {
     plugins: [react()],

@@ -1,4 +1,5 @@
 import { SelectQueryParser, SqlFormatter } from 'rawsql-ts';
+import type { SqlComponent } from 'rawsql-ts/dist/src/models/SqlComponent';
 import { parseSQL } from './sql-parser.js';
 import { FileManager } from './file-manager.js';
 import { DEFAULT_FORMATTER_CONFIG, FormatterConfig } from './formatter-config.js';
@@ -59,8 +60,8 @@ export function decomposeSQL(sql: string, outputPath: string, formatterConfig?: 
       keywordCase: config.keywordCase
     });
     
-    // TypeScript workaround: SqlFormatter expects SqlComponent, but we have unknown
-    const formatResult = formatter.format(cteQuery as any);
+    // Type assertion: SqlFormatter expects SqlComponent from rawsql-ts
+    const formatResult = formatter.format(cteQuery as SqlComponent);
     
     const fileName = `${outputPath}/cte/${cte.name}.sql`;
     const content = formatResult.formattedSql;

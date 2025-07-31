@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { Logger } from '../utils/logging.js';
+// SqlComponent is not exported from main rawsql-ts index, import from models directly  
+import type { SqlComponent } from 'rawsql-ts/dist/src/models/SqlComponent';
 
 interface TableInfo {
   table: string;
@@ -27,6 +29,20 @@ function isValidSelectItem(item: unknown): item is {
     typeof item === 'object' &&
     item !== null &&
     'identifier' in item
+  );
+}
+
+// Type guard for SqlComponent
+function isSqlComponent(obj: unknown): obj is SqlComponent {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'getKind' in obj &&
+    typeof (obj as Record<string, unknown>).getKind === 'function' &&
+    'accept' in obj &&
+    typeof (obj as Record<string, unknown>).accept === 'function' &&
+    'toSqlString' in obj &&
+    typeof (obj as Record<string, unknown>).toSqlString === 'function'
   );
 }
 
@@ -162,8 +178,8 @@ export class SqlParserApi {
                   const collector = new SelectableColumnCollector();
                   // Type guard for rawsql-ts query object
                   if (this.isValidQueryObject(cteQuery)) {
-                    // Type assertion for rawsql-ts SqlComponent
-                    collector.collect(cteQuery as any);
+                    // Type assertion for rawsql-ts SqlComponent - use unknown first for safety
+                    collector.collect(cteQuery as unknown as SqlComponent);
                   }
                   const collectedColumns = collector.getValues();
                   
@@ -371,9 +387,9 @@ export class SqlParserApi {
                 // Extract columns from subquery using SelectableColumnCollector
                 try {
                   const collector = new SelectableColumnCollector();
-                  if (this.isValidQueryObject(datasource.query)) {
-                    // Type assertion for rawsql-ts SqlComponent
-                    collector.collect(datasource.query as any);
+                  if (this.isValidQueryObject(datasource.query) && isSqlComponent(datasource.query)) {
+                    // Safe type guard ensures SqlComponent interface compatibility
+                    collector.collect(datasource.query);
                   }
                   const collectedColumns = collector.getValues();
                   

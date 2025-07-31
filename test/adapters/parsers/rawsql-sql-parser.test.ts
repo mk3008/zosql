@@ -17,7 +17,7 @@ vi.mock('rawsql-ts', () => ({
 import { SelectQueryParser } from 'rawsql-ts';
 
 // Helper function to create proper SelectQuery mocks
-function createMockSelectQuery(simpleQuery: any): SelectQuery {
+function createMockSelectQuery(simpleQuery: unknown): SelectQuery {
   return {
     toSimpleQuery: () => simpleQuery,
     setParameter: vi.fn(),

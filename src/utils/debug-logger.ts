@@ -64,7 +64,8 @@ DebugLogger.configure('MainContentViewModel', { enabled: true, level: 'warn' });
 DebugLogger.configure('WorkspaceEntity', { enabled: true, level: 'error' });
 DebugLogger.configure('SqlModelsList', { enabled: false, level: 'error' });
 DebugLogger.configure('LeftSidebar', { enabled: true, level: 'info' });
-DebugLogger.configure('Layout', { enabled: true, level: 'info' });
-DebugLogger.configure('MainContentMvvm', { enabled: false, level: 'error' });
+DebugLogger.configure('Layout', { enabled: true, level: 'debug' }); // Enable Layout logs for debugging
+DebugLogger.configure('MainContentMvvm', { enabled: true, level: 'debug' }); // Enable MainContent logs for debugging
+DebugLogger.configure('MonacoEditor', { enabled: false, level: 'error' }); // Disable noisy Monaco logs
 
 export { DebugLogger };

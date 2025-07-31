@@ -62,12 +62,12 @@ export const Layout: React.FC = () => {
   const { errors, addError, clearError, clearAllErrors } = useErrorPanel();
   
   const handleModelClick = (model: SqlModelEntity) => {
-    console.log('[DEBUG] handleModelClick called for model:', model.name);
-    console.log('[DEBUG] Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
+    DebugLogger.debug('Layout', 'handleModelClick called for model:', model.name);
+    DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
     // Update both states synchronously to prevent flicker
     setSelectedModelName(model.name);
     setActiveTabId(model.name);
-    console.log('[DEBUG] State updated - selectedModelName:', model.name, 'activeTabId:', model.name);
+    DebugLogger.debug('Layout', 'State updated - selectedModelName:', model.name, 'activeTabId:', model.name);
     // Open model in editor tab with entity reference (SQL is already formatted during creation)
     mainContentRef.current?.openSqlModel(model.name, model.sqlWithoutCte, model.type, model);
   };
@@ -111,13 +111,13 @@ export const Layout: React.FC = () => {
       try {
         localStorage.setItem('zosql_workspace_v3', JSON.stringify(workspace.toJSON()));
       } catch (error) {
-        console.warn('Failed to save workspace to localStorage:', error);
+        DebugLogger.warn('Layout', 'Failed to save workspace to localStorage:', error);
       }
       
       // Open the main SQL model from workspace (processed data)
       const mainModel = workspace.sqlModels.find(m => m.type === 'main');
       if (mainModel) {
-        console.log('[DEBUG] Setting initial selectedModelName to:', mainModel.name);
+        DebugLogger.debug('Layout', 'Setting initial selectedModelName to:', mainModel.name);
         // Set initial selectedModelName and activeTabId
         setSelectedModelName(mainModel.name);
         setActiveTabId(mainModel.name);
@@ -134,7 +134,7 @@ export const Layout: React.FC = () => {
       showSuccess(`Opened ${file.name} with ${workspace.sqlModels.length} models`);
       
       // Automatically analyze all schemas after opening file
-      console.log('[DEBUG] Starting automatic static analysis after file open');
+      DebugLogger.debug('Layout', 'Starting automatic static analysis after file open');
       try {
         await workspace.validateAllSchemas();
         
@@ -158,10 +158,10 @@ export const Layout: React.FC = () => {
           
           addError(errorSummary, errorDetails);
         } else {
-          console.log('[DEBUG] All schemas analyzed successfully');
+          DebugLogger.debug('Layout', 'All schemas analyzed successfully');
         }
       } catch (validationError) {
-        console.error('[DEBUG] Static analysis failed:', validationError);
+        DebugLogger.debug('Layout', 'Static analysis failed:', validationError);
         // Continue anyway - validation failure shouldn't prevent file opening
       }
     } catch (error) {
@@ -178,41 +178,177 @@ export const Layout: React.FC = () => {
       
       try {
         const saved = localStorage.getItem('zosql_workspace_v3');
-        console.log('[DEBUG] Loading saved workspace from localStorage:', saved ? 'found' : 'not found');
+        DebugLogger.debug('Layout', 'Loading saved workspace from localStorage:', saved ? 'found' : 'not found');
+        
+        // Debug: Show actual localStorage content
+        if (saved) {
+          try {
+            const parsedData = JSON.parse(saved);
+            DebugLogger.debug('Layout', 'Saved workspace openedObjects count:', parsedData.openedObjects?.length || 0);
+            DebugLogger.debug('Layout', 'Saved workspace activeObjectId:', parsedData.activeObjectId);
+            if (parsedData.openedObjects?.length > 0) {
+              DebugLogger.debug('Layout', 'Saved opened objects:', parsedData.openedObjects.map((obj: any) => `${obj.id} (${obj.type})`).join(', '));
+            }
+          } catch (e) {
+            DebugLogger.warn('Layout', 'Failed to parse localStorage data for debugging:', e);
+          }
+        }
         
         if (saved) {
           const workspaceData = JSON.parse(saved);
-          console.log('[DEBUG] Saved workspace data:', workspaceData);
+          DebugLogger.debug('Layout', 'Saved workspace data:', workspaceData);
           
-          // Check if this is an old workspace that needs to be reset
+          // Check if this is an old workspace that needs to be reset  
+          // Only reset if it's the specific old workspace name or completely missing core structure
           if (workspaceData.name === 'syokiworkspace' || 
-              !workspaceData.testValues?.withClause ||
-              !workspaceData.openedObjects ||
-              !workspaceData.layoutState) {
-            console.log('[DEBUG] Old workspace detected (missing openedObjects/layoutState), will create new demoworkspace');
+              !workspaceData.sqlModels || 
+              !Array.isArray(workspaceData.sqlModels) ||
+              workspaceData.sqlModels.length === 0) {
+            DebugLogger.info('Layout', 'Old workspace detected (missing core structure), will create new demoworkspace');
             localStorage.removeItem('zosql_workspace_v3'); // Clear old data
             // Continue to create new workspace below
           } else {
-            console.log('[DEBUG] Valid workspace found, restoring it');
+            DebugLogger.info('Layout', 'Valid workspace found, restoring it');
             const workspace = WorkspaceEntity.fromJSON(workspaceData);
-            console.log('[DEBUG] Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
+            DebugLogger.debug('Layout', 'Loaded workspace:', workspace.name, 'testValues:', workspace.testValues.withClause);
             setCurrentWorkspace(workspace);
             
-            console.log('[DEBUG] Loaded workspace with opened objects:', workspace.openedObjects.length);
+            DebugLogger.debug('Layout', 'Loaded workspace with opened objects:', workspace.openedObjects.length);
             
             // Restore tabs from workspace opened objects
-            if (workspace.openedObjects.length > 0 && mainContentRef.current) {
-              console.log('[DEBUG] Restoring tabs from workspace opened objects');
+            if (workspace.openedObjects.length > 0) {
+              DebugLogger.debug('Layout', 'Restoring tabs from workspace opened objects');
+              
+              // Delay tab restoration to ensure MainContent is mounted
+              setTimeout(() => {
+                if (!mainContentRef.current) {
+                  DebugLogger.error('Layout', 'MainContent ref not available for tab restoration');
+                  return;
+                }
+                
+                // Clear any existing tabs first to prevent duplicates
+                mainContentRef.current.clearAllTabs();
+                
+                for (const openedObject of workspace.openedObjects) {
+                  DebugLogger.debug('Layout', 'Restoring tab:', openedObject.id, openedObject.type);
+                  
+                  if (openedObject.type === 'main' || openedObject.type === 'cte') {
+                    // Find the corresponding SQL model
+                    const model = workspace.sqlModels.find(m => m.name === openedObject.id);
+                    if (model) {
+                      mainContentRef.current.openSqlModel(
+                        openedObject.id, 
+                        openedObject.content, 
+                        openedObject.type,
+                        model
+                      );
+                    }
+                  } else if (openedObject.type === 'values') {
+                    mainContentRef.current.openValuesTab();
+                  } else if (openedObject.type === 'formatter') {
+                    mainContentRef.current.openFormatterTab();
+                  } else if (openedObject.type === 'condition') {
+                    mainContentRef.current.openConditionTab();
+                  }
+                }
+                
+                // Set active tab to the workspace's active object
+                if (workspace.activeObjectId) {
+                  DebugLogger.debug('Layout', 'Setting active tab to:', workspace.activeObjectId);
+                  setActiveTabId(workspace.activeObjectId);
+                  
+                  // Also set selectedModelName if it's a SQL model
+                  const activeObject = workspace.openedObjects.find(obj => obj.id === workspace.activeObjectId);
+                  if (activeObject && (activeObject.type === 'main' || activeObject.type === 'cte')) {
+                    setSelectedModelName(workspace.activeObjectId);
+                  }
+                }
+              }, 100); // 100ms delay to ensure component mounting
+            } else {
+              // ERROR: No opened objects found in workspace - this should not happen
+              DebugLogger.error('Layout', 'CRITICAL: No opened objects found in workspace - this indicates a data corruption issue');
+              DebugLogger.error('Layout', 'Workspace name:', workspace.name, 'SQL models:', workspace.sqlModels.length);
+              
+              // DO NOT use fallback - this masks the real problem
+              // The root cause is that openedObjects is not being properly maintained
+            }
+            
+            // Automatically validate all schemas after loading workspace
+            DebugLogger.debug('Layout', 'Starting automatic static analysis after workspace load');
+            try {
+              await workspace.validateAllSchemas();
+              
+              // Check validation results but don't show errors on initial load
+              const modelsToValidate = workspace.sqlModels.filter(model => 
+                model.type === 'main' || model.type === 'cte'
+              );
+              
+              const failedModels = modelsToValidate
+                .map(model => ({ 
+                  model, 
+                  result: workspace.getValidationResult(model.name) 
+                }))
+                .filter(({ result }) => result && !result.success);
+              
+              if (failedModels.length > 0) {
+                DebugLogger.debug('Layout', 'Schema validation found issues in', failedModels.length, 'models on initial load');
+              } else {
+                DebugLogger.debug('Layout', 'All schemas validated successfully on initial load');
+              }
+            } catch (validationError) {
+              DebugLogger.debug('Layout', 'Schema validation failed on initial load:', validationError);
+              // Continue anyway - validation failure shouldn't prevent workspace loading
+            }
+            
+            setIsWorkspaceLoading(false);
+            return; // Exit early - workspace loaded successfully, don't create demo workspace
+          }
+        }
+        
+        // Create initial workspace for main.sql if no saved workspace exists OR old workspace was cleared
+        DebugLogger.debug('Layout', 'Creating new demoworkspace using factory');
+        
+        let initialWorkspace: WorkspaceEntity;
+        try {
+          initialWorkspace = createValidatedDemoWorkspace();
+          DebugLogger.debug('Layout', 'Created workspace with testValues:', initialWorkspace.testValues.withClause);
+          DebugLogger.debug('Layout', 'Initialized FilterConditions:', initialWorkspace.filterConditions.displayString);
+          
+          setCurrentWorkspace(initialWorkspace);
+          
+          // Set initial selectedModelName and restore tabs from demo workspace
+          const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
+          if (mainModel) {
+            DebugLogger.debug('Layout', 'Setting initial selectedModelName from new workspace to:', mainModel.name);
+            setSelectedModelName(mainModel.name);
+            setActiveTabId(mainModel.name);
+            
+            // Demo workspace should ALWAYS have openedObjects from the factory
+            if (initialWorkspace.openedObjects.length === 0) {
+              DebugLogger.error('Layout', 'CRITICAL: Demo workspace created with NO opened objects - factory is broken');
+              showError('Failed to create proper demo workspace - missing opened objects');
+              return;
+            }
+            
+            // Restore tabs from demo workspace opened objects (should always exist)
+            DebugLogger.debug('Layout', 'Restoring tabs from demo workspace opened objects');
+            
+            // Delay tab restoration to ensure MainContent is mounted
+            setTimeout(() => {
+              if (!mainContentRef.current) {
+                DebugLogger.error('Layout', 'MainContent ref not available for demo workspace tab restoration');
+                return;
+              }
               
               // Clear any existing tabs first to prevent duplicates
               mainContentRef.current.clearAllTabs();
               
-              for (const openedObject of workspace.openedObjects) {
-                console.log('[DEBUG] Restoring tab:', openedObject.id, openedObject.type);
+              for (const openedObject of initialWorkspace.openedObjects) {
+                DebugLogger.debug('Layout', 'Restoring demo tab:', openedObject.id, openedObject.type);
                 
                 if (openedObject.type === 'main' || openedObject.type === 'cte') {
                   // Find the corresponding SQL model
-                  const model = workspace.sqlModels.find(m => m.name === openedObject.id);
+                  const model = initialWorkspace.sqlModels.find(m => m.name === openedObject.id);
                   if (model) {
                     mainContentRef.current.openSqlModel(
                       openedObject.id, 
@@ -231,81 +367,31 @@ export const Layout: React.FC = () => {
               }
               
               // Set active tab to the workspace's active object
-              if (workspace.activeObjectId) {
-                console.log('[DEBUG] Setting active tab to:', workspace.activeObjectId);
-                setActiveTabId(workspace.activeObjectId);
+              if (initialWorkspace.activeObjectId) {
+                DebugLogger.debug('Layout', 'Setting active tab for demo workspace to:', initialWorkspace.activeObjectId);
+                setActiveTabId(initialWorkspace.activeObjectId);
                 
                 // Also set selectedModelName if it's a SQL model
-                const activeObject = workspace.openedObjects.find(obj => obj.id === workspace.activeObjectId);
+                const activeObject = initialWorkspace.openedObjects.find(obj => obj.id === initialWorkspace.activeObjectId);
                 if (activeObject && (activeObject.type === 'main' || activeObject.type === 'cte')) {
-                  setSelectedModelName(workspace.activeObjectId);
+                  setSelectedModelName(initialWorkspace.activeObjectId);
                 }
               }
-            } else {
-              // No opened objects - set initial selectedModelName for main model only
-              const mainModel = workspace.sqlModels.find(m => m.type === 'main');
-              if (mainModel) {
-                console.log('[DEBUG] No opened objects, setting initial selectedModelName from saved workspace to:', mainModel.name);
-                setSelectedModelName(mainModel.name);
-                setActiveTabId(mainModel.name);
-              }
-            }
-            
-            // Automatically validate all schemas after loading workspace
-            console.log('[DEBUG] Starting automatic static analysis after workspace load');
-            try {
-              await workspace.validateAllSchemas();
-              
-              // Check validation results but don't show errors on initial load
-              const modelsToValidate = workspace.sqlModels.filter(model => 
-                model.type === 'main' || model.type === 'cte'
-              );
-              
-              const failedModels = modelsToValidate
-                .map(model => ({ 
-                  model, 
-                  result: workspace.getValidationResult(model.name) 
-                }))
-                .filter(({ result }) => result && !result.success);
-              
-              if (failedModels.length > 0) {
-                console.log('[DEBUG] Schema validation found issues in', failedModels.length, 'models on initial load');
-              } else {
-                console.log('[DEBUG] All schemas validated successfully on initial load');
-              }
-            } catch (validationError) {
-              console.error('[DEBUG] Schema validation failed on initial load:', validationError);
-              // Continue anyway - validation failure shouldn't prevent workspace loading
-            }
-            
-            setIsWorkspaceLoading(false);
-            return; // Exit early - workspace loaded successfully, don't create demo workspace
-          }
-        }
-        
-        // Create initial workspace for main.sql if no saved workspace exists OR old workspace was cleared
-        console.log('[DEBUG] Creating new demoworkspace using factory');
-        
-        let initialWorkspace: WorkspaceEntity;
-        try {
-          initialWorkspace = createValidatedDemoWorkspace();
-          console.log('[DEBUG] Created workspace with testValues:', initialWorkspace.testValues.withClause);
-          console.log('[DEBUG] Initialized FilterConditions:', initialWorkspace.filterConditions.displayString);
-          
-          setCurrentWorkspace(initialWorkspace);
-          
-          // Set initial selectedModelName for main model
-          const mainModel = initialWorkspace.sqlModels.find(m => m.type === 'main');
-          if (mainModel) {
-            console.log('[DEBUG] Setting initial selectedModelName from new workspace to:', mainModel.name);
-            setSelectedModelName(mainModel.name);
-            setActiveTabId(mainModel.name);
+            }, 100); // 100ms delay to ensure component mounting
           }
           
-          console.log('[DEBUG] Created workspace with opened objects:', initialWorkspace.openedObjects.length);
+          DebugLogger.debug('Layout', 'Created workspace with opened objects:', initialWorkspace.openedObjects.length);
+          
+          // Debug: Show initial opened objects details
+          if (initialWorkspace.openedObjects.length > 0) {
+            DebugLogger.debug('Layout', 'Initial opened objects:', initialWorkspace.openedObjects.map(obj => `${obj.id} (${obj.type})`).join(', '));
+            DebugLogger.debug('Layout', 'Initial activeObjectId:', initialWorkspace.activeObjectId);
+          } else {
+            DebugLogger.warn('Layout', 'Demo workspace created with NO opened objects - this may cause tab restoration issues');
+          }
           
           // Automatically validate all schemas after creating new workspace
-          console.log('[DEBUG] Starting automatic static analysis after workspace creation');
+          DebugLogger.debug('Layout', 'Starting automatic static analysis after workspace creation');
           try {
             await initialWorkspace.validateAllSchemas();
             
@@ -322,16 +408,16 @@ export const Layout: React.FC = () => {
               .filter(({ result }) => result && !result.success);
             
             if (failedModels.length > 0) {
-              console.log('[DEBUG] Schema validation found issues in', failedModels.length, 'models in demo workspace');
+              DebugLogger.debug('Layout', 'Schema validation found issues in', failedModels.length, 'models in demo workspace');
             } else {
-              console.log('[DEBUG] All schemas validated successfully in demo workspace');
+              DebugLogger.debug('Layout', 'All schemas validated successfully in demo workspace');
             }
           } catch (validationError) {
-            console.error('[DEBUG] Schema validation failed for demo workspace:', validationError);
+            DebugLogger.debug('Layout', 'Schema validation failed for demo workspace:', validationError);
             // Continue anyway - validation failure shouldn't prevent workspace creation
           }
         } catch (error) {
-          console.error('[ERROR] Failed to create demo workspace:', error);
+          DebugLogger.error('Layout', 'Failed to create demo workspace:', error);
           showError('Failed to create initial workspace');
           return;
         }
@@ -339,12 +425,12 @@ export const Layout: React.FC = () => {
         // Save initial workspace to localStorage
         try {
           localStorage.setItem('zosql_workspace_v3', JSON.stringify(initialWorkspace.toJSON()));
-          console.log('[DEBUG] Saved new workspace to localStorage');
+          DebugLogger.debug('Layout', 'Saved new workspace to localStorage');
         } catch (error) {
-          console.warn('Failed to save initial workspace to localStorage:', error);
+          DebugLogger.warn('Layout', 'Failed to save initial workspace to localStorage:', error);
         }
       } catch (error) {
-        console.error('[ERROR] Failed to load or create workspace:', error);
+        DebugLogger.error('Layout', 'Failed to load or create workspace:', error);
         showError('Failed to load workspace');
       } finally {
         setIsWorkspaceLoading(false);
@@ -375,20 +461,38 @@ export const Layout: React.FC = () => {
             let workspaceEntity;
             const isFromJson = workspace && typeof workspace.toJSON !== 'function';
             
+            DebugLogger.debug('Layout', 'Opening new workspace, clearing existing state');
+            DebugLogger.debug('Layout', 'Previous workspace:', currentWorkspace?.name || 'None');
+            
+            // CRITICAL: Always clear existing workspace state when opening new workspace
+            if (mainContentRef.current) {
+              DebugLogger.debug('Layout', 'Clearing all tabs and resetting MainContent state');
+              mainContentRef.current.clearAllTabs();
+            }
+            
+            // Clear any existing workspace state in Layout
+            DebugLogger.debug('Layout', 'Clearing Layout state');
+            setActiveTabId('');
+            setSelectedModelName('');
+            
+            // Force garbage collection hint (if available)
+            if (typeof window !== 'undefined' && (window as any).gc) {
+              try {
+                (window as any).gc();
+                DebugLogger.debug('Layout', 'Forced garbage collection');
+              } catch (e) {
+                // Silently ignore - gc() is not always available
+              }
+            }
+            
             // Check if workspace is already a WorkspaceEntity or raw JSON data
             if (workspace && typeof workspace.toJSON === 'function') {
               // Already a WorkspaceEntity
               workspaceEntity = workspace;
+              DebugLogger.debug('Layout', 'Using existing WorkspaceEntity:', workspaceEntity.name);
             } else {
               // Raw JSON data - restore it
-              console.log('[DEBUG] Restoring workspace from JSON:', workspace);
-              
-              // Clear all existing tabs when loading from JSON
-              if (mainContentRef.current) {
-                console.log('[DEBUG] Clearing all tabs before loading JSON workspace');
-                mainContentRef.current.clearAllTabs();
-              }
-              
+              DebugLogger.debug('Layout', 'Restoring workspace from JSON:', workspace);
               workspaceEntity = WorkspaceEntity.fromJSON(workspace as unknown as Record<string, unknown>);
             }
             
@@ -403,12 +507,12 @@ export const Layout: React.FC = () => {
             
             // Restore tabs from workspace opened objects (JSON restored workspace)
             if (isFromJson && workspaceEntity.openedObjects.length > 0 && mainContentRef.current) {
-              console.log('[DEBUG] Restoring tabs from JSON workspace opened objects');
+              DebugLogger.debug('Layout', 'Restoring tabs from JSON workspace opened objects');
               setTimeout(() => {
                 // Use setTimeout to ensure mainContentRef is ready
                 if (mainContentRef.current) {
                   for (const openedObject of workspaceEntity.openedObjects) {
-                    console.log('[DEBUG] Restoring JSON tab:', openedObject.id, openedObject.type);
+                    DebugLogger.debug('Layout', 'Restoring JSON tab:', openedObject.id, openedObject.type);
                     
                     if (openedObject.type === 'main' || openedObject.type === 'cte') {
                       // Find the corresponding SQL model
@@ -432,7 +536,7 @@ export const Layout: React.FC = () => {
                   
                   // Set active tab to the workspace's active object
                   if (workspaceEntity.activeObjectId) {
-                    console.log('[DEBUG] Setting active tab from JSON to:', workspaceEntity.activeObjectId);
+                    DebugLogger.debug('Layout', 'Setting active tab from JSON to:', workspaceEntity.activeObjectId);
                     setActiveTabId(workspaceEntity.activeObjectId);
                     
                     // Also set selectedModelName if it's a SQL model
@@ -450,12 +554,12 @@ export const Layout: React.FC = () => {
               localStorage.setItem('zosql_workspace_v3', JSON.stringify(workspaceEntity.toJSON()));
               showSuccess(isFromJson ? 'Workspace loaded successfully' : 'Workspace created successfully');
             } catch (error) {
-              console.warn('Failed to save workspace to localStorage:', error);
+              DebugLogger.warn('Layout', 'Failed to save workspace to localStorage:', error);
             }
             
             // Run static analysis for JSON loaded workspaces
             if (isFromJson && mainContentRef.current) {
-              console.log('[DEBUG] Running static analysis for loaded JSON workspace');
+              DebugLogger.debug('Layout', 'Running static analysis for loaded JSON workspace');
               setTimeout(() => {
                 // Use setTimeout to ensure workspace is fully loaded
                 if (mainContentRef.current) {
@@ -464,7 +568,7 @@ export const Layout: React.FC = () => {
               }, 100);
             }
           } catch (error) {
-            console.error('Failed to process workspace:', error);
+            DebugLogger.error('Layout', 'Failed to process workspace:', error);
             showError('Failed to load workspace: ' + (error instanceof Error ? error.message : 'Unknown error'));
           }
         }}
@@ -484,7 +588,7 @@ export const Layout: React.FC = () => {
               
               showSuccess('Workspace saved successfully');
             } catch (error) {
-              console.error('Failed to save workspace:', error);
+              DebugLogger.error('Layout', 'Failed to save workspace:', error);
               showError('Failed to save workspace');
             }
           }
@@ -498,7 +602,7 @@ export const Layout: React.FC = () => {
             const finalSql = await currentWorkspace.generateFinalSql();
             return { sql: finalSql };
           } catch (error) {
-            console.error('Failed to generate Final SQL:', error);
+            DebugLogger.error('Layout', 'Failed to generate Final SQL:', error);
             return { 
               sql: '', 
               error: error instanceof Error ? error.message : 'Unknown error occurred' 
@@ -515,12 +619,12 @@ export const Layout: React.FC = () => {
           <LeftSidebar 
             key={leftSidebarKey} // Force re-render when static analysis completes
             onOpenValuesTab={() => {
-              console.log('[DEBUG] onOpenValuesTab called');
-              console.log('[DEBUG] Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
+              DebugLogger.debug('Layout', 'onOpenValuesTab called');
+              DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
               // Update states synchronously to prevent flicker
               setActiveTabId('values');
               // Keep selectedModelName as is - don't clear it to avoid flicker
-              console.log('[DEBUG] State updated - selectedModelName: unchanged, activeTabId: values');
+              DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
               mainContentRef.current?.openValuesTab();
             }} 
             sqlModels={currentWorkspace?.sqlModels || []}
@@ -544,10 +648,10 @@ export const Layout: React.FC = () => {
           showError={showError}
           showErrorWithDetails={addError}
           onActiveTabChange={(tabId) => {
-            console.log('[DEBUG] onActiveTabChange called with tabId:', tabId, 'current activeTabId:', activeTabId);
+            DebugLogger.debug('Layout', 'onActiveTabChange called with tabId:', tabId, 'current activeTabId:', activeTabId);
             // Only update if tabId actually changed to prevent unnecessary re-renders
             if (activeTabId !== tabId) {
-              console.log('[DEBUG] Updating activeTabId from', activeTabId, 'to', tabId);
+              DebugLogger.debug('Layout', 'Updating activeTabId from', activeTabId, 'to', tabId);
               // Update active tab ID first
               setActiveTabId(tabId);
               
@@ -555,16 +659,16 @@ export const Layout: React.FC = () => {
               if (tabId && currentWorkspace && tabId !== 'values') {
                 const model = currentWorkspace.sqlModels.find(m => m.name === tabId);
                 if (model) {
-                  console.log('[DEBUG] Setting selectedModelName to:', model.name);
+                  DebugLogger.debug('Layout', 'Setting selectedModelName to:', model.name);
                   setSelectedModelName(model.name);
                 } else {
-                  console.log('[DEBUG] No model found for tabId:', tabId);
+                  DebugLogger.debug('Layout', 'No model found for tabId:', tabId);
                   // Don't clear selectedModelName if no model found
                 }
               }
               // Don't clear selectedModelName when switching to values tab to avoid flicker
             } else {
-              console.log('[DEBUG] activeTabId unchanged, skipping update');
+              DebugLogger.debug('Layout', 'activeTabId unchanged, skipping update');
             }
           }}
           onSqlExecuted={(sql) => setLastExecutedSql(sql)}

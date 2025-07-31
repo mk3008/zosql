@@ -4,7 +4,8 @@
  */
 
 import { BaseViewModel } from './base-viewmodel';
-import { Tab, QueryExecutionResult, WorkspaceEntity } from '@shared/types';
+import { Tab, WorkspaceEntity } from '@shared/types';
+import { QueryExecutionResult, migrateLegacyResult } from '@core/types/query-types';
 import { SqlModelEntity } from '@core/entities/sql-model';
 import { OpenedObject } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
@@ -197,15 +198,16 @@ export class MainContentViewModel extends BaseViewModel {
       const command = new ExecuteQueryCommand(context);
       const result = await commandExecutor.execute(command);
 
-      this.queryResult = result;
+      this.queryResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
 
       // Notify parent component about executed SQL
       // Show the ACTUAL executed SQL (with CTEs, filter conditions, etc.)
-      if (this._onSqlExecuted && result.executedSql) {
+      const executedSql = (result as unknown as Record<string, unknown>)?.executedSql;
+      if (this._onSqlExecuted && typeof executedSql === 'string') {
         try {
           // Use the actual executed SQL from the result
-          this._onSqlExecuted(result.executedSql);
-          console.log('[DEBUG] Sent ACTUAL executed SQL to LastExecutedSQL:', result.executedSql.substring(0, 100) + '...');
+          this._onSqlExecuted(executedSql);
+          console.log('[DEBUG] Sent ACTUAL executed SQL to LastExecutedSQL:', executedSql.substring(0, 100) + '...');
         } catch (error) {
           console.error('[DEBUG] Failed to send executed SQL to LastExecutedSQL:', error);
           // Fallback to tab content
@@ -232,12 +234,12 @@ export class MainContentViewModel extends BaseViewModel {
         executionTime: 0
       };
       
-      this.queryResult = errorResult;
+      this.queryResult = migrateLegacyResult(errorResult);
       
       // Save error result to model if available
       const model = this.tabModelMap.get(this.activeTab.id);
       if (model && 'setQueryResult' in model && typeof (model as unknown as { setQueryResult?: (result: unknown) => void }).setQueryResult === 'function') {
-        (model as unknown as { setQueryResult: (result: unknown) => void }).setQueryResult(errorResult as unknown);
+        (model as unknown as { setQueryResult: (result: unknown) => void }).setQueryResult(this.queryResult as unknown);
         // Notify that query result has changed for this tab
         this.notifyChange('queryResult', this.queryResult);
         console.log('[DEBUG] Saved error result to model:', this.activeTab.id);
@@ -289,6 +291,39 @@ export class MainContentViewModel extends BaseViewModel {
 
   closeResults(): void {
     this.resultsVisible = false;
+  }
+
+  // Complete workspace reset - clears all state when switching workspaces
+  resetWorkspaceState(): void {
+    DebugLogger.debug('MainContentViewModel', 'Resetting all workspace state');
+    
+    // Clear all tabs and related state
+    this._tabs = [];
+    this._activeTabId = '';
+    this._tabModelMap = new Map();
+    
+    // Clear query results and execution state
+    this._queryResult = null;
+    this._resultsVisible = false;
+    this._isExecuting = false;
+    
+    // Clear workspace reference
+    this._workspace = null;
+    
+    // Reset other state
+    this._useSchemaCollector = false;
+    
+    // Notify all property changes
+    this.notifyChange('tabs', this._tabs);
+    this.notifyChange('activeTabId', this._activeTabId);
+    this.notifyChange('queryResult', this._queryResult);
+    this.notifyChange('resultsVisible', this._resultsVisible);
+    this.notifyChange('isExecuting', this._isExecuting);
+    this.notifyChange('workspace', this._workspace);
+    this.notifyChange('useSchemaCollector', this._useSchemaCollector);
+    this.notifyChange('tabModelMap', this._tabModelMap);
+    
+    DebugLogger.debug('MainContentViewModel', 'Workspace state reset completed');
   }
 
   async runStaticAnalysis(): Promise<void> {
@@ -519,10 +554,12 @@ export class MainContentViewModel extends BaseViewModel {
     // Add new tab
     this.tabs = [...this._tabs, tab];
     this.activeTabId = tab.id;
-    console.log('[DEBUG] New tabs count:', this._tabs.length);
+    console.log('[DEBUG] New tabs count after adding:', this._tabs.length);
     
-    // Sync tabs to workspace
+    // CRITICAL: Sync tabs to workspace immediately after adding
+    console.log('[DEBUG] About to call syncTabsToWorkspace after addTab');
     this.syncTabsToWorkspace();
+    console.log('[DEBUG] syncTabsToWorkspace completed after addTab');
   }
 
   // Model Management
@@ -536,9 +573,12 @@ export class MainContentViewModel extends BaseViewModel {
 
   // Sync tabs to workspace opened objects
   private syncTabsToWorkspace(): void {
-    if (!this.workspace) return;
+    if (!this.workspace) {
+      console.log('[DEBUG] syncTabsToWorkspace: No workspace available');
+      return;
+    }
 
-    console.log('[DEBUG] Syncing tabs to workspace opened objects');
+    console.log('[DEBUG] syncTabsToWorkspace: Starting sync with', this._tabs.length, 'tabs');
     
     // Convert tabs to opened objects
     const openedObjects: OpenedObject[] = this._tabs.map(tab => ({
@@ -550,16 +590,25 @@ export class MainContentViewModel extends BaseViewModel {
       modelEntity: this._tabModelMap.get(tab.id) as SqlModelEntity | undefined
     }));
 
+    console.log('[DEBUG] syncTabsToWorkspace: Created openedObjects:', openedObjects.map(obj => `${obj.id} (${obj.type})`));
+
     // Update workspace opened objects
     this.workspace.setOpenedObjects(openedObjects);
     this.workspace.setActiveObjectId(this._activeTabId);
 
-    console.log('[DEBUG] Synced', openedObjects.length, 'tabs to workspace, active:', this._activeTabId);
+    console.log('[DEBUG] syncTabsToWorkspace: Updated workspace - openedObjects count:', this.workspace.openedObjects.length);
+    console.log('[DEBUG] syncTabsToWorkspace: Synced', openedObjects.length, 'tabs to workspace, active:', this._activeTabId);
 
     // Save to localStorage
     try {
-      localStorage.setItem('zosql_workspace_v3', JSON.stringify(this.workspace.toJSON()));
+      const workspaceJson = this.workspace.toJSON();
+      localStorage.setItem('zosql_workspace_v3', JSON.stringify(workspaceJson));
       console.log('[DEBUG] Saved workspace state to localStorage');
+      console.log('[DEBUG] Saved openedObjects count:', workspaceJson.openedObjects?.length || 0);
+      console.log('[DEBUG] Saved activeObjectId:', workspaceJson.activeObjectId);
+      if (workspaceJson.openedObjects?.length > 0) {
+        console.log('[DEBUG] Saved objects:', workspaceJson.openedObjects.map(obj => `${obj.id} (${obj.type})`).join(', '));
+      }
     } catch (error) {
       console.warn('Failed to save workspace to localStorage:', error);
     }
@@ -580,7 +629,7 @@ export class MainContentViewModel extends BaseViewModel {
     });
 
     switch (tab.type) {
-      case 'main':
+      case 'main': {
         // Update main SQL model with edited content
         const mainModel = this.workspace.sqlModels.find(m => m.type === 'main');
         console.log('[DEBUG] Found main model:', {
@@ -600,8 +649,9 @@ export class MainContentViewModel extends BaseViewModel {
           console.log('[DEBUG] No main model found');
         }
         break;
+      }
 
-      case 'cte':
+      case 'cte': {
         // Update CTE SQL model with edited content
         const cteModel = this.workspace.sqlModels.find(m => m.type === 'cte' && m.name === tab.id);
         if (cteModel) {
@@ -610,6 +660,7 @@ export class MainContentViewModel extends BaseViewModel {
           cteModel.save(); // Save editor content to persistent storage
         }
         break;
+      }
 
       case 'values':
         try {

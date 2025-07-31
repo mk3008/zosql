@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig(({ command, mode }) => {
+  // Command parameter unused in current config
+  void command;
   const isGitHubPages = mode === 'production' && process.env.NODE_ENV === 'production';
   
   return {

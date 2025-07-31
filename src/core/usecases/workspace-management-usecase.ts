@@ -434,7 +434,7 @@ export class WorkspaceManagementUseCase {
       if (!backupResult?.success) {
         return {
           success: false,
-          error: (backupResult as any)?.error || 'Failed to create backup'
+          error: ('error' in backupResult && backupResult.error) ? backupResult.error : 'Failed to create backup'
         };
       }
 

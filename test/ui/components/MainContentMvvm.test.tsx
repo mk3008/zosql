@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MainContentMvvm } from '@ui/components/MainContentMvvm';
+import { MainContentMvvm, MainContentRef } from '@ui/components/MainContentMvvm';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';
@@ -119,17 +119,7 @@ describe('MainContentMvvm Component', () => {
   });
 
   it('should handle tab operations', () => {
-    const ref = { current: null } as React.MutableRefObject<{
-      openValuesTab: () => void;
-      openFormatterTab: () => void;
-      openConditionTab: () => void;
-      getCurrentSql: () => string;
-      openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: any) => void;
-      setCurrentModelEntity: (model: any) => void;
-      clearAllTabs: () => void;
-      runStaticAnalysis: () => void;
-      getWorkspace: () => any;
-    } | null>;
+    const ref = { current: null } as React.RefObject<MainContentRef>;
     render(<MainContentMvvm ref={ref} workspace={workspace} />);
 
     // Test imperative interface

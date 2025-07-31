@@ -7,6 +7,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WorkspaceApi } from '../src/api/workspace-api.js';
 import fs from 'fs/promises';
 import path from 'path';
+import type { Request, Response } from 'express';
+
+// Mock Express Request/Response types for testing
 
 describe('WorkspaceApi with FileManager Integration', () => {
     let workspaceApi: WorkspaceApi;
@@ -49,13 +52,14 @@ describe('WorkspaceApi with FileManager Integration', () => {
                     sql,
                     queryName: 'test_query',
                     originalFilePath: 'test.sql'
-                }
-            } as any;
+                },
+                headers: {}
+            } as unknown as Request;
 
             const res = {
                 json: vi.fn(),
                 status: vi.fn().mockReturnThis()
-            } as any;
+            } as unknown as Response;
 
             // デコンポーズ実行
             await workspaceApi.handleDecomposeQuery(req, res);
@@ -114,12 +118,12 @@ describe('WorkspaceApi with FileManager Integration', () => {
                     queryName: 'engagement_analysis',
                     originalFilePath: 'engagement.sql'
                 }
-            } as any;
+            } as unknown as Request;
 
             const res = {
                 json: vi.fn(),
                 status: vi.fn().mockReturnThis()
-            } as any;
+            } as unknown as Response;
 
             await workspaceApi.handleDecomposeQuery(req, res);
 
@@ -166,12 +170,12 @@ describe('WorkspaceApi with FileManager Integration', () => {
                     queryName: 'simple_query',
                     originalFilePath: 'simple.sql'
                 }
-            } as any;
+            } as unknown as Request;
 
             const res = {
                 json: vi.fn(),
                 status: vi.fn().mockReturnThis()
-            } as any;
+            } as unknown as Response;
 
             await workspaceApi.handleDecomposeQuery(req, res);
 
@@ -204,12 +208,12 @@ describe('WorkspaceApi with FileManager Integration', () => {
                     sql: 'INVALID SQL SYNTAX',
                     queryName: 'invalid_query'
                 }
-            } as any;
+            } as unknown as Request;
 
             const res = {
                 json: vi.fn(),
                 status: vi.fn().mockReturnThis()
-            } as any;
+            } as unknown as Response;
 
             await workspaceApi.handleDecomposeQuery(req, res);
 
@@ -230,12 +234,12 @@ describe('WorkspaceApi with FileManager Integration', () => {
                 body: {
                     queryName: 'empty_query'
                 }
-            } as any;
+            } as unknown as Request;
 
             const res = {
                 json: vi.fn(),
                 status: vi.fn().mockReturnThis()
-            } as any;
+            } as unknown as Response;
 
             await workspaceApi.handleDecomposeQuery(req, res);
 
@@ -290,17 +294,17 @@ describe('WorkspaceApi with FileManager Integration', () => {
                     queryName: 'user_behavior_analysis',
                     originalFilePath: 'user_behavior_analysis.sql'
                 }
-            } as any;
+            } as unknown as Request;
 
             const res = {
                 json: vi.fn(),
                 status: vi.fn().mockReturnThis()
-            } as any;
+            } as unknown as Response;
 
             await workspaceApi.handleDecomposeQuery(req, res);
 
             // 4つのCTEが作成されることを確認
-            const responseCall = res.json.mock.calls[0][0];
+            const responseCall = (res.json as unknown as { mock: { calls: Array<[{ workspace: { privateCtes: Record<string, { dependencies: string[] }> } }]> } }).mock.calls[0][0];
             const privateCtes = responseCall.workspace.privateCtes;
             
             expect(Object.keys(privateCtes)).toHaveLength(4);

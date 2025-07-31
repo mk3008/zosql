@@ -35,7 +35,7 @@ describe('WorkspaceService CTE Processing', () => {
         const cteName = table?.name as string || 'unknown';
         
         // CTEの内部クエリを抽出（WorkspaceServiceのextractCTEQueryをシミュレート）
-        const cteQuery = extractCTEQueryContent(cte as any);
+        const cteQuery = extractCTEQueryContent(cte as { aliasExpression?: { table?: { name?: string } } });
         
         // 依存関係を抽出（WorkspaceServiceのextractCTEDependenciesをシミュレート）
         const dependencies = extractCTEDependencies(cteQuery);

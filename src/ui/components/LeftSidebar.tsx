@@ -32,8 +32,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   showSuccess: _showSuccess,
   mainContentRef
 }) => {
-  // Suppress unused variable warning
+  // Suppress unused variable warnings
   void isDecomposing;
+  void _showSuccess;
   const { isLoading } = useWorkspace();
   const [_isValidating, _setIsValidating] = useState(false);
   
@@ -230,7 +231,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             {/* SQL Models List */}
             <SqlModelsList 
               key={sqlModelsListKey} // Force re-render when validation updates
-              models={sqlModels as any}
+              models={sqlModels}
               onModelClick={onModelClick}
               selectedModelName={selectedModelName}
               onOpenValuesTab={onOpenValuesTab}

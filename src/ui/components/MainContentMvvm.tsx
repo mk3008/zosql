@@ -7,11 +7,12 @@ import React, { forwardRef, useImperativeHandle, useEffect, useRef, memo, useSta
 import '../styles/tab-scrollbar.css';
 import { WorkspaceEntity } from '@shared/types';
 import { SqlModelEntity } from '@core/entities/sql-model';
+import { DebugLogger } from '../../utils/debug-logger';
+import { hasQueryResultCapability } from '@core/types/query-types';
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
 import { useMvvmBinding } from '@ui/hooks/useMvvm';
-import { DebugLogger } from '../../utils/debug-logger';
 
 export interface MainContentRef {
   openValuesTab: () => void;
@@ -58,17 +59,17 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   }
   const vm = useMvvmBinding(viewModelRef.current);
 
-  // Keep workspace reference updated but don't sync tab state
-  const updateWorkspaceReference = () => {
+  // Update workspace reference only - use stable ID to prevent infinite updates
+  const workspaceId = workspace?.id;
+  useEffect(() => {
     if (workspace) {
       vm.workspace = workspace;
+      
+      // Workspace is set - Layout.tsx should handle all tab restoration
+      // MainContentMvvm should NOT interfere with tab management during workspace loading
+      DebugLogger.debug('MainContentMvvm', 'Workspace set, Layout.tsx will handle tab restoration');
     }
-  };
-
-  // Update workspace reference only
-  useEffect(() => {
-    updateWorkspaceReference();
-  }, [workspace, vm]);
+  }, [workspaceId, vm]); // workspaceId is stable, prevents infinite updates
 
   // Set SQL execution callback
   useEffect(() => {
@@ -104,38 +105,8 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     };
   }, [vm]);
 
-  // Initialize default tabs only once when no workspace and no tabs
-  useEffect(() => {
-    console.log('[DEBUG] MainContentMvvm useEffect: tabs.length=', vm.tabs.length, 'workspace=', !!workspace);
-    if (vm.tabs.length === 0 && workspace) {
-      // When workspace is loaded, open the main model
-      const mainModel = workspace.sqlModels.find(m => m.type === 'main');
-      if (mainModel) {
-        console.log('[DEBUG] Opening main model from workspace:', mainModel.name);
-        vm.addTab({
-          id: mainModel.name,
-          title: mainModel.name,
-          type: 'main',
-          content: mainModel.sqlWithoutCte,
-          isDirty: false
-        });
-        vm.setTabModel(mainModel.name, mainModel);
-        
-        // Ensure editorContent is synced with tab content
-        console.log('[DEBUG] Syncing editorContent with tab content for:', mainModel.name);
-        mainModel.updateEditorContent(mainModel.sqlWithoutCte);
-      }
-    } else if (vm.tabs.length === 0 && !workspace) {
-      console.log('[DEBUG] Adding default main tab');
-      vm.addTab({
-        id: 'main.sql',
-        title: 'main.sql',
-        type: 'main',
-        content: 'SELECT user_id, name FROM users;',
-        isDirty: false
-      });
-    }
-  }, [workspace]); // Depend on workspace to initialize when workspace loads
+  // MainContentMvvm should NOT create demo tabs - Layout.tsx handles all initialization
+  // Remove fallback demo tab creation to force proper workspace initialization
 
   // Notify parent of active tab changes and scroll to active tab
   useEffect(() => {
@@ -165,25 +136,37 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
 
   // Handle Copy Prompt notifications
   useEffect(() => {
-    const handlePropertyChange = (propertyName: string, value: any) => {
-      console.log('[DEBUG] Property change received:', propertyName, value);
+    const handlePropertyChange = (propertyName: string, value: unknown) => {
+      DebugLogger.debug('MainContentMvvm', 'Property change received:', propertyName, value);
       if (propertyName === 'copyPromptSuccess') {
         console.log('[DEBUG] Showing success toast:', value);
-        showSuccess?.(value);
+        if (typeof value === 'string') {
+          showSuccess?.(value);
+        }
       } else if (propertyName === 'copyPromptError') {
         console.log('[DEBUG] Showing error toast:', value);
-        showError?.(value);
+        if (typeof value === 'string') {
+          showError?.(value);
+        }
       } else if (propertyName === 'errorWithDetails') {
         console.log('[DEBUG] Showing error with details:', value);
-        if (showErrorWithDetails && value) {
-          showErrorWithDetails(value.message, value.details, value.stack);
+        if (showErrorWithDetails && value && typeof value === 'object' && value !== null) {
+          const errorObj = value as Record<string, unknown>;
+          const message = typeof errorObj.message === 'string' ? errorObj.message : 'Unknown error';
+          const details = typeof errorObj.details === 'string' ? errorObj.details : undefined;
+          const stack = typeof errorObj.stack === 'string' ? errorObj.stack : undefined;
+          showErrorWithDetails(message, details, stack);
         }
       } else if (propertyName === 'success') {
         console.log('[DEBUG] Showing success toast:', value);
-        showSuccess?.(value);
+        if (typeof value === 'string') {
+          showSuccess?.(value);
+        }
       } else if (propertyName === 'error') {
         console.log('[DEBUG] Showing error toast:', value);
-        showError?.(value);
+        if (typeof value === 'string') {
+          showError?.(value);
+        }
       } else if (propertyName === 'analysisUpdated') {
         console.log('[DEBUG] Analysis updated, forcing re-render');
         // Force re-render to update error displays
@@ -216,6 +199,12 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   useImperativeHandle(ref, () => ({
     openValuesTab: () => {
       if (workspace) {
+        // CRITICAL: Ensure workspace is available in ViewModel before adding tabs
+        if (!vm.workspace) {
+          console.log('[DEBUG] openValuesTab: Setting workspace in ViewModel before adding tab');
+          vm.workspace = workspace;
+        }
+        
         // Check if tab already exists
         const existingTab = vm.tabs.find(tab => tab.type === 'values');
         if (existingTab) {
@@ -235,6 +224,12 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     },
     openFormatterTab: () => {
       if (workspace) {
+        // CRITICAL: Ensure workspace is available in ViewModel before adding tabs
+        if (!vm.workspace) {
+          console.log('[DEBUG] openFormatterTab: Setting workspace in ViewModel before adding tab');
+          vm.workspace = workspace;
+        }
+        
         // Check if tab already exists
         const existingTab = vm.tabs.find(tab => tab.type === 'formatter');
         if (existingTab) {
@@ -254,6 +249,12 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     },
     openConditionTab: () => {
       if (workspace) {
+        // CRITICAL: Ensure workspace is available in ViewModel before adding tabs
+        if (!vm.workspace) {
+          console.log('[DEBUG] openConditionTab: Setting workspace in ViewModel before adding tab');
+          vm.workspace = workspace;
+        }
+        
         // Check if tab already exists
         const existingTab = vm.tabs.find(tab => tab.type === 'condition');
         if (existingTab) {
@@ -273,6 +274,12 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
     },
     getCurrentSql: () => vm.activeTab?.content || '',
     openSqlModel: (name: string, sql: string, type: 'main' | 'cte', modelEntity?: SqlModelEntity) => {
+      // CRITICAL: Ensure workspace is available in ViewModel before adding tabs
+      if (workspace && !vm.workspace) {
+        console.log('[DEBUG] openSqlModel: Setting workspace in ViewModel before adding tab');
+        vm.workspace = workspace;
+      }
+      
       // Check if tab already exists
       const existingTab = vm.tabs.find(tab => tab.id === name);
       if (existingTab) {
@@ -281,7 +288,8 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
         return;
       }
 
-      // Add new tab directly to ViewModel without syncing entire workspace
+      // Add new tab and sync to workspace
+      console.log('[DEBUG] openSqlModel: Adding tab for', name, 'type:', type);
       vm.addTab({
         id: name,
         title: name,
@@ -294,11 +302,11 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
         vm.setTabModel(name, modelEntity);
         
         // Ensure editorContent is synced with tab content
-        console.log('[DEBUG] Syncing editorContent with tab content for openSqlModel:', name);
+        console.log('[DEBUG] setTabModel completed for', name);
         modelEntity.updateEditorContent(sql);
       }
       
-      // No workspace sync needed - ViewModel manages tabs independently
+      console.log('[DEBUG] openSqlModel completed, current tabs count:', vm.tabs.length);
     },
     setCurrentModelEntity: (model: SqlModelEntity) => {
       if (vm.activeTab) {
@@ -306,9 +314,8 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       }
     },
     clearAllTabs: () => {
-      // Clear tabs directly from ViewModel
-      vm.tabs = [];
-      vm.activeTabId = '';
+      // Complete workspace state reset
+      vm.resetWorkspaceState();
     },
     runStaticAnalysis: () => {
       vm.runStaticAnalysis();
@@ -712,9 +719,24 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
               {vm.activeTab.type !== 'values' && vm.resultsVisible && (() => {
                 // Get the current tab's model and its result
                 const model = vm.tabModelMap.get(vm.activeTabId);
-                const result = model && 'getQueryResult' in model && typeof (model as any).getQueryResult === 'function'
-                  ? (model as any).getQueryResult()
-                  : vm.queryResult;
+                const hasCapability = model && hasQueryResultCapability(model);
+                const modelResult = hasCapability ? model.getQueryResult() : null;
+                const result = modelResult || vm.queryResult;
+                
+                console.log('[DEBUG] QueryResults render check:', {
+                  activeTabId: vm.activeTabId,
+                  resultsVisible: vm.resultsVisible,
+                  hasModel: !!model,
+                  hasCapability,
+                  hasModelResult: !!modelResult,
+                  hasGlobalResult: !!vm.queryResult,
+                  finalResult: !!result,
+                  resultStatus: result?.status,
+                  resultRowsCount: result?.rows?.length,
+                  modelResultRaw: modelResult,
+                  globalResultRaw: vm.queryResult,
+                  finalResultRaw: result
+                });
                 
                 return result ? (
                   <div className="flex-shrink-0">
@@ -725,7 +747,13 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                       onClose={() => vm.closeResults()}
                     />
                   </div>
-                ) : null;
+                ) : (
+                  <div className="flex-shrink-0">
+                    <div className="border-t border-dark-border-primary bg-dark-secondary p-4">
+                      <div className="text-dark-text-muted">No query result available</div>
+                    </div>
+                  </div>
+                );
               })()}
             </div>
           )}

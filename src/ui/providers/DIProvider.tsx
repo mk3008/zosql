@@ -119,7 +119,7 @@ export function useService<K extends keyof DIContainer>(
  * Higher-order component to inject services
  */
 export function withServices<
-  P extends {},
+  P extends Record<string, unknown>,
   S extends Partial<Record<keyof DIContainer, boolean>>
 >(
   Component: React.ComponentType<P & Pick<DIContainer, Extract<keyof S, keyof DIContainer>>>,
@@ -128,15 +128,18 @@ export function withServices<
   return (props: P) => {
     const container = useDI();
     
-    // Extract requested services
-    const injectedServices: any = {};
+    // Extract requested services with proper typing
+    const injectedServices = {} as Pick<DIContainer, Extract<keyof S, keyof DIContainer>>;
     for (const [key, needed] of Object.entries(services)) {
       if (needed && key in container) {
-        injectedServices[key] = container[key as keyof DIContainer];
+        const serviceKey = key as Extract<keyof S, keyof DIContainer>;
+        (injectedServices as unknown as Record<string, unknown>)[serviceKey] = container[serviceKey];
       }
     }
     
-    return <Component {...props} {...injectedServices} />;
+    // Merge props with proper type assertion
+    const combinedProps = { ...props, ...injectedServices } as P & Pick<DIContainer, Extract<keyof S, keyof DIContainer>>;
+    return <Component {...combinedProps} />;
   };
 }
 
@@ -164,7 +167,7 @@ export const ExampleComponent: React.FC = () => {
 /**
  * Example with HOC
  */
-interface MyComponentProps {
+interface MyComponentProps extends Record<string, unknown> {
   title: string;
 }
 
@@ -177,7 +180,10 @@ const MyComponent: React.FC<MyComponentProps & {
 };
 
 // Wrap component to inject services
-export const MyComponentWithServices = withServices(MyComponent, {
+export const MyComponentWithServices = withServices<
+  MyComponentProps,
+  { workspaceRepository: true; sqlExecutor: true }
+>(MyComponent, {
   workspaceRepository: true,
   sqlExecutor: true
 });

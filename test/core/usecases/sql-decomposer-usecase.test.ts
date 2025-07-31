@@ -351,12 +351,24 @@ describe('SqlDecomposerUseCase', () => {
       mockParser.setMockCTEs([]);
       mockParser.setMockMainQuery(sql);
 
-      // Create a mock formatter that throws an error
+      // Create a mock formatter entity that throws an error
       const mockFormatter = {
-        format: vi.fn().mockImplementation(() => {
-          throw new Error('Mock formatter error');
-        })
-      } as any;
+        config: '{}',
+        getSqlFormatter: vi.fn().mockImplementation(() => ({
+          format: vi.fn().mockImplementation(() => {
+            throw new Error('Mock formatter error');
+          })
+        })),
+        setFormatterConfig: vi.fn(),
+        reset: vi.fn(),
+        isValid: vi.fn().mockReturnValue(true),
+        getFormattedString: vi.fn().mockReturnValue('{}'),
+        clone: vi.fn().mockReturnValue({}),
+        toJSON: vi.fn().mockReturnValue({ config: '{}' }),
+        get displayString() { return '{}'; },
+        set displayString(_value: string) { /* no-op */ },
+        toString: vi.fn().mockReturnValue('{}')
+      } as unknown as SqlFormatterEntity;
 
       const models = await decomposer.decomposeSql(sql, fileName, mockFormatter);
 

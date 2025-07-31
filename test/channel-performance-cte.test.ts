@@ -11,12 +11,26 @@ import { SelectQueryParser, SqlFormatter } from 'rawsql-ts';
 // Type guard for CTE validation
 function isValidCteForTest(cte: unknown): cte is { 
   aliasExpression?: { table?: { name?: string } };
+  query?: unknown;
 } {
   return (
     typeof cte === 'object' &&
     cte !== null &&
     'aliasExpression' in cte
   );
+}
+
+// Type guard for table structure
+function hasTableName(obj: unknown): obj is { table?: { name?: string } } {
+  return (
+    typeof obj === 'object' &&
+    obj !== null
+  );
+}
+
+// Type guard for query object
+function isQueryObject(obj: unknown): obj is Record<string, unknown> {
+  return typeof obj === 'object' && obj !== null;
 }
 
 describe('channel_performance CTE Tests', () => {
@@ -82,11 +96,15 @@ describe('channel_performance CTE Tests', () => {
     const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
     const tables = withClause.tables as unknown[];
     const channelPerformanceCTE = tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'channel_performance'
+      (cte: unknown) => {
+        if (!isValidCteForTest(cte)) return false;
+        const aliasExpr = cte.aliasExpression;
+        return hasTableName(aliasExpr) && aliasExpr.table?.name === 'channel_performance';
+      }
     );
     
     expect(channelPerformanceCTE).toBeTruthy();
-    expect((channelPerformanceCTE as any).query).toBeTruthy();
+    expect((channelPerformanceCTE as Record<string, unknown>).query).toBeTruthy();
     
     // CTEクエリをSQL文字列に変換
     const formatter = new SqlFormatter({
@@ -95,7 +113,15 @@ describe('channel_performance CTE Tests', () => {
     });
     
     // formatメソッドを使用
-    const formatResult = formatter.format((channelPerformanceCTE as any).query);
+    const cteQuery = isValidCteForTest(channelPerformanceCTE) && isQueryObject(channelPerformanceCTE.query) 
+      ? channelPerformanceCTE.query 
+      : null;
+    
+    if (!cteQuery) {
+      throw new Error('Invalid CTE query structure');
+    }
+    
+    const formatResult = formatter.format(cteQuery as unknown as import('rawsql-ts').SqlComponent);
     const channelPerformanceSQL = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
     console.log('channel_performance CTE SQL:', channelPerformanceSQL);
     
@@ -109,20 +135,30 @@ describe('channel_performance CTE Tests', () => {
     const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
     const tables = withClause.tables as unknown[];
     const channelPerformanceCTE = tables.find(
-      (cte: any) => cte.aliasExpression?.table?.name === 'channel_performance'
+      (cte: unknown) => {
+        if (!isValidCteForTest(cte)) return false;
+        const aliasExpr = cte.aliasExpression;
+        return hasTableName(aliasExpr) && aliasExpr.table?.name === 'channel_performance';
+      }
     );
     
     // CTEのFROM句とJOIN句からテーブル参照を抽出
-    const fromClause = (channelPerformanceCTE as any).query.fromClause;
+    if (!isValidCteForTest(channelPerformanceCTE) || !isQueryObject(channelPerformanceCTE.query)) {
+      throw new Error('Invalid CTE structure for channel_performance');
+    }
+    
+    const fromClause = (channelPerformanceCTE.query as Record<string, unknown>).fromClause as Record<string, unknown>;
     expect(fromClause).toBeTruthy();
     
     // メインテーブル（session_data）
-    const mainTable = fromClause.source?.datasource?.qualifiedName?.name?.name || 
-                     fromClause.source?.datasource?.table?.name;
-    console.log('Main table:', mainTable);
+    const sourceData = fromClause.source as Record<string, unknown>;
+    const datasource = sourceData?.datasource as Record<string, unknown>;
+    const mainTable = (datasource?.qualifiedName as Record<string, unknown>)?.name as Record<string, unknown> | undefined;
+    const tableName = mainTable?.name || (datasource?.table as Record<string, unknown>)?.name;
+    console.log('Main table:', mainTable, 'table name:', tableName);
     
     // JOINテーブル（funnel_analysis）
-    const joins = fromClause.joins || [];
+    const joins = (fromClause.joins as Record<string, unknown>[]) || [];
     const joinTables = joins.map((join: { source?: { datasource?: { qualifiedName?: { name?: { name?: string } }; table?: { name?: string } } } }) => 
       join.source?.datasource?.qualifiedName?.name?.name ||
       join.source?.datasource?.table?.name
