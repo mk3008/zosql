@@ -521,6 +521,12 @@ export class MainContentViewModel extends BaseViewModel {
     }
 
     console.log('[DEBUG] Tab saved:', tabId);
+    
+    // CRITICAL: Sync to workspace and localStorage after save
+    this.syncTabsToWorkspace();
+    
+    // Show success notification
+    this.notifyChange('success', `${tab.title} saved successfully`);
   }
 
   closeTab(tabId: string): void {
