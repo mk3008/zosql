@@ -145,5 +145,5 @@ zosql/resources/cache/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Serena cache directory
-.serena/cache/
+# Serena
+.serena

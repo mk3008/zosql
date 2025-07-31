@@ -200,6 +200,16 @@ export class MainContentViewModel extends BaseViewModel {
 
       this.queryResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
 
+      // Check if result indicates an error and show error panel
+      if (!result.success && result.error) {
+        // Send error to error panel even for successful command execution with error result
+        this.notifyChange('errorWithDetails', {
+          message: 'SQL Execution Error',
+          details: result.error,
+          stack: undefined
+        });
+      }
+
       // Notify parent component about executed SQL
       // Show the ACTUAL executed SQL (with CTEs, filter conditions, etc.)
       const executedSql = (result as unknown as Record<string, unknown>)?.executedSql;
