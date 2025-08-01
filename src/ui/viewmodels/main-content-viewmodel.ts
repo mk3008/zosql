@@ -23,6 +23,7 @@ export class MainContentViewModel extends BaseViewModel {
   private _isExecuting: boolean = false;
   private _queryResult: QueryExecutionResult | null = null;
   private _resultsVisible: boolean = false;
+  private _resultsPanelHeight: number = 40; // Default 40% height for results panel
   private _workspace: WorkspaceEntity | null = null;
   private _tabModelMap: Map<string, SqlModelEntity> = new Map();
   private _useSchemaCollector: boolean = true;
@@ -99,6 +100,17 @@ export class MainContentViewModel extends BaseViewModel {
     if (this._resultsVisible !== value) {
       this._resultsVisible = value;
       this.notifyChange('resultsVisible', value);
+    }
+  }
+
+  get resultsPanelHeight(): number {
+    return this._resultsPanelHeight;
+  }
+
+  set resultsPanelHeight(value: number) {
+    if (this._resultsPanelHeight !== value) {
+      this._resultsPanelHeight = Math.max(20, Math.min(80, value)); // Clamp between 20% and 80%
+      this.notifyChange('resultsPanelHeight', this._resultsPanelHeight);
     }
   }
 
@@ -314,6 +326,12 @@ export class MainContentViewModel extends BaseViewModel {
     this.resultsVisible = false;
   }
 
+  // Handle splitter resize
+  handleSplitterResize(sizes: [number, number]): void {
+    // sizes[1] is the bottom pane (results panel) percentage
+    this.resultsPanelHeight = sizes[1];
+  }
+
   // Complete workspace reset - clears all state when switching workspaces
   resetWorkspaceState(): void {
     DebugLogger.debug('MainContentViewModel', 'Resetting all workspace state');
@@ -326,6 +344,7 @@ export class MainContentViewModel extends BaseViewModel {
     // Clear query results and execution state
     this._queryResult = null;
     this._resultsVisible = false;
+    this._resultsPanelHeight = 40; // Reset to default height
     this._isExecuting = false;
     
     // Clear workspace reference
@@ -339,6 +358,7 @@ export class MainContentViewModel extends BaseViewModel {
     this.notifyChange('activeTabId', this._activeTabId);
     this.notifyChange('queryResult', this._queryResult);
     this.notifyChange('resultsVisible', this._resultsVisible);
+    this.notifyChange('resultsPanelHeight', this._resultsPanelHeight);
     this.notifyChange('isExecuting', this._isExecuting);
     this.notifyChange('workspace', this._workspace);
     this.notifyChange('useSchemaCollector', this._useSchemaCollector);

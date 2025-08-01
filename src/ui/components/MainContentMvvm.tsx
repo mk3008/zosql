@@ -11,6 +11,7 @@ import { DebugLogger } from '../../utils/debug-logger';
 
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
+import { ResizableSplitter } from './ResizableSplitter';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
 import { useMvvmBinding } from '@ui/hooks/useMvvm';
 
@@ -663,90 +664,135 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
           </div>
         )}
 
-        {/* Content Area - Single MonacoEditor with dynamic layout */}
+        {/* Content Area with Resizable Splitter */}
         <div className="flex-1 overflow-hidden">
           {vm.activeTab && (
-            <div className={vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult ? 'h-full flex flex-col' : 'h-full'}>
-              {/* Monaco Editor - always present, size adjusts based on layout */}
-              <div className={vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult ? 'flex-1 bg-dark-primary overflow-hidden' : 'h-full bg-dark-primary overflow-hidden'} style={vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult ? { minHeight: '200px' } : {}}>
-                <MonacoEditor
-                  key="main-editor-unified" // Single stable key prevents remounting
-                  value={vm.activeTab.content}
-                  onChange={(value) => {
-                    console.log('[DEBUG] Monaco onChange for tab:', vm.activeTab!.id, 'type:', vm.activeTab!.type);
-                    vm.updateTabContent(vm.activeTab!.id, value);
-                    
-                    // Update model's editor content for real-time validation
-                    const model = vm.tabModelMap.get(vm.activeTab!.id);
-                    if (model && (vm.activeTab!.type === 'main' || vm.activeTab!.type === 'cte')) {
-                      console.log('[DEBUG] Updating model editor content for', vm.activeTab!.id, 'length:', value.length);
-                      console.log('[DEBUG] Before update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
-                      model.updateEditorContent(value);
-                      console.log('[DEBUG] After update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
-                      console.log('[DEBUG] Has unsaved changes:', model.hasUnsavedChanges);
-                    } else {
-                      console.log('[DEBUG] Model not found or wrong type for tab:', vm.activeTab!.id, 'model exists:', !!model);
-                    }
-                  }}
-                  language={vm.activeTab.type === 'values' ? 'sql' : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
-                  height="100%"
-                  isMainEditor={true}
-                  onKeyDown={handleKeyDown}
-                  workspace={workspace}
-                  // jumpToPosition={jumpToPosition} // Position jump temporarily disabled
-                  searchTerm={searchTerm}
-                  options={vm.activeTab.type === 'values' ? {
-                    wordWrap: 'off',
-                    wrappingStrategy: 'simple',
-                    scrollBeyondLastLine: false,
-                    minimap: { enabled: false },
-                    folding: true,
-                  } : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
-                    wordWrap: 'off',
-                    formatOnType: true,
-                    formatOnPaste: true,
-                    minimap: { enabled: false },
-                    readOnly: false
-                  } : {
-                    wordWrap: 'off',
-                    minimap: { enabled: false },
-                    folding: true,
-                  }}
-                />
-              </div>
-              
-              {/* Query Results - only shown when needed */}
-              {vm.activeTab.type !== 'values' && vm.resultsVisible && (() => {
-                // Get query result directly from the ViewModel
-                const result = vm.queryResult;
-                
-                console.log('[DEBUG] QueryResults render check:', {
-                  activeTabId: vm.activeTabId,
-                  resultsVisible: vm.resultsVisible,
-                  hasResult: !!result,
-                  resultStatus: result?.status,
-                  resultRowsCount: result?.rows?.length,
-                  resultErrorsCount: result?.errors?.length
-                });
-                
-                return result ? (
-                  <div className="flex-shrink-0">
-                    <QueryResults
-                      key={`results-${vm.activeTabId}-${resultTrigger}`} // Force remount on tab change and result update
-                      result={result}
-                      isVisible={vm.resultsVisible}
-                      onClose={() => vm.closeResults()}
+            <>
+              {vm.activeTab.type !== 'values' && vm.resultsVisible && vm.queryResult ? (
+                // Split view with resizable splitter
+                <ResizableSplitter
+                  direction="vertical"
+                  initialSizes={[100 - vm.resultsPanelHeight, vm.resultsPanelHeight]}
+                  minSizes={[200, 150]} // Minimum 200px for editor, 150px for results
+                  onResize={(sizes) => vm.handleSplitterResize(sizes)}
+                  className="h-full"
+                >
+                  {/* Monaco Editor - top pane */}
+                  <div className="h-full bg-dark-primary overflow-hidden">
+                    <MonacoEditor
+                      key="main-editor-unified" // Single stable key prevents remounting
+                      value={vm.activeTab.content}
+                      onChange={(value) => {
+                        console.log('[DEBUG] Monaco onChange for tab:', vm.activeTab!.id, 'type:', vm.activeTab!.type);
+                        vm.updateTabContent(vm.activeTab!.id, value);
+                        
+                        // Update model's editor content for real-time validation
+                        const model = vm.tabModelMap.get(vm.activeTab!.id);
+                        if (model && (vm.activeTab!.type === 'main' || vm.activeTab!.type === 'cte')) {
+                          console.log('[DEBUG] Updating model editor content for', vm.activeTab!.id, 'length:', value.length);
+                          console.log('[DEBUG] Before update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
+                          model.updateEditorContent(value);
+                          console.log('[DEBUG] After update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
+                          console.log('[DEBUG] Has unsaved changes:', model.hasUnsavedChanges);
+                        } else {
+                          console.log('[DEBUG] Model not found or wrong type for tab:', vm.activeTab!.id, 'model exists:', !!model);
+                        }
+                      }}
+                      language={(vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
+                      height="100%"
+                      isMainEditor={true}
+                      onKeyDown={handleKeyDown}
+                      workspace={workspace}
+                      // jumpToPosition={jumpToPosition} // Position jump temporarily disabled
+                      searchTerm={searchTerm}
+                      options={{
+                        wordWrap: 'off',
+                        minimap: { enabled: false },
+                        folding: true,
+                      }}
                     />
                   </div>
-                ) : (
-                  <div className="flex-shrink-0">
-                    <div className="border-t border-dark-border-primary bg-dark-secondary p-4">
-                      <div className="text-dark-text-muted">No query result available</div>
-                    </div>
+                  
+                  {/* Query Results - bottom pane */}
+                  <div className="h-full overflow-hidden">
+                    {(() => {
+                      // Get query result directly from the ViewModel
+                      const result = vm.queryResult;
+                      
+                      console.log('[DEBUG] QueryResults render check:', {
+                        activeTabId: vm.activeTabId,
+                        resultsVisible: vm.resultsVisible,
+                        hasResult: !!result,
+                        resultStatus: result?.status,
+                        resultRowsCount: result?.rows?.length,
+                        resultErrorsCount: result?.errors?.length
+                      });
+                      
+                      return result ? (
+                        <QueryResults
+                          key={`results-${vm.activeTabId}-${resultTrigger}`} // Force remount on tab change and result update
+                          result={result}
+                          isVisible={vm.resultsVisible}
+                          onClose={() => vm.closeResults()}
+                        />
+                      ) : (
+                        <div className="h-full border-t border-dark-border-primary bg-dark-secondary p-4">
+                          <div className="text-dark-text-muted">No query result available</div>
+                        </div>
+                      );
+                    })()}
                   </div>
-                );
-              })()}
-            </div>
+                </ResizableSplitter>
+              ) : (
+                // Single editor view (no results or values tab)
+                <div className="h-full bg-dark-primary overflow-hidden">
+                  <MonacoEditor
+                    key="main-editor-unified" // Single stable key prevents remounting
+                    value={vm.activeTab.content}
+                    onChange={(value) => {
+                      console.log('[DEBUG] Monaco onChange for tab:', vm.activeTab!.id, 'type:', vm.activeTab!.type);
+                      vm.updateTabContent(vm.activeTab!.id, value);
+                      
+                      // Update model's editor content for real-time validation
+                      const model = vm.tabModelMap.get(vm.activeTab!.id);
+                      if (model && (vm.activeTab!.type === 'main' || vm.activeTab!.type === 'cte')) {
+                        console.log('[DEBUG] Updating model editor content for', vm.activeTab!.id, 'length:', value.length);
+                        console.log('[DEBUG] Before update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
+                        model.updateEditorContent(value);
+                        console.log('[DEBUG] After update - model.editorContent:', model.editorContent.substring(0, 100) + '...');
+                        console.log('[DEBUG] Has unsaved changes:', model.hasUnsavedChanges);
+                      } else {
+                        console.log('[DEBUG] Model not found or wrong type for tab:', vm.activeTab!.id, 'model exists:', !!model);
+                      }
+                    }}
+                    language={vm.activeTab.type === 'values' ? 'sql' : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? 'json' : 'sql'}
+                    height="100%"
+                    isMainEditor={true}
+                    onKeyDown={handleKeyDown}
+                    workspace={workspace}
+                    // jumpToPosition={jumpToPosition} // Position jump temporarily disabled
+                    searchTerm={searchTerm}
+                    options={vm.activeTab.type === 'values' ? {
+                      wordWrap: 'off',
+                      wrappingStrategy: 'simple',
+                      scrollBeyondLastLine: false,
+                      minimap: { enabled: false },
+                      folding: true,
+                    } : (vm.activeTab.type === 'formatter' || vm.activeTab.type === 'condition') ? {
+                      wordWrap: 'off',
+                      formatOnType: true,
+                      formatOnPaste: true,
+                      minimap: { enabled: false },
+                      readOnly: false
+                    } : {
+                      wordWrap: 'off',
+                      minimap: { enabled: false },
+                      folding: true,
+                    }}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
