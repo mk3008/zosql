@@ -8,7 +8,7 @@ import '../styles/tab-scrollbar.css';
 import { WorkspaceEntity } from '@shared/types';
 import { SqlModelEntity } from '@core/entities/sql-model';
 import { DebugLogger } from '../../utils/debug-logger';
-import { hasQueryResultCapability } from '@core/types/query-types';
+
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
@@ -717,25 +717,16 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
               
               {/* Query Results - only shown when needed */}
               {vm.activeTab.type !== 'values' && vm.resultsVisible && (() => {
-                // Get the current tab's model and its result
-                const model = vm.tabModelMap.get(vm.activeTabId);
-                const hasCapability = model && hasQueryResultCapability(model);
-                const modelResult = hasCapability ? model.getQueryResult() : null;
-                const result = modelResult || vm.queryResult;
+                // Get query result directly from the ViewModel
+                const result = vm.queryResult;
                 
                 console.log('[DEBUG] QueryResults render check:', {
                   activeTabId: vm.activeTabId,
                   resultsVisible: vm.resultsVisible,
-                  hasModel: !!model,
-                  hasCapability,
-                  hasModelResult: !!modelResult,
-                  hasGlobalResult: !!vm.queryResult,
-                  finalResult: !!result,
+                  hasResult: !!result,
                   resultStatus: result?.status,
                   resultRowsCount: result?.rows?.length,
-                  modelResultRaw: modelResult,
-                  globalResultRaw: vm.queryResult,
-                  finalResultRaw: result
+                  resultErrorsCount: result?.errors?.length
                 });
                 
                 return result ? (

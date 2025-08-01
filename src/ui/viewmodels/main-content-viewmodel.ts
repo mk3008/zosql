@@ -5,7 +5,7 @@
 
 import { BaseViewModel } from './base-viewmodel';
 import { Tab, WorkspaceEntity } from '@shared/types';
-import { QueryExecutionResult, migrateLegacyResult } from '@core/types/query-types';
+import { QueryExecutionResult, migrateLegacyResult, hasQueryResultCapability } from '@core/types/query-types';
 import { SqlModelEntity } from '@core/entities/sql-model';
 import { OpenedObject } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
@@ -75,19 +75,12 @@ export class MainContentViewModel extends BaseViewModel {
   }
 
   get queryResult(): QueryExecutionResult | null {
-    // Get result from active tab's model, fallback to global result
-    if (this.activeTab) {
-      const model = this.tabModelMap.get(this.activeTab.id);
-      DebugLogger.debug('MainContentViewModel', `Getting query result for tab: ${this.activeTab.id}, model: ${!!model}`);
-      
-      if (model && 'getQueryResult' in model && typeof (model as { getQueryResult?: () => unknown }).getQueryResult === 'function') {
-        const result = (model as { getQueryResult: () => QueryExecutionResult | null }).getQueryResult();
-        DebugLogger.debug('MainContentViewModel', `Model has result: ${!!result} for tab: ${this.activeTab.id}`);
-        if (result) {
-          return result;
-        }
-      }
+    // Get result directly from active tab
+    if (this.activeTab && this.activeTab.queryResult) {
+      DebugLogger.debug('MainContentViewModel', `Using tab-specific result for: ${this.activeTab.id}`);
+      return this.activeTab.queryResult;
     }
+    
     // Fallback to global result for backward compatibility
     DebugLogger.debug('MainContentViewModel', `Using fallback global result for tab: ${this.activeTab?.id}`);
     return this._queryResult;
@@ -198,7 +191,19 @@ export class MainContentViewModel extends BaseViewModel {
       const command = new ExecuteQueryCommand(context);
       const result = await commandExecutor.execute(command);
 
-      this.queryResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
+      const migratedResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
+      
+      // Save result directly to the tab
+      const tabIndex = this._tabs.findIndex(t => t.id === this.activeTab!.id);
+      if (tabIndex !== -1) {
+        const updatedTabs = [...this._tabs];
+        updatedTabs[tabIndex] = {
+          ...updatedTabs[tabIndex],
+          queryResult: migratedResult
+        };
+        this.tabs = updatedTabs;
+        console.log('[DEBUG] Saved query result directly to tab:', this.activeTab.id);
+      }
 
       // Check if result indicates an error and show error panel
       if (!result.success && result.error) {
@@ -229,8 +234,8 @@ export class MainContentViewModel extends BaseViewModel {
 
       // Save result to model if available
       const model = this.tabModelMap.get(this.activeTab.id);
-      if (model && 'setQueryResult' in model && typeof (model as unknown as { setQueryResult?: (result: unknown) => void }).setQueryResult === 'function') {
-        (model as unknown as { setQueryResult: (result: unknown) => void }).setQueryResult(result as unknown);
+      if (model && hasQueryResultCapability(model)) {
+        model.setQueryResult(migrateLegacyResult(result as unknown as Record<string, unknown>));
         // Notify that query result has changed for this tab
         this.notifyChange('queryResult', this.queryResult);
         console.log('[DEBUG] Saved query result to model:', this.activeTab.id);
@@ -244,16 +249,22 @@ export class MainContentViewModel extends BaseViewModel {
         executionTime: 0
       };
       
-      this.queryResult = migrateLegacyResult(errorResult);
+      const migratedErrorResult = migrateLegacyResult(errorResult);
       
-      // Save error result to model if available
-      const model = this.tabModelMap.get(this.activeTab.id);
-      if (model && 'setQueryResult' in model && typeof (model as unknown as { setQueryResult?: (result: unknown) => void }).setQueryResult === 'function') {
-        (model as unknown as { setQueryResult: (result: unknown) => void }).setQueryResult(this.queryResult as unknown);
-        // Notify that query result has changed for this tab
-        this.notifyChange('queryResult', this.queryResult);
-        console.log('[DEBUG] Saved error result to model:', this.activeTab.id);
+      // Save error result directly to the tab
+      const tabIndex = this._tabs.findIndex(t => t.id === this.activeTab!.id);
+      if (tabIndex !== -1) {
+        const updatedTabs = [...this._tabs];
+        updatedTabs[tabIndex] = {
+          ...updatedTabs[tabIndex],
+          queryResult: migratedErrorResult
+        };
+        this.tabs = updatedTabs;
+        console.log('[DEBUG] Saved error result directly to tab:', this.activeTab.id);
       }
+      
+      // Notify that query result has changed
+      this.notifyChange('queryResult', this.queryResult);
       
       // Send error to error panel
       this.notifyChange('errorWithDetails', {
@@ -536,8 +547,8 @@ export class MainContentViewModel extends BaseViewModel {
 
     // Clear query result from model before removing
     const model = this._tabModelMap.get(tabId);
-    if (model && 'clearQueryResult' in model && typeof (model as { clearQueryResult?: () => void }).clearQueryResult === 'function') {
-      (model as { clearQueryResult: () => void }).clearQueryResult();
+    if (model && hasQueryResultCapability(model)) {
+      model.clearQueryResult();
       console.log('[DEBUG] Cleared query result for closing tab:', tabId);
     }
 

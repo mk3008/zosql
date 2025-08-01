@@ -5,6 +5,7 @@ export { FilterConditionsEntity } from '@core/entities/filter-conditions';
 export { SqlFormatterEntity } from '@core/entities/sql-formatter';
 export { WorkspaceEntity } from '@core/entities/workspace';
 export type { ModelFilterConditions } from '@core/entities/workspace';
+import { QueryExecutionResult as CoreQueryExecutionResult } from '@core/types/query-types';
 
 // Domain Types
 export interface CTE {
@@ -61,6 +62,7 @@ export interface Tab {
   content: string;
   isDirty: boolean;
   cteName?: string;
+  queryResult?: CoreQueryExecutionResult; // Add query result directly to tab
 }
 
 // Test Values Types
