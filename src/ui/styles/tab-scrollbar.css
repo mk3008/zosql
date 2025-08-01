@@ -7,3 +7,33 @@
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge legacy */
 }
+
+/* Custom scrollbar for query results */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 4px;
+  border: 1px solid #2a2a2a;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+}
+
+.scrollbar-thin::-webkit-scrollbar-corner {
+  background: #2a2a2a;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a #2a2a2a;
+}
