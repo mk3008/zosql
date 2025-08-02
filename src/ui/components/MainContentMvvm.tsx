@@ -12,6 +12,7 @@ import { DebugLogger } from '../../utils/debug-logger';
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { ResizableSplitter } from './ResizableSplitter';
+import { DataTabResults } from './DataTabResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
 import { useMvvmBinding } from '@ui/hooks/useMvvm';
 
@@ -91,7 +92,12 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
       } else if (event.ctrlKey && event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
-        vm.executeQuery();
+        // Use data tab execution for values tab, regular execution for others
+        if (vm.activeTab?.type === 'values') {
+          vm.executeDataTabQueries();
+        } else {
+          vm.executeQuery();
+        }
       } else if (event.ctrlKey && event.shiftKey && event.key === 'A') {
         console.log('[DEBUG] Ctrl+Shift+A pressed');
         event.preventDefault();
@@ -330,7 +336,12 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.ctrlKey && event.key === 'Enter') {
       event.preventDefault();
-      vm.executeQuery();
+      // Use data tab execution for values tab, regular execution for others
+      if (vm.activeTab?.type === 'values') {
+        vm.executeDataTabQueries();
+      } else {
+        vm.executeQuery();
+      }
     } else if (event.ctrlKey && event.key === 's') {
       event.preventDefault();
       if (vm.canSave) {
@@ -494,6 +505,15 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   title="Copy AI prompt to clipboard for generating test data"
                 >
                   Copy Prompt
+                </button>
+                
+                <button 
+                  onClick={() => vm.executeDataTabQueries()}
+                  disabled={vm.isExecuting}
+                  className="px-3 py-1 bg-success text-white rounded hover:bg-green-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Execute all queries (Root + CTEs)"
+                >
+                  {vm.isExecuting ? 'Running...' : 'Run'}
                 </button>
                 
                 <button 
@@ -743,8 +763,57 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                     })()}
                   </div>
                 </ResizableSplitter>
+              ) : vm.activeTab && vm.activeTab.type === 'values' && vm.dataTabResults.size > 0 ? (
+                // Split view for values tab with results
+                <ResizableSplitter
+                  direction="vertical"
+                  initialSizes={[20, 80]} // Start with 20% editor, 80% results for maximum grid space
+                  minSizes={[40, 150]} // Minimum 40px for collapsed editor header, 150px for results
+                  onResize={(_sizes) => {
+                    // Optional: save splitter state if needed
+                  }}
+                  className="h-full"
+                >
+                  {/* Monaco Editor - top pane (can be made very small) */}
+                  <div className="h-full bg-dark-primary overflow-hidden flex flex-col">
+                    {/* Editor Header - Always visible */}
+                    <div className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-2 flex items-center justify-between flex-shrink-0">
+                      <span className="text-sm font-medium text-dark-text-white">SQL Editor</span>
+                    </div>
+                    
+                    {/* Editor Content */}
+                    <div className="flex-1 overflow-hidden">
+                      <MonacoEditor
+                        key="values-editor-split"
+                        value={vm.activeTab.content}
+                        onChange={(value) => {
+                          console.log('[DEBUG] Monaco onChange for values tab:', vm.activeTab!.id);
+                          vm.updateTabContent(vm.activeTab!.id, value);
+                        }}
+                        language="sql"
+                        height="100%"
+                        isMainEditor={true}
+                        onKeyDown={handleKeyDown}
+                        workspace={workspace}
+                        searchTerm={searchTerm}
+                        options={{
+                          wordWrap: 'off',
+                          wrappingStrategy: 'simple',
+                          scrollBeyondLastLine: false,
+                          minimap: { enabled: false },
+                          folding: true,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Data Tab Results - bottom pane with single vertical scroll */}
+                  <div className="h-full overflow-y-auto overflow-x-hidden bg-dark-secondary p-4">
+                    <DataTabResults results={vm.dataTabResults} />
+                  </div>
+                </ResizableSplitter>
               ) : (
-                // Single editor view (no results or values tab)
+                // Single editor view (no results or non-values tab)
                 <div className="h-full bg-dark-primary overflow-hidden">
                   <MonacoEditor
                     key="main-editor-unified" // Single stable key prevents remounting

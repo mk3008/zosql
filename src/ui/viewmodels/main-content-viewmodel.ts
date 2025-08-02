@@ -27,6 +27,7 @@ export class MainContentViewModel extends BaseViewModel {
   private _workspace: WorkspaceEntity | null = null;
   private _tabModelMap: Map<string, SqlModelEntity> = new Map();
   private _useSchemaCollector: boolean = true;
+  private _dataTabResults: Map<string, QueryExecutionResult> = new Map(); // Results for root and each CTE
   
   // Callbacks
   private _onSqlExecuted?: (sql: string) => void;
@@ -160,6 +161,15 @@ export class MainContentViewModel extends BaseViewModel {
     }
   }
 
+  get dataTabResults(): Map<string, QueryExecutionResult> {
+    return this._dataTabResults;
+  }
+
+  set dataTabResults(value: Map<string, QueryExecutionResult>) {
+    this._dataTabResults = value;
+    this.notifyChange('dataTabResults', value);
+  }
+
   // Callback setters
   setOnSqlExecuted(callback: (sql: string) => void): void {
     this._onSqlExecuted = callback;
@@ -167,6 +177,87 @@ export class MainContentViewModel extends BaseViewModel {
 
 
   // Commands
+
+  async executeDataTabQueries(): Promise<void> {
+    if (!this.workspace) {
+      this.notifyChange('error', 'No workspace loaded');
+      return;
+    }
+
+    this.isExecuting = true;
+
+    try {
+      const results = new Map<string, QueryExecutionResult>();
+      
+      // Get all SQL models (root + CTEs)
+      const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
+      
+      // Execute each model using the EXACT same logic as individual tab execution
+      for (const model of models) {
+        try {
+          console.log(`[DEBUG] Executing data tab query for: ${model.name} (${model.type})`);
+          
+          // Create a temporary tab content that matches what each individual tab would have
+          let tabContent: string;
+          if (model.type === 'main') {
+            // For main model, use the saved content (which includes the main SELECT)
+            tabContent = model.sqlWithoutCte;
+          } else {
+            // For CTE model, use the actual CTE definition content to avoid circular reference
+            tabContent = model.sqlWithoutCte;
+          }
+          
+          // Use the EXACT same context structure as regular executeQuery()
+          const context = {
+            workspace: this.workspace,
+            sqlModel: model,
+            tabContent: tabContent,
+            tabType: model.type as 'main' | 'cte'
+          };
+
+          // Use the same ExecuteQueryCommand that works for individual tabs
+          const command = new ExecuteQueryCommand(context);
+          const result = await commandExecutor.execute(command);
+          const migratedResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
+          
+          // Store result with model name as key
+          const displayName = model.type === 'main' ? 'root' : model.name;
+          results.set(displayName, migratedResult);
+          
+          console.log(`[DEBUG] Data tab query completed for: ${displayName}`, {
+            status: migratedResult.status,
+            rowsCount: migratedResult.rows?.length
+          });
+          
+        } catch (error) {
+          console.error(`[DEBUG] Error executing query for ${model.name}:`, error);
+          
+          const errorResult = migrateLegacyResult({
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+            executionTime: 0
+          });
+          
+          const displayName = model.type === 'main' ? 'root' : model.name;
+          results.set(displayName, errorResult);
+        }
+      }
+      
+      // Update results
+      this.dataTabResults = results;
+      console.log(`[DEBUG] Data tab execution completed. Results for: ${Array.from(results.keys()).join(', ')}`);
+      
+    } catch (error) {
+      console.error('[DEBUG] Failed to execute data tab queries:', error);
+      this.notifyChange('errorWithDetails', {
+        message: 'Data tab execution failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    } finally {
+      this.isExecuting = false;
+    }
+  }
 
   async executeQuery(): Promise<void> {
     if (!this.canExecute || !this.activeTab) {
@@ -352,6 +443,7 @@ export class MainContentViewModel extends BaseViewModel {
     
     // Reset other state
     this._useSchemaCollector = false;
+    this._dataTabResults = new Map();
     
     // Notify all property changes
     this.notifyChange('tabs', this._tabs);
@@ -362,6 +454,7 @@ export class MainContentViewModel extends BaseViewModel {
     this.notifyChange('isExecuting', this._isExecuting);
     this.notifyChange('workspace', this._workspace);
     this.notifyChange('useSchemaCollector', this._useSchemaCollector);
+    this.notifyChange('dataTabResults', this._dataTabResults);
     this.notifyChange('tabModelMap', this._tabModelMap);
     
     DebugLogger.debug('MainContentViewModel', 'Workspace state reset completed');
