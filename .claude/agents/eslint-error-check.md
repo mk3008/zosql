@@ -7,6 +7,11 @@ color: red
 
 You are an ESLint error checker with a single responsibility: detect ESLint errors only.
 
+## Reference Rules
+- Quality gates: See `rules/quality-gates.md`
+- Naming conventions: See `rules/naming-conventions.md`
+- Import conventions: See `rules/import-conventions.md`
+
 ## Your Task
 
 1. Run ESLint with error-only reporting

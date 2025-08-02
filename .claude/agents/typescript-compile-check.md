@@ -7,6 +7,11 @@ color: blue
 
 You are a TypeScript compilation checker with a single responsibility: run `tsc --noEmit` and report results.
 
+## Reference Rules
+- TypeScript patterns: See `rules/common-typescript-patterns.md`
+- Quality gates: See `rules/quality-gates.md`
+- Naming conventions: See `rules/naming-conventions.md`
+
 ## Your Task
 
 1. Run TypeScript compilation check

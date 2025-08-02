@@ -84,38 +84,10 @@ src/
 
 ## Key Technologies
 
-### **rawsql-ts Usage**
-SQL parsing and manipulation is handled exclusively by `rawsql-ts`:
-
-```typescript
-import { SelectQueryParser } from 'rawsql-ts';
-
-// Parse SQL (static method - no instantiation needed)
-const query = SelectQueryParser.parse('SELECT id, name FROM users');
-
-// For WITH clauses, always convert to SimpleSelectQuery
-const withQuery = SelectQueryParser.parse(`
-  WITH user_stats AS (SELECT user_id, COUNT(*) FROM orders GROUP BY user_id)
-  SELECT * FROM user_stats
-`).toSimpleQuery();
-```
-
-### **PGlite Constraints (CRITICAL)**
-PGlite should ONLY be used for SQL validation and execution. Do NOT create tables or insert data:
-
-```typescript
-// ✅ Allowed: SQL execution/validation
-const db = new PGlite();
-await db.exec(userSql);
-
-// ❌ Forbidden: Schema/data operations
-await db.exec('CREATE TABLE users (...)');    
-await db.exec('INSERT INTO users VALUES(...)');
-```
-
-### **Key Libraries**
-- **Monaco Editor**: Use `@monaco-editor/react` for SQL editing
-- **State Management**: Zustand for lightweight state management
+- **rawsql-ts**: SQL parsing and manipulation → See `rules/sql-processing-rules.md`
+- **PGlite**: In-browser SQL execution → See `rules/sql-processing-rules.md`
+- **Monaco Editor**: SQL editing → See `rules/monaco-editor-rules.md`
+- **Zustand**: State management
 - **DI Container**: Located in `src/core/di/container.ts`
 
 ## Development Patterns
@@ -178,71 +150,7 @@ function SqlEditor({ viewModel }: { viewModel: SqlEditorViewModel }) {
 
 ## Testing Strategy
 
-### **Test Structure**
-- **Unit Tests**: Focus on business logic in `src/core/`
-- **Integration Tests**: Test adapter implementations
-- **Component Tests**: Minimal UI binding verification only
-
-### **Key Test Files**
-- `test/intellisense-regression.test.ts` - 60+ test cases for IntelliSense functionality
-- `test/core/` - Business logic unit tests
-- `test/ui/viewmodels/` - ViewModel unit tests (UI-independent)
-
-### **Testing Guidelines**
-
-#### **React Component Testing Rules (CRITICAL)**
-**Always use test helpers for React component tests to prevent Context Provider errors:**
-
-```typescript
-// ✅ REQUIRED: Use renderWithProviders for ALL React component tests
-import { renderWithProviders } from '../helpers/test-wrapper';
-
-describe('MyComponent', () => {
-  it('should render without Context errors', () => {
-    renderWithProviders(<MyComponent />);
-    // No "must be used within Provider" errors
-  });
-});
-
-// ❌ FORBIDDEN: Direct render() without providers
-describe('MyComponent', () => {
-  it('should render', () => {
-    render(<MyComponent />); // Will cause Context Provider errors
-  });
-});
-```
-
-#### **Context Provider Requirements**
-All React components in this project require these providers:
-- `WorkspaceProvider` - For workspace state
-- `EditorProvider` - For editor state
-
-**Root cause of Provider errors:**
-- Components use `useWorkspace()` and `useEditor()` hooks
-- These hooks **MUST** be wrapped in corresponding providers
-- Test failures occur when providers are missing
-
-#### **Business Logic Testing**
-```typescript
-// ✅ Good: ViewModel unit test (no UI)
-describe('SqlEditorViewModel', () => {
-  it('should enable execute when SQL is not empty', () => {
-    const vm = new SqlEditorViewModel();
-    vm.sql = 'SELECT * FROM users';
-    expect(vm.canExecute).toBe(true);
-  });
-});
-
-// ✅ Good: Command unit test
-describe('ExecuteQueryCommand', () => {
-  it('should validate SQL before execution', async () => {
-    const command = new ExecuteQueryCommand(context);
-    expect(command.canExecute()).toBe(true);
-  });
-});
-
-// ❌ Avoid: Heavy UI integration tests
-```
+See `rules/testing-standards.md` for comprehensive testing guidelines including React component testing rules, Context Provider requirements, and business logic testing patterns.
 
 ## Configuration and Deployment
 
@@ -297,45 +205,19 @@ ZOSQL_LOG_LEVEL=error            # Set log level
 
 ## Quality Gates
 
-### **Pre-Push Validation**
-ALWAYS run essential checks locally before pushing:
-```bash
-npm run ci:essential      # Essential: TypeScript + ESLint (matches GitHub Actions)
-npm run ci:check          # With tests: TypeScript + ESLint + Tests  
-npm run ci:full           # Full check: TypeScript + ESLint + Tests + Build
-```
+See `rules/quality-gates.md` for complete quality standards and validation requirements.
 
-### **Development Workflow**
+### **Project-Specific Commands**
 ```bash
+# Essential pre-push validation (matches GitHub Actions)
+npm run ci:essential      # TypeScript + ESLint
+npm run ci:check          # TypeScript + ESLint + Tests  
+npm run ci:full           # TypeScript + ESLint + Tests + Build
+
+# Development workflow
 npm run quality           # Full quality checks for development
 npm run quality:fix       # Auto-fix ESLint issues, then typecheck
 ```
-
-### **Individual Checks**
-```bash
-npm run typecheck         # TypeScript compilation (MUST have zero errors)
-npm run lint              # ESLint (currently allows 28 warnings temporarily)
-npm run test:run          # Tests only
-npm run build:github      # Production build for GitHub Pages
-```
-
-### **GitHub Actions Alignment**
-- `ci:check` = Minimum checks required for PR
-- `ci:full` = Complete pipeline validation
-- **Must fix**: All TypeScript errors and ESLint errors (warnings temporarily allowed)
-
-### **Quality Standards**
-
-Common issues to check:
-- No `any` types - use `unknown` with proper type guards
-- No unused variables/parameters - remove or prefix with `_`
-- All React hooks have proper dependencies
-- No ignored ESLint rules without justification
-
-File size limits:
-- **500 lines recommended**
-- **1000 lines maximum** (excluding comments)
-- Split files by responsibility when exceeding limits
 
 ## Legacy Information
 

@@ -7,6 +7,11 @@ color: orange
 
 You are a hexagonal architecture dependency checker with a single responsibility: detect layer dependency violations.
 
+## Reference Rules
+- Architecture principles: See `rules/architecture-principles.md`
+- Directory structure: See `rules/common-directory-structure.md`
+- Import conventions: See `rules/import-conventions.md`
+
 ## Your Task
 
 1. Check if Core layer imports from Adapters or UI layers
