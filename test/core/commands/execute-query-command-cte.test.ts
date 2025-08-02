@@ -29,7 +29,7 @@ describe('ExecuteQueryCommand - CTE Testing', () => {
     command = new ExecuteQueryCommand(context);
   });
 
-  it('should execute CTE independently with SELECT wrapper', async () => {
+  it('should execute CTE independently using getDynamicSql with wrapper', async () => {
     const result = await command.execute();
     
     expect(result.success).toBe(true);
@@ -55,13 +55,16 @@ describe('ExecuteQueryCommand - CTE Testing', () => {
     
     expect(result.success).toBe(false);
     expect(result.error).toContain('CTE execution failed');
-    expect(result.executedSql).toContain('WITH test_cte AS');
+    // getDynamicSql fails before SQL wrapping, so executedSql contains the original content
+    expect(result.executedSql).toBe('INVALID SQL SYNTAX');
   });
 
-  it('should properly format CTE test SQL', async () => {
+  it('should properly format CTE test SQL using getDynamicSql', async () => {
     const result = await command.execute();
     
-    const expectedPattern = /WITH test_cte AS \(\s*SELECT 1 as id, 'test' as name\s*\)\s*SELECT \* FROM test_cte/;
-    expect(result.executedSql).toMatch(expectedPattern);
+    // The SQL formatter from getDynamicSql produces lowercase and quoted identifiers
+    expect(result.executedSql).toContain('WITH test_cte AS');
+    expect(result.executedSql).toContain('select 1 as "id"');
+    expect(result.executedSql).toContain('SELECT * FROM test_cte');
   });
 });
