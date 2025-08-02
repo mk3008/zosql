@@ -12,7 +12,7 @@ export const App: React.FC = () => {
   const [forceDemo] = React.useState(isDemoPath);
   
   return (
-    <WorkspaceProvider forceDemo={forceDemo}>
+    <WorkspaceProvider>
       <EditorProvider>
         <div className="h-screen w-screen overflow-hidden bg-dark-primary text-dark-text-primary">
           <Layout forceDemo={forceDemo} />

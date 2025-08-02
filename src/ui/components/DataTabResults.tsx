@@ -27,8 +27,8 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   
   // Handle both old and new result formats at component level
-  const rows = result?.rows || (result as any)?.data || [];
-  const status = result?.status || ((result as any)?.success ? 'completed' : 'failed');
+  const rows = result?.rows || (result as unknown as { data?: readonly unknown[] })?.data || [];
+  const status = result?.status || ((result as unknown as { success?: boolean })?.success ? 'completed' : 'failed');
   
   // Synchronized horizontal scrolling between header and body
   useEffect(() => {
@@ -59,13 +59,13 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
   }, []);
 
   const renderTable = () => {
-    const isError = status === 'failed' || (result as any)?.error;
+    const isError = status === 'failed' || !!(result as unknown as { error?: string })?.error;
     
     if (!result || isError || !rows || rows.length === 0) {
       return (
         <div className="text-center text-dark-text-muted py-4">
           {status === 'completed' ? 'No data returned from query' : 
-           status === 'failed' ? `Error: ${result?.errors?.[0]?.message || (result as any)?.error || 'Query execution failed'}` :
+           status === 'failed' ? `Error: ${result?.errors?.[0]?.message || (result as unknown as { error?: string })?.error || 'Query execution failed'}` :
            'No result available'}
         </div>
       );
@@ -220,8 +220,8 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
         <div className="flex items-center gap-4 text-xs text-dark-text-secondary">
           {status === 'completed' && (
             <>
-              <span>Rows: {result?.stats?.rowsReturned ?? (result as any)?.rowCount ?? rows.length ?? 0}</span>
-              <span>Time: {result?.stats?.executionTimeMs ?? (result as any)?.executionTime ?? 0}ms</span>
+              <span>Rows: {result?.stats?.rowsReturned ?? (result as unknown as { rowCount?: number })?.rowCount ?? rows.length ?? 0}</span>
+              <span>Time: {result?.stats?.executionTimeMs ?? (result as unknown as { executionTime?: number })?.executionTime ?? 0}ms</span>
             </>
           )}
         </div>
