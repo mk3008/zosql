@@ -210,9 +210,12 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
       
       return {
         success: false,
-        error: `${errorMessage}\n\nExecuted SQL:\n${executedSql}`,
+        error: `${errorMessage}${executedSql ? `
+
+Executed SQL:
+${executedSql}` : ''}`,
         executionTime,
-        executedSql
+        executedSql: executedSql || this.context.tabContent
       };
     }
   }

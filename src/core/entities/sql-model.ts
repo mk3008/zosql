@@ -209,34 +209,23 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
           if (hasActualConditions) {
             console.log('[DEBUG] Applying filter conditions with actual values');
             
-            // Use ignoreNonExistentColumns option (0.11.25-beta)
+            // Use ignoreNonExistentColumns option - rawsql-ts supports this in the options parameter
             const builder = new DynamicQueryBuilder();
             
-            // Try constructor option with ignoreNonExistentColumns
             try {
-              const builderWithOptions = new DynamicQueryBuilder(() => []); // Provide table column getter function
-              query = builderWithOptions.buildFilteredQuery(baseSql, conditions);
-              console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (constructor)');
-            } catch (error1) {
-              console.log('[DEBUG] Constructor option failed, trying method parameter');
-              
-              // Try method parameter with ignoreNonExistentColumns
-              try {
-                query = builder.buildFilteredQuery(baseSql, conditions);
-                console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (parameter)');
-              } catch (error2) {
-                console.log('[DEBUG] Parameter option failed, trying property setting');
-                
-                // Try property setting
-                try {
-                  (builder as { ignoreNonExistentColumns?: boolean }).ignoreNonExistentColumns = true;
-                  query = builder.buildFilteredQuery(baseSql, conditions);
-                  console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns (property)');
-                } catch (error3) {
-                  const errorMessage = error1 instanceof Error ? error1.message : 'Unknown error';
-                  console.log('[DEBUG] All ignoreNonExistentColumns patterns failed, original error:', errorMessage);
-                  throw error1; // Re-throw the original error
-                }
+              // Try setting ignoreNonExistentColumns property before calling buildFilteredQuery
+              (builder as { ignoreNonExistentColumns?: boolean }).ignoreNonExistentColumns = true;
+              query = builder.buildFilteredQuery(baseSql, conditions);
+              console.log('[DEBUG] Filter conditions applied successfully with ignoreNonExistentColumns property');
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              console.log('[DEBUG] Filter application failed with ignoreNonExistentColumns, original error:', errorMessage);
+              // For CTE individual execution, ignore filter errors and use original SQL
+              if (this.type === 'cte') {
+                console.log('[DEBUG] CTE individual execution - ignoring filter conditions due to missing columns');
+                // Keep query as is (use baseSql without filters)
+              } else {
+                throw error; // Re-throw for main queries
               }
             }
           } else {
