@@ -15,6 +15,8 @@ You are a SQL processing specialist focused on rawsql-ts usage and workspace SQL
 
 ## Rule References
 - SQL processing patterns: See `rules/sql-processing-rules.md`
+- Architecture principles: See `rules/architecture-principles.md`
+- Error handling: See `rules/error-handling-rules.md`
 
 ## Key Patterns
 

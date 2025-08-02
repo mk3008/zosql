@@ -1,126 +1,39 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file serves as an agent directory for Claude Code when working with this repository. Choose the appropriate main agent based on your development task.
 
-## Project Overview
+## Available Main Agents
 
-**zosql** is a SQL decomposition and composition tool that enables debugging and modularization of Complex Common Table Expressions (CTEs). The application is designed to be deployed on GitHub Pages as a static React SPA with WASM Postgres for in-browser SQL execution.
+### 🎯 dev-orchestrator
+**Purpose**: Primary development task coordinator  
+**Use for**: General development tasks, bug fixes, feature implementation  
+**What it does**: Analyzes your request and automatically delegates to the appropriate specialist (core logic, UI components, or integration) to prevent scope creep and regressions.
 
-### Key Goals
-- Enable CTE debugging through decomposition into testable units
-- Provide SQL composition from modular CTE files
-- Maintain 100% SQL compatibility for existing tooling
+### 🔍 qa-orchestrator  
+**Purpose**: Quality assurance and testing coordination  
+**Use for**: Running tests, quality checks, pre-commit validation  
+**What it does**: Orchestrates TypeScript compilation, ESLint checks, tests, builds, and architecture validation in parallel for fast quality assurance.
 
-## Common Development Commands
+### 🛠️ development-workflow-agent
+**Purpose**: Development workflow and best practices guidance  
+**Use for**: Git workflows, coding patterns, project conventions  
+**What it does**: Guides developers through development workflows including Git operations, code patterns, and project-specific conventions.
 
-```bash
-# Development
-npm run dev                 # Start development server (port 3000)
-npm run build              # Build for production
-npm run build:github       # Build for GitHub Pages deployment
+### 🔄 sql-processing-agent
+**Purpose**: SQL parsing and workspace management specialist  
+**Use for**: SQL parsing, CTE handling, rawsql-ts integration, PGlite validation  
+**What it does**: Expert in SQL parsing using rawsql-ts, CTE decomposition/composition, and workspace SQL management.
 
-# Testing
-npm run test               # Run tests in watch mode
-npm run test:run           # Run tests once
-npm run test:ui            # Run tests with UI
+### 🎨 ui-development-agent
+**Purpose**: React and UI development specialist  
+**Use for**: React components, Monaco Editor integration, UI patterns  
+**What it does**: Specializes in React component development, Monaco Editor integration, TypeScript patterns, and UI best practices.
 
-# Code Quality
-npm run lint               # Run ESLint
-npm run lint:fix          # Run ESLint with auto-fix
-tsc --noEmit              # Type checking only
+### 📚 rule-organizer
+**Purpose**: Documentation and rule management specialist  
+**Use for**: Organizing project documentation, optimizing rules, cleaning up guidelines  
+**What it does**: Optimizes project documentation for AI comprehension by organizing, consolidating, and streamlining rules and guidelines.
 
-# Preview
-npm run preview           # Preview production build
-```
+---
 
-## Architecture
-
-- **Architecture principles**: See `rules/architecture-principles.md`
-- **Directory structure**: See `rules/common-directory-structure.md`
-
-## Key Technologies
-
-- **rawsql-ts**: SQL parsing and manipulation → See `rules/sql-processing-rules.md`
-- **PGlite**: In-browser SQL execution → See `rules/sql-processing-rules.md`
-- **Monaco Editor**: SQL editing → See `rules/monaco-editor-rules.md`
-- **Zustand**: State management
-- **DI Container**: Located in `src/core/di/container.ts`
-
-## Development Patterns
-
-- **Development patterns**: See `rules/development-patterns.md`
-
-## Testing Strategy
-
-See `rules/testing-standards.md` for comprehensive testing guidelines including React component testing rules, Context Provider requirements, and business logic testing patterns.
-
-## Configuration and Deployment
-
-### **Environment Configuration**
-Configuration is managed through `zosql.config.json`:
-
-```json
-{
-  "logging": {
-    "enabled": true,
-    "console": true,
-    "intellisense": true,
-    "query": true,
-    "logLevel": "debug"
-  },
-  "server": {
-    "port": 3000,
-    "host": "localhost"
-  }
-}
-```
-
-### **Path Aliases**
-The project uses TypeScript path aliases:
-- `@/` → `./src/`
-- `@core/` → `./src/core/`
-- `@adapters/` → `./src/adapters/`
-- `@ui/` → `./src/ui/`
-- `@shared/` → `./src/shared/`
-
-### **GitHub Pages Deployment**
-- Build target: `docs/` directory
-- Run `npm run build:github` for GitHub Pages deployment
-- Vite configuration handles static asset optimization
-
-## Logging System
-
-Debug logging to `.tmp/` directory:
-- `.tmp/debug.log` - General application logs
-- `.tmp/error.log` - Error logs
-- `.tmp/intellisense.log` - IntelliSense-specific logs
-- `.tmp/query.log` - Query execution logs
-
-Control logging with environment variables:
-```bash
-ZOSQL_LOG_ENABLED=false           # Disable all logging
-ZOSQL_LOG_CONSOLE=false          # Disable console output only
-ZOSQL_LOG_INTELLISENSE=false     # Disable IntelliSense logs only
-ZOSQL_LOG_QUERY=false            # Disable query logs only
-ZOSQL_LOG_LEVEL=error            # Set log level
-```
-
-## Quality Gates
-
-See `rules/quality-gates.md` for complete quality standards and validation requirements.
-
-### **Project-Specific Commands**
-```bash
-# Essential pre-push validation (matches GitHub Actions)
-npm run ci:essential      # TypeScript + ESLint
-npm run ci:check          # TypeScript + ESLint + Tests  
-npm run ci:full           # TypeScript + ESLint + Tests + Build
-
-# Development workflow
-npm run quality           # Full quality checks for development
-npm run quality:fix       # Auto-fix ESLint issues, then typecheck
-```
-
-## Legacy Information
-
-Legacy JavaScript implementation is preserved in `backup-old-implementation/` for reference, including Shadow DOM-based UI components and original workspace service implementation. The current implementation has migrated to React + TypeScript with hexagonal architecture.
+**How to Choose**: Start with **dev-orchestrator** for most development tasks - it will automatically route you to the right specialist. Use specific agents directly when you have focused needs in their domain.

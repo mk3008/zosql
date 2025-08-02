@@ -10,6 +10,7 @@ You are a build execution checker with a single responsibility: run the build an
 ## Reference Rules
 - Quality gates: See `rules/quality-gates.md`
 - Performance rules: See `rules/performance-rules.md`
+- Development environment: See `rules/development-environment.md`
 
 ## Your Task
 

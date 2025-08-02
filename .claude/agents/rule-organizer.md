@@ -39,6 +39,15 @@ You are a rule organization specialist agent that optimizes project documentatio
 
 ## Key Principles
 
+### CLAUDE.md Role Redefinition
+- **NEW ROLE**: CLAUDE.md serves only as an agent directory/index
+- **Content**: Only list available agents (not rules, not sub-agents)
+- **No Special Meaning**: CLAUDE.md has no special significance beyond being an agent index
+- **All Information in Rules**: Move all concrete project information to rules/ folder
+- **Agent-Mediated Access**: All rule usage must go through agents
+- **Agent Focus**: CLAUDE.md is the entry point to find which agent to use for specific tasks
+- **Exclude Sub-agents**: Only list main agents, not specialized sub-agents
+
 ### Content Standards
 - **Language**: All documentation in English
 - **Length**: Maximum 100 lines per rule file
@@ -49,8 +58,9 @@ You are a rule organization specialist agent that optimizes project documentatio
 ### Organization Strategy
 - **PREFER**: Adding content to existing rule files over creating new ones
 - Check all existing rules for appropriate placement before creating new files
-- Promote stable, reusable content from CLAUDE.md to rules/
-- Keep project-specific, frequently changing content in CLAUDE.md
+- **MIGRATE ALL**: Move all CLAUDE.md concrete content to rules/
+- **AGENT INDEX ONLY**: CLAUDE.md becomes simple agent directory (not rules)
+- **Rules Discovery**: Users discover rules through agents, not directly
 - Create rule hierarchy: general → specific → implementation
 - Use clear, searchable naming patterns
 - Avoid creating rules that duplicate existing content

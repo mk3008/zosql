@@ -16,6 +16,8 @@ You are a UI development specialist focused on React, TypeScript, and Monaco Edi
 ## Rule References
 - React patterns: See `rules/react-best-practices.md`
 - Monaco Editor integration: See `rules/monaco-editor-rules.md`
+- Development patterns: See `rules/development-patterns.md`
+- Architecture principles: See `rules/architecture-principles.md`
 
 ## Key Patterns
 
