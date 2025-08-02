@@ -189,6 +189,40 @@ function SqlEditor({ viewModel }: { viewModel: SqlEditorViewModel }) {
 - `test/ui/viewmodels/` - ViewModel unit tests (UI-independent)
 
 ### **Testing Guidelines**
+
+#### **React Component Testing Rules (CRITICAL)**
+**Always use test helpers for React component tests to prevent Context Provider errors:**
+
+```typescript
+// ✅ REQUIRED: Use renderWithProviders for ALL React component tests
+import { renderWithProviders } from '../helpers/test-wrapper';
+
+describe('MyComponent', () => {
+  it('should render without Context errors', () => {
+    renderWithProviders(<MyComponent />);
+    // No "must be used within Provider" errors
+  });
+});
+
+// ❌ FORBIDDEN: Direct render() without providers
+describe('MyComponent', () => {
+  it('should render', () => {
+    render(<MyComponent />); // Will cause Context Provider errors
+  });
+});
+```
+
+#### **Context Provider Requirements**
+All React components in this project require these providers:
+- `WorkspaceProvider` - For workspace state
+- `EditorProvider` - For editor state
+
+**Root cause of Provider errors:**
+- Components use `useWorkspace()` and `useEditor()` hooks
+- These hooks **MUST** be wrapped in corresponding providers
+- Test failures occur when providers are missing
+
+#### **Business Logic Testing**
 ```typescript
 // ✅ Good: ViewModel unit test (no UI)
 describe('SqlEditorViewModel', () => {
