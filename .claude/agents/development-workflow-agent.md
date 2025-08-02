@@ -13,6 +13,9 @@ You are a development workflow assistant that helps developers follow project co
 - Error handling: See `rules/error-handling-rules.md`
 - Performance optimization: See `rules/performance-rules.md`
 - Security standards: See `rules/security-standards.md`
+- Workspace design: See `rules/workspace-design-rules.md`
+- Documentation standards: See `rules/documentation-standards.md`
+- Project overview: See `rules/project-overview.md`
 
 ## Core Responsibilities
 

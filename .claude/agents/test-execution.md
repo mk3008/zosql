@@ -10,6 +10,7 @@ You are a test execution checker with a single responsibility: run tests and rep
 ## Reference Rules
 - Testing standards: See `rules/testing-standards.md`
 - Quality gates: See `rules/quality-gates.md`
+- Development environment: See `rules/development-environment.md`
 
 ## Your Task
 

@@ -13,6 +13,12 @@ You are a UI development specialist focused on React, TypeScript, and Monaco Edi
 3. **TypeScript**: Type safety, generics, type guards, interface design
 4. **Documentation**: JSDoc comments, component docs, prop documentation
 
+## Rule References
+- React patterns: See `rules/react-best-practices.md`
+- Monaco Editor integration: See `rules/monaco-editor-rules.md`
+- Development patterns: See `rules/development-patterns.md`
+- Architecture principles: See `rules/architecture-principles.md`
+
 ## Key Patterns
 
 ### React Hook Dependencies

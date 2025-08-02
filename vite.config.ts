@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import fs from 'fs'
 
 export default defineConfig(({ command, mode }) => {
   // Command parameter unused in current config
@@ -8,7 +9,20 @@ export default defineConfig(({ command, mode }) => {
   const isGitHubPages = mode === 'production' && process.env.NODE_ENV === 'production';
   
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      // GitHub Pages SPA fallback plugin
+      {
+        name: 'github-pages-spa-fallback',
+        writeBundle() {
+          if (isGitHubPages) {
+            const outDir = 'docs';
+            const indexHtml = fs.readFileSync(path.join(outDir, 'index.html'), 'utf-8');
+            fs.writeFileSync(path.join(outDir, '404.html'), indexHtml);
+          }
+        }
+      }
+    ],
     base: isGitHubPages ? '/zosql/' : '/',
     resolve: {
       alias: {

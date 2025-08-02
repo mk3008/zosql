@@ -61,8 +61,54 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
           this.context.sqlModel.updateEditorContent(this.context.tabContent);
           this.context.sqlModel.save();
           
-          // For CTE tabs, execute the CTE with a simple SELECT to test it independently
-          console.log('[DEBUG] Executing CTE independently with SELECT wrapper');
+          // For CTE tabs, execute the CTE with getDynamicSql and add wrapper if needed
+          console.log('[DEBUG] Executing CTE independently using getDynamicSql');
+          
+          // Get test values and filter conditions from workspace
+          const testValues = this.getTestValues();
+          const filterConditions = this.context.workspace?.filterConditions;
+          
+          // Generate dynamic SQL using SqlModelEntity's method
+          try {
+            const dynamicResult = await this.context.sqlModel.getDynamicSql(testValues, filterConditions, true, true);
+            console.log('[DEBUG] CTE getDynamicSql result:', dynamicResult.formattedSql.substring(0, 200) + '...');
+            
+            let executableSql = dynamicResult.formattedSql;
+            
+            // If the SQL doesn't start with WITH, it means it's a standalone CTE content
+            // We need to wrap it to make it executable
+            if (!executableSql.toLowerCase().trim().startsWith('with')) {
+              const cteName = this.context.sqlModel.name;
+              executableSql = `WITH ${cteName} AS (\n${executableSql}\n)\nSELECT * FROM ${cteName}`;
+              console.log('[DEBUG] Wrapped standalone CTE with SELECT statement');
+            }
+            
+            console.log('[DEBUG] Final executable SQL:', executableSql.substring(0, 200) + '...');
+            
+            // Execute the SQL with parameters
+            const result = await this.executeSqlWithPGlite(executableSql, dynamicResult.params);
+            const executionTime = Math.round(performance.now() - startTime);
+            
+            return {
+              success: true,
+              data: result.rows,
+              executionTime,
+              rowCount: result.rows?.length || 0,
+              executedSql: executableSql
+            };
+          } catch (cteError) {
+            const executionTime = Math.round(performance.now() - startTime);
+            const errorMessage = cteError instanceof Error ? cteError.message : 'CTE execution failed';
+            
+            console.log('[DEBUG] CTE getDynamicSql execution failed:', errorMessage);
+            
+            return {
+              success: false,
+              error: `CTE execution failed: ${errorMessage}`,
+              executionTime,
+              executedSql: this.context.tabContent
+            };
+          }
           
         } else {
           console.log('[DEBUG] Non-CTE tab execution - updating sqlWithoutCte');
@@ -164,9 +210,12 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
       
       return {
         success: false,
-        error: `${errorMessage}\n\nExecuted SQL:\n${executedSql}`,
+        error: `${errorMessage}${executedSql ? `
+
+Executed SQL:
+${executedSql}` : ''}`,
         executionTime,
-        executedSql
+        executedSql: executedSql || this.context.tabContent
       };
     }
   }
