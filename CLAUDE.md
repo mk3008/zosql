@@ -35,52 +35,8 @@ npm run preview           # Preview production build
 
 ## Architecture
 
-### **Core Design Philosophy**
-- **Hexagonal Architecture (Ports & Adapters)**: Complete separation of core business logic from external dependencies
-- **Modular Monolith**: Feature-based module separation for maintainability
-- **TypeScript-First**: Complete type safety to prevent runtime errors
-- **Test-Driven Development**: Quality assurance for core logic
-- **Component-Based UI**: Declarative UI construction with React/TypeScript
-- **Command Pattern**: Separation of UI events and business logic for testability
-- **MVVM Pattern (Passive View)**: UI handles only display and binding, logic concentrated in ViewModel/Model
-
-### **Technical Requirements**
-- **GitHub Pages**: Static site hosting (no backend server required)
-- **WASM Postgres**: In-browser SQL execution environment via PGlite
-- **rawsql-ts**: SQL parsing, CTE dependency analysis, composition, and formatting
-- **React + TypeScript**: Modern UI library for declarative components
-- **LocalStorage**: Client-side data persistence
-
-### **Development Guidelines**
-- **Complete TypeScript**: Type safety for all code
-- **File Size Limits**: 500 lines recommended, 1000 lines maximum (excluding comments)
-- **TDD Practice**: Test-driven development for core logic
-- **Layer Separation**: Clear separation of UI, business logic, and infrastructure
-- **Unit Test Focus**: Thorough testing of business logic
-
-### **Directory Structure**
-```
-src/
-├── core/                    # Domain Layer (Business Logic)
-│   ├── entities/           # Domain entities (<200 lines/file)
-│   ├── usecases/           # Business use cases (<300 lines/file)
-│   ├── commands/           # Command pattern implementations
-│   ├── services/           # Domain services
-│   └── ports/              # Interfaces for external dependencies
-├── adapters/               # Infrastructure Layer
-│   ├── storage/            # LocalStorage implementations
-│   ├── sql/                # PGlite SQL executor
-│   ├── parsers/            # rawsql-ts integration
-│   └── repositories/       # Data access implementations
-├── ui/                     # Presentation Layer (React)
-│   ├── components/         # UI components (<200 lines/file)
-│   ├── hooks/              # Custom hooks (<150 lines/file)
-│   ├── viewmodels/         # MVVM pattern ViewModels
-│   └── context/            # React Context providers
-└── shared/                 # Shared types and utilities
-    ├── types/              # Type definitions
-    └── utils/              # Helper functions
-```
+- **Architecture principles**: See `rules/architecture-principles.md`
+- **Directory structure**: See `rules/common-directory-structure.md`
 
 ## Key Technologies
 
@@ -92,61 +48,7 @@ src/
 
 ## Development Patterns
 
-### **Command Pattern**
-All business operations follow the Command Pattern:
-
-```typescript
-interface Command<T = void> {
-  execute(): Promise<T>;
-  canExecute(): boolean;
-  readonly description?: string;
-}
-
-class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
-  constructor(private readonly context: ExecuteQueryContext) {
-    super('Execute SQL Query');
-  }
-  
-  canExecute(): boolean {
-    return this.context.tabContent.trim().length > 0;
-  }
-  
-  async execute(): Promise<QueryExecutionResult> {
-    // Business logic implementation
-  }
-}
-```
-
-### **MVVM Pattern**
-UI components use ViewModels for business logic separation:
-
-```typescript
-// ViewModel (pure logic)
-class SqlEditorViewModel extends BaseViewModel {
-  private _sql = '';
-  
-  get sql() { return this._sql; }
-  set sql(value: string) { 
-    this._sql = value;
-    this.notifyChange('sql');
-  }
-  
-  async executeQuery() {
-    const command = new ExecuteQueryCommand({ sql: this.sql });
-    await this.commandExecutor.execute(command);
-  }
-}
-
-// View (React component - logic-free)
-function SqlEditor({ viewModel }: { viewModel: SqlEditorViewModel }) {
-  return (
-    <MonacoEditor 
-      value={viewModel.sql}
-      onChange={(value) => viewModel.sql = value}
-    />
-  );
-}
-```
+- **Development patterns**: See `rules/development-patterns.md`
 
 ## Testing Strategy
 
