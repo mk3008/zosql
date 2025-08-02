@@ -147,6 +147,7 @@ vite.config.ts.timestamp-*
 
 # Serena
 .serena
+/serena
 
 # GitHub Pages build output
 /docs/
