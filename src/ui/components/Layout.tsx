@@ -39,7 +39,11 @@ function readFileContent(file: File): Promise<string> {
   });
 }
 
-export const Layout: React.FC = () => {
+interface LayoutProps {
+  forceDemo?: boolean;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
   const [leftSidebarVisible, setLeftSidebarVisible] = useState(true);
   const [rightSidebarVisible, setRightSidebarVisible] = useState(true);
   const [selectedModelName, setSelectedModelName] = useState<string>();
@@ -177,11 +181,16 @@ export const Layout: React.FC = () => {
       setIsWorkspaceLoading(true);
       
       try {
-        const saved = localStorage.getItem('zosql_workspace_v3');
-        DebugLogger.debug('Layout', 'Loading saved workspace from localStorage:', saved ? 'found' : 'not found');
+        // If forceDemo is true, skip loading saved workspace and create demo
+        if (forceDemo) {
+          DebugLogger.debug('Layout', 'Force demo mode enabled, skipping saved workspace');
+          // Jump to demo creation below
+        } else {
+          const saved = localStorage.getItem('zosql_workspace_v3');
+          DebugLogger.debug('Layout', 'Loading saved workspace from localStorage:', saved ? 'found' : 'not found');
         
-        // Debug: Show actual localStorage content
-        if (saved) {
+          // Debug: Show actual localStorage content
+          if (saved) {
           try {
             const parsedData = JSON.parse(saved);
             DebugLogger.debug('Layout', 'Saved workspace openedObjects count:', parsedData.openedObjects?.length || 0);
@@ -303,6 +312,7 @@ export const Layout: React.FC = () => {
             setIsWorkspaceLoading(false);
             return; // Exit early - workspace loaded successfully, don't create demo workspace
           }
+        }
         }
         
         // Create initial workspace for main.sql if no saved workspace exists OR old workspace was cleared
@@ -438,7 +448,7 @@ export const Layout: React.FC = () => {
     };
 
     loadSavedWorkspace();
-  }, []);
+  }, [forceDemo, showError, showSuccess]);
 
   // Watch for decomposition errors
   useEffect(() => {

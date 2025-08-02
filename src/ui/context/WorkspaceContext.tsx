@@ -31,9 +31,10 @@ export const useWorkspace = (): WorkspaceContextType => {
 
 interface WorkspaceProviderProps {
   children: React.ReactNode;
+  forceDemo?: boolean;
 }
 
-export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children }) => {
+export const WorkspaceProvider: React.FC<WorkspaceProviderProps> = ({ children, forceDemo }) => {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
