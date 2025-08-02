@@ -61,32 +61,4 @@ Running 5 parallel checks...
 
 ## Auto-commit on Success
 
-When ALL required checks pass (0 ESLint errors):
-1. Run `git status` to check changes
-2. Stage all files with `git add -A`
-3. Create commit with comprehensive message:
-   - Summary of changes
-   - Auto-fixes applied
-   - Modified files list
-   - Quality gate results
-4. Include Claude Code attribution
-
-### Success Report Example
-```
-## 🎯 Quality Check Results
-### Execution Time: 45.2s
-
-### Required Checks
-- **TypeScript Compilation**: ✅ PASS
-- **Tests**: ✅ PASS (142/142)
-- **Build**: ✅ PASS
-- **ESLint Errors**: ✅ PASS (0 errors)
-
-### Auto-fixes Applied
-- ESLint: Fixed 23 formatting issues
-- TypeScript: Added explicit types
-- Code Style: Normalized formatting
-
-## Decision: ✅ APPROVED
-✅ Commit created: "fix: apply automated quality checks and fixes"
-```
+When ALL required checks pass (0 ESLint errors), automatically create commit following Git workflow rules. See `rules/git-workflow.md` for commit message standards and process.
