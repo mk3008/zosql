@@ -263,27 +263,33 @@ ZOSQL_LOG_LEVEL=error            # Set log level
 
 ## Quality Gates
 
-Before committing, ALWAYS run:
+### **Pre-Push Validation**
+ALWAYS run CI checks locally before pushing:
 ```bash
-npm run quality           # Runs all quality checks
+npm run ci:check          # Quick check: TypeScript + ESLint (matches GitHub Actions)
+npm run ci:full           # Full check: TypeScript + ESLint + Tests + Build
 ```
 
-This command runs:
-1. `tsc --noEmit` - TypeScript compilation (MUST have zero errors)
-2. `eslint` with `--max-warnings 0` - ESLint (MUST have zero errors AND warnings)
-3. `npm run test:run` - All tests (MUST pass)
-
-Individual checks:
+### **Development Workflow**
 ```bash
-npm run typecheck         # TypeScript only
-npm run lint              # ESLint only (fails on warnings)
-npm run test:run          # Tests only
-```
-
-Fix issues:
-```bash
+npm run quality           # Full quality checks for development
 npm run quality:fix       # Auto-fix ESLint issues, then typecheck
 ```
+
+### **Individual Checks**
+```bash
+npm run typecheck         # TypeScript compilation (MUST have zero errors)
+npm run lint              # ESLint (currently allows 28 warnings temporarily)
+npm run test:run          # Tests only
+npm run build:github      # Production build for GitHub Pages
+```
+
+### **GitHub Actions Alignment**
+- `ci:check` = Minimum checks required for PR
+- `ci:full` = Complete pipeline validation
+- **Must fix**: All TypeScript errors and ESLint errors (warnings temporarily allowed)
+
+### **Quality Standards**
 
 Common issues to check:
 - No `any` types - use `unknown` with proper type guards

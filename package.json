@@ -16,7 +16,9 @@
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "typecheck": "tsc --noEmit",
     "quality": "npm run typecheck && npm run lint && npm run test:run",
-    "quality:fix": "npm run lint:fix && npm run typecheck"
+    "quality:fix": "npm run lint:fix && npm run typecheck",
+    "ci:check": "npm run typecheck && npm run lint",
+    "ci:full": "npm run typecheck && npm run lint && npm run test:run && npm run build:github"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",

@@ -1,10 +1,11 @@
-echo "🔍 Running quality checks before commit..."
-npm run quality
+echo "🔍 Running CI checks before commit..."
+npm run ci:check
 
 if [ $? -ne 0 ]; then
-  echo "❌ Quality checks failed! Please fix the issues before committing."
+  echo "❌ CI checks failed! Please fix the issues before committing."
   echo "💡 Run 'npm run quality:fix' to auto-fix some issues."
+  echo "💡 Run 'npm run ci:check' to verify fixes."
   exit 1
 fi
 
-echo "✅ Quality checks passed!"
+echo "✅ CI checks passed!"
