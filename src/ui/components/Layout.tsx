@@ -196,7 +196,10 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
             DebugLogger.debug('Layout', 'Saved workspace openedObjects count:', parsedData.openedObjects?.length || 0);
             DebugLogger.debug('Layout', 'Saved workspace activeObjectId:', parsedData.activeObjectId);
             if (parsedData.openedObjects?.length > 0) {
-              DebugLogger.debug('Layout', 'Saved opened objects:', parsedData.openedObjects.map((obj: any) => `${obj.id} (${obj.type})`).join(', '));
+              DebugLogger.debug('Layout', 'Saved opened objects:', parsedData.openedObjects.map((obj: unknown) => {
+                const typedObj = obj as { id?: string; type?: string };
+                return `${typedObj.id} (${typedObj.type})`;
+              }).join(', '));
             }
           } catch (e) {
             DebugLogger.warn('Layout', 'Failed to parse localStorage data for debugging:', e);
@@ -486,9 +489,9 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
             setSelectedModelName('');
             
             // Force garbage collection hint (if available)
-            if (typeof window !== 'undefined' && (window as any).gc) {
+            if (typeof window !== 'undefined' && (window as unknown as { gc?: () => void }).gc) {
               try {
-                (window as any).gc();
+                (window as unknown as { gc: () => void }).gc();
                 DebugLogger.debug('Layout', 'Forced garbage collection');
               } catch (e) {
                 // Silently ignore - gc() is not always available

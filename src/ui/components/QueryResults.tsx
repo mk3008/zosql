@@ -23,8 +23,8 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   
   // Handle both old and new result formats at component level
-  const rows = result?.rows || (result as any)?.data || [];
-  const status = result?.status || ((result as any)?.success ? 'completed' : 'failed');
+  const rows = result?.rows || (result as unknown as { data?: readonly unknown[] })?.data || [];
+  const status = result?.status || ((result as unknown as { success?: boolean })?.success ? 'completed' : 'failed');
   
   console.log('[DEBUG] QueryResults component:', {
     isVisible,
@@ -68,7 +68,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   if (!isVisible) return null;
 
   const renderTable = () => {
-    const isError = status === 'failed' || (result as any)?.error;
+    const isError = status === 'failed' || (result as unknown as { error?: string })?.error;
     
     console.log('[DEBUG] renderTable check:', {
       hasResult: !!result,
@@ -250,14 +250,14 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-dark-text-white">Query Results</span>
           
-          {((result as any)?.success || result?.status === 'completed') && (
+          {((result as unknown as { success?: boolean })?.success || result?.status === 'completed') && (
             <span className="flex items-center gap-1 text-xs text-success">
               <span>✓</span>
               <span>Success</span>
             </span>
           )}
           
-          {((result as any)?.error || result?.status === 'failed') && (
+          {((result as unknown as { error?: string })?.error || result?.status === 'failed') && (
             <span className="flex items-center gap-1 text-xs text-error">
               <span>✗</span>
               <span>Error</span>
@@ -267,10 +267,10 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
         
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-4 text-xs text-dark-text-secondary">
-            {((result as any)?.success || result?.status === 'completed') && (
+            {((result as unknown as { success?: boolean })?.success || result?.status === 'completed') && (
               <>
-                <span>Rows: {result?.stats?.rowsReturned ?? (result as any)?.rowCount ?? rows.length ?? 0}</span>
-                <span>Time: {result?.stats?.executionTimeMs ?? (result as any)?.executionTime ?? 0}ms</span>
+                <span>Rows: {result?.stats?.rowsReturned ?? (result as unknown as { rowCount?: number })?.rowCount ?? rows.length ?? 0}</span>
+                <span>Time: {result?.stats?.executionTimeMs ?? (result as unknown as { executionTime?: number })?.executionTime ?? 0}ms</span>
               </>
             )}
           </div>

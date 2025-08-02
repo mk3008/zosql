@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running quality checks before commit..."
+npm run quality
+
+if [ $? -ne 0 ]; then
+  echo "❌ Quality checks failed! Please fix the issues before committing."
+  echo "💡 Run 'npm run quality:fix' to auto-fix some issues."
+  exit 1
+fi
+
+echo "✅ Quality checks passed!"

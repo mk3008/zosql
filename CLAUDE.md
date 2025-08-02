@@ -263,12 +263,33 @@ ZOSQL_LOG_LEVEL=error            # Set log level
 
 ## Quality Gates
 
-Before committing, ensure:
+Before committing, ALWAYS run:
 ```bash
-tsc --noEmit              # Zero type errors
-npm run test:run          # All tests pass
-npm run lint              # Zero lint warnings
+npm run quality           # Runs all quality checks
 ```
+
+This command runs:
+1. `tsc --noEmit` - TypeScript compilation (MUST have zero errors)
+2. `eslint` with `--max-warnings 0` - ESLint (MUST have zero errors AND warnings)
+3. `npm run test:run` - All tests (MUST pass)
+
+Individual checks:
+```bash
+npm run typecheck         # TypeScript only
+npm run lint              # ESLint only (fails on warnings)
+npm run test:run          # Tests only
+```
+
+Fix issues:
+```bash
+npm run quality:fix       # Auto-fix ESLint issues, then typecheck
+```
+
+Common issues to check:
+- No `any` types - use `unknown` with proper type guards
+- No unused variables/parameters - remove or prefix with `_`
+- All React hooks have proper dependencies
+- No ignored ESLint rules without justification
 
 File size limits:
 - **500 lines recommended**
