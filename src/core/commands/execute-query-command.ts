@@ -64,6 +64,39 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
           // For CTE tabs, execute the CTE with a simple SELECT to test it independently
           console.log('[DEBUG] Executing CTE independently with SELECT wrapper');
           
+          // Create a test SQL that wraps the CTE with a simple SELECT
+          const cteName = this.context.sqlModel.name;
+          const cteContent = this.context.tabContent;
+          const testSql = `WITH ${cteName} AS (\n${cteContent}\n)\nSELECT * FROM ${cteName}`;
+          
+          console.log('[DEBUG] Generated CTE test SQL:', testSql.substring(0, 200) + '...');
+          
+          // Execute the wrapped CTE directly with error handling
+          try {
+            const cteResult = await this.executeSqlWithPGlite(testSql);
+            const executionTime = Math.round(performance.now() - startTime);
+            
+            return {
+              success: true,
+              data: cteResult.rows,
+              executionTime,
+              rowCount: cteResult.rows?.length || 0,
+              executedSql: testSql
+            };
+          } catch (cteError) {
+            const executionTime = Math.round(performance.now() - startTime);
+            const errorMessage = cteError instanceof Error ? cteError.message : 'CTE execution failed';
+            
+            console.log('[DEBUG] CTE independent execution failed:', errorMessage);
+            
+            return {
+              success: false,
+              error: `CTE execution failed: ${errorMessage}\n\nExecuted SQL:\n${testSql}`,
+              executionTime,
+              executedSql: testSql
+            };
+          }
+          
         } else {
           console.log('[DEBUG] Non-CTE tab execution - updating sqlWithoutCte');
           // Update model's SQL with current tab content  
