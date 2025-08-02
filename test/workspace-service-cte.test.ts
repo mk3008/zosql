@@ -7,12 +7,13 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import { SelectQueryParser } from 'rawsql-ts';
-import { resolveCTEDependencies } from '../src/browser/core/cte-dependency-resolver.js';
+import { CTEDependencyResolverImpl } from '@core/usecases/cte-dependency-resolver';
+import { CTE } from '@shared/types';
 
 describe('WorkspaceService CTE Processing', () => {
   let userBehaviorAnalysisSQL: string;
-  let parsedQuery: any;
-  let privateCtes: Record<string, { query: string; dependencies: string[] }> = {};
+  let parsedQuery: ReturnType<typeof SelectQueryParser.parse>;
+  const privateCtes: Record<string, CTE> = {};
   
   beforeAll(async () => {
     // 実際のSQLファイルを読み込み
@@ -24,26 +25,33 @@ describe('WorkspaceService CTE Processing', () => {
     
     // WorkspaceServiceが行う処理をシミュレート
     // CTEを抽出して依存関係を解析
-    if (parsedQuery.withClause && parsedQuery.withClause.tables) {
-      for (const cte of parsedQuery.withClause.tables) {
-        const cteName = cte.aliasExpression?.table?.name || 'unknown';
+    const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown> | undefined;
+    const tables = withClause?.tables as unknown[] | undefined;
+    if (tables) {
+      for (const cte of tables) {
+        const cteObj = cte as Record<string, unknown>;
+        const aliasExpression = cteObj.aliasExpression as Record<string, unknown> | undefined;
+        const table = aliasExpression?.table as Record<string, unknown> | undefined;
+        const cteName = table?.name as string || 'unknown';
         
         // CTEの内部クエリを抽出（WorkspaceServiceのextractCTEQueryをシミュレート）
-        const cteQuery = extractCTEQueryContent(cte);
+        const cteQuery = extractCTEQueryContent(cte as { aliasExpression?: { table?: { name?: string } } });
         
         // 依存関係を抽出（WorkspaceServiceのextractCTEDependenciesをシミュレート）
         const dependencies = extractCTEDependencies(cteQuery);
         
         privateCtes[cteName] = {
+          name: cteName,
           query: cteQuery,
-          dependencies: dependencies
+          dependencies: dependencies,
+          columns: [] // 簡易テストのため空配列
         };
       }
     }
   });
 
   // CTEクエリの内容を抽出する関数（WorkspaceServiceの処理をシミュレート）
-  function extractCTEQueryContent(cte: any): string {
+  function extractCTEQueryContent(cte: { aliasExpression?: { table?: { name?: string } } }): string {
     const cteName = cte.aliasExpression?.table?.name || 'unknown';
     
     // 実際のCTEクエリごとの内容を手動で設定（本来はSqlFormatterが生成）
@@ -106,7 +114,8 @@ describe('WorkspaceService CTE Processing', () => {
 
   it('should generate executable SQL for channel_performance with dependencies', () => {
     // WorkspaceServiceのgenerateExecutableCTEQueryが内部で呼ぶresolveCTEDependencies
-    const result = resolveCTEDependencies('channel_performance', privateCtes);
+    const resolver = new CTEDependencyResolverImpl();
+    const result = resolver.resolveDependencies('channel_performance', privateCtes);
     
     console.log('Generated SQL for channel_performance:');
     console.log(result);
@@ -129,7 +138,8 @@ describe('WorkspaceService CTE Processing', () => {
 
   it('should include all transitive dependencies for channel_performance', () => {
     // channel_performanceの完全な依存関係チェーン
-    const result = resolveCTEDependencies('channel_performance', privateCtes);
+    const resolver = new CTEDependencyResolverImpl();
+    const result = resolver.resolveDependencies('channel_performance', privateCtes);
     
     // funnel_analysisがconversion_eventsに依存している場合、それも含まれるべき
     if (privateCtes['funnel_analysis']?.dependencies.includes('conversion_events')) {
@@ -138,7 +148,8 @@ describe('WorkspaceService CTE Processing', () => {
   });
 
   it('should generate correct SQL that matches the expected format', () => {
-    const result = resolveCTEDependencies('channel_performance', privateCtes);
+    const resolver = new CTEDependencyResolverImpl();
+    const result = resolver.resolveDependencies('channel_performance', privateCtes);
     
     // 期待される形式：
     // with session_data as (

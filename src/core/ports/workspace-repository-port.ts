@@ -77,5 +77,10 @@ export interface WorkspaceRepositoryPort {
    * Get workspace count
    */
   count(criteria?: Partial<WorkspaceSearchCriteria>): Promise<number>;
+
+  /**
+   * Clear all workspaces
+   */
+  clear(): Promise<RepositoryResult<void>>;
 }
 

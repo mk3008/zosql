@@ -74,11 +74,11 @@ export class SqlDecomposerUseCase {
           const formatted = formatter.format(parsedQuery);
           formattedMainQuery = formatted.formattedSql;
           console.log('[DEBUG] Format successful:', formattedMainQuery);
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('[DEBUG] rawsql-ts error:', error);
           console.error('[DEBUG] Error details:', {
-            type: error.constructor.name,
-            message: error.message,
+            type: error instanceof Error ? error.constructor.name : 'Unknown',
+            message: error instanceof Error ? error.message : String(error),
             sql: mainQuery
           });
           // Keep original query if formatting fails
@@ -114,11 +114,11 @@ export class SqlDecomposerUseCase {
           const formatted = formatter.format(parsedQuery);
           formattedCteQuery = formatted.formattedSql;
           console.log(`[DEBUG] CTE ${cte.name} format successful:`, formattedCteQuery);
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error(`[DEBUG] rawsql-ts error for CTE ${cte.name}:`, error);
           console.error('[DEBUG] Error details:', {
-            type: error.constructor.name,
-            message: error.message,
+            type: error instanceof Error ? error.constructor.name : 'Unknown',
+            message: error instanceof Error ? error.message : String(error),
             sql: cte.query
           });
           // Keep original query if formatting fails
@@ -152,11 +152,11 @@ export class SqlDecomposerUseCase {
         const formatted = formatter.format(parsedQuery);
         formattedMainQuery = formatted.formattedSql;
         console.log('[DEBUG] Main query format successful:', formattedMainQuery);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('[DEBUG] rawsql-ts error for main query:', error);
         console.error('[DEBUG] Error details:', {
-          type: error.constructor.name,
-          message: error.message,
+          type: error instanceof Error ? error.constructor.name : 'Unknown',
+          message: error instanceof Error ? error.message : String(error),
           sql: mainQuery
         });
         // Keep original query if formatting fails

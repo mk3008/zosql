@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RawsqlSqlParser } from '@adapters/parsers/rawsql-sql-parser';
+import type { SelectQuery } from 'rawsql-ts';
 
 // Mock rawsql-ts module
 vi.mock('rawsql-ts', () => ({
@@ -15,9 +16,21 @@ vi.mock('rawsql-ts', () => ({
 
 import { SelectQueryParser } from 'rawsql-ts';
 
+// Helper function to create proper SelectQuery mocks
+function createMockSelectQuery(simpleQuery: unknown): SelectQuery {
+  return {
+    toSimpleQuery: () => simpleQuery,
+    setParameter: vi.fn(),
+    getKind: vi.fn().mockReturnValue('SelectQuery'),
+    accept: vi.fn(),
+    toSqlString: vi.fn().mockReturnValue('SELECT * FROM mock'),
+    comments: []
+  } as SelectQuery;
+}
+
 describe('RawsqlSqlParser', () => {
   let parser: RawsqlSqlParser;
-  let mockParse: any;
+  let mockParse: ReturnType<typeof vi.mocked<typeof SelectQueryParser.parse>>;
 
   beforeEach(() => {
     parser = new RawsqlSqlParser();
@@ -27,19 +40,17 @@ describe('RawsqlSqlParser', () => {
 
   describe('extractSchema', () => {
     it('should extract table names from simple SELECT query', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
-          fromClause: {
-            source: {
-              datasource: {
-                table: { name: 'users' }
-              }
-            },
-            joins: null
+      const mockQuery = createMockSelectQuery({
+        fromClause: {
+          source: {
+            datasource: {
+              table: { name: 'users' }
+            }
           },
-          withClause: null
-        })
-      };
+          joins: null
+        },
+        withClause: null
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -50,34 +61,32 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should extract table names from query with JOINs', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
-          fromClause: {
-            source: {
-              datasource: {
-                table: { name: 'users' }
+      const mockQuery = createMockSelectQuery({
+        fromClause: {
+          source: {
+            datasource: {
+              table: { name: 'users' }
+            }
+          },
+          joins: [
+            {
+              source: {
+                datasource: {
+                  table: { name: 'orders' }
+                }
               }
             },
-            joins: [
-              {
-                source: {
-                  datasource: {
-                    table: { name: 'orders' }
-                  }
-                }
-              },
-              {
-                source: {
-                  datasource: {
-                    table: { name: 'products' }
-                  }
+            {
+              source: {
+                datasource: {
+                  table: { name: 'products' }
                 }
               }
-            ]
-          },
-          withClause: null
-        })
-      };
+            }
+          ]
+        },
+        withClause: null
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -89,8 +98,7 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should exclude CTE table names from results', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: {
             source: {
               datasource: {
@@ -116,8 +124,7 @@ describe('RawsqlSqlParser', () => {
               }
             ]
           }
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -132,12 +139,10 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should handle queries with no tables', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: null,
           withClause: null
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -147,8 +152,7 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should remove duplicate table names', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: {
             source: {
               datasource: {
@@ -166,8 +170,7 @@ describe('RawsqlSqlParser', () => {
             ]
           },
           withClause: null
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -195,8 +198,7 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should handle null/undefined table names', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: {
             source: {
               datasource: {
@@ -221,8 +223,7 @@ describe('RawsqlSqlParser', () => {
             ]
           },
           withClause: null
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -232,8 +233,7 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should handle missing datasource or table properties', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: {
             source: {
               datasource: null
@@ -252,8 +252,7 @@ describe('RawsqlSqlParser', () => {
             ]
           },
           withClause: null
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -263,8 +262,7 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should handle CTE with null alias expression', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: {
             source: {
               datasource: {
@@ -284,8 +282,7 @@ describe('RawsqlSqlParser', () => {
               }
             ]
           }
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -297,8 +294,7 @@ describe('RawsqlSqlParser', () => {
 
   describe('integration scenarios', () => {
     it('should handle complex query with multiple CTEs and joins', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: {
             source: {
               datasource: {
@@ -329,8 +325,7 @@ describe('RawsqlSqlParser', () => {
               }
             ]
           }
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 
@@ -353,12 +348,10 @@ describe('RawsqlSqlParser', () => {
     });
 
     it('should handle whitespace-only input', async () => {
-      const mockQuery = {
-        toSimpleQuery: () => ({
+      const mockQuery = createMockSelectQuery({
           fromClause: null,
           withClause: null
-        })
-      };
+      });
 
       mockParse.mockReturnValue(mockQuery);
 

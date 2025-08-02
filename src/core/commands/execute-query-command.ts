@@ -180,7 +180,7 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
     return undefined;
   }
   
-  private async executeSqlWithPGlite(sql: string, params: any[] = []): Promise<any> {
+  private async executeSqlWithPGlite(sql: string, params: unknown[] = []): Promise<{ rows: Record<string, unknown>[] }> {
     // Dynamically import PGlite
     const { PGlite } = await import('@electric-sql/pglite');
     

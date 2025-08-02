@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SqlDecomposerUseCase, SqlParserPort, CteDependencyAnalyzerPort } from '@core/usecases/sql-decomposer-usecase';
 import { CTEEntity } from '@core/entities/cte';
-import { SqlModelEntity } from '@shared/types';
 import { SqlModelEntity as SqlModelEntityClass } from '@core/entities/sql-model';
 import { SqlFormatterEntity } from '@core/entities/sql-formatter';
 
@@ -58,7 +57,7 @@ class MockCteDependencyAnalyzer implements CteDependencyAnalyzerPort {
     this.mockDependents = dependents;
   }
 
-  findDependents(cteName: string, allCTEs: Record<string, CTEEntity>): string[] {
+  findDependents(cteName: string, _allCTEs: Record<string, CTEEntity>): string[] {
     return this.mockDependents[cteName] || [];
   }
 
@@ -318,13 +317,11 @@ describe('SqlDecomposerUseCase', () => {
 
       // Create SqlFormatterEntity
       const formatterEntity = new SqlFormatterEntity();
-      const formatter = formatterEntity.getSqlFormatter();
-
       console.log('\n[DEBUG] Testing SqlFormatter with query:', longQuery);
       console.log('[DEBUG] Formatter config:', formatterEntity.config);
 
       try {
-        const models = await decomposer.decomposeSql(longQuery, fileName, formatter);
+        const models = await decomposer.decomposeSql(longQuery, fileName, formatterEntity);
 
         expect(models).toHaveLength(1);
         const mainModel = models[0];
@@ -354,12 +351,24 @@ describe('SqlDecomposerUseCase', () => {
       mockParser.setMockCTEs([]);
       mockParser.setMockMainQuery(sql);
 
-      // Create a mock formatter that throws an error
+      // Create a mock formatter entity that throws an error
       const mockFormatter = {
-        format: vi.fn().mockImplementation(() => {
-          throw new Error('Mock formatter error');
-        })
-      } as any;
+        config: '{}',
+        getSqlFormatter: vi.fn().mockImplementation(() => ({
+          format: vi.fn().mockImplementation(() => {
+            throw new Error('Mock formatter error');
+          })
+        })),
+        setFormatterConfig: vi.fn(),
+        reset: vi.fn(),
+        isValid: vi.fn().mockReturnValue(true),
+        getFormattedString: vi.fn().mockReturnValue('{}'),
+        clone: vi.fn().mockReturnValue({}),
+        toJSON: vi.fn().mockReturnValue({ config: '{}' }),
+        get displayString() { return '{}'; },
+        set displayString(_value: string) { /* no-op */ },
+        toString: vi.fn().mockReturnValue('{}')
+      } as unknown as SqlFormatterEntity;
 
       const models = await decomposer.decomposeSql(sql, fileName, mockFormatter);
 

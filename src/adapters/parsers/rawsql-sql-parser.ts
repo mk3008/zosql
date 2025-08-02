@@ -4,6 +4,7 @@
  */
 
 import { SelectQueryParser } from 'rawsql-ts';
+import { SourceExpression } from 'rawsql-ts/dist/src/models/Clause';
 import { SqlParserPort } from '@core/usecases/prompt-generator';
 
 export class RawsqlSqlParser implements SqlParserPort {
@@ -56,19 +57,21 @@ export class RawsqlSqlParser implements SqlParserPort {
   /**
    * SourceExpressionからテーブル名を再帰的に抽出
    */
-  private extractTablesFromSource(source: any, tables: string[]): void {
+  private extractTablesFromSource(source: SourceExpression, tables: string[]): void {
     if (!source) return;
     
+    const datasource = source.datasource as unknown as Record<string, unknown>;
+    
     // TableSourceの場合
-    if (source.datasource && source.datasource.table) {
-      const tableName = source.datasource.table.name;
+    if (datasource && 'table' in datasource && datasource.table) {
+      const tableName = (datasource.table as { name?: string }).name;
       if (tableName) {
         tables.push(tableName);
       }
     }
     
     // SubQuerySourceの場合は再帰的に解析
-    if (source.datasource && source.datasource.query) {
+    if (datasource && 'query' in datasource && datasource.query) {
       // サブクエリの解析は複雑になるため、現時点では簡易実装
       // 必要に応じて拡張
     }

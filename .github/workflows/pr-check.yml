@@ -1,0 +1,41 @@
+name: PR Build Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    name: Build Dry Run
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Essential Checks (TypeScript + ESLint)
+        run: npm run ci:essential
+        
+      - name: Build for Production (Dry Run)
+        run: npm run build:github
+        
+      - name: Check build output
+        run: |
+          echo "Build artifacts summary:"
+          if [ -d "docs" ]; then
+            echo "✅ docs/ directory created"
+            echo "📊 Total size: $(du -sh docs | cut -f1)"
+            echo "📁 Files count: $(find docs -type f | wc -l)"
+          else
+            echo "❌ docs/ directory not found!"
+            exit 1
+          fi

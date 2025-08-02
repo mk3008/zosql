@@ -17,6 +17,24 @@ interface SharedCteCache {
   [name: string]: SharedCteMetadata;
 }
 
+interface SelectableColumn {
+  alias?: string;
+  name?: string;
+}
+
+interface SharedCteResponse {
+  name: string;
+  query: string;
+  description: string;
+  dependencies: string[];
+  columns: string[];
+}
+
+interface TableColumnInfo {
+  name: string;
+  columns: Array<{ name: string }>;
+}
+
 export class FileBasedSharedCteApi {
   private logger: Logger;
   private sharedCteDir: string;
@@ -172,7 +190,7 @@ export class FileBasedSharedCteApi {
           const selectables = collector.collect(simpleQuery);
           
           // Extract only column names (ignore types - they're complex to infer correctly)
-          columns = selectables.map((selectable: any) => 
+          columns = selectables.map((selectable: SelectableColumn) => 
             selectable.alias || selectable.name || 'unknown'
           ).filter((name: string) => name !== 'unknown' && name !== '*');
           
@@ -202,7 +220,7 @@ export class FileBasedSharedCteApi {
     try {
       await this.scanAndUpdateCache();
       
-      const sharedCtes: Record<string, any> = {};
+      const sharedCtes: Record<string, SharedCteResponse> = {};
       
       for (const [name, metadata] of Object.entries(this.cache)) {
         const content = fs.readFileSync(metadata.filePath, 'utf8');
@@ -320,7 +338,7 @@ export class FileBasedSharedCteApi {
     try {
       // Get schema data from SchemaApi
       const schemaData = await this.getSchemaData();
-      if (!schemaData || !schemaData.tables) {
+      if (!schemaData || !(schemaData as { tables?: unknown }).tables) {
         this.logger.log('[SHARED-CTE] No schema data available for wildcard expansion');
         return undefined;
       }
@@ -328,9 +346,9 @@ export class FileBasedSharedCteApi {
       // Create table-to-columns mapping
       const tableColumns: Record<string, string[]> = {};
       
-      for (const table of schemaData.tables) {
+      for (const table of (schemaData as { tables: TableColumnInfo[] }).tables) {
         if (table.columns) {
-          tableColumns[table.name] = table.columns.map((col: any) => col.name);
+          tableColumns[table.name] = (table as TableColumnInfo).columns.map((col: { name: string }) => col.name);
           this.logger.log(`[SHARED-CTE] Table resolver: ${table.name} -> [${tableColumns[table.name].join(', ')}]`);
         }
       }
@@ -347,7 +365,7 @@ export class FileBasedSharedCteApi {
     }
   }
 
-  private async getSchemaData(): Promise<any> {
+  private async getSchemaData(): Promise<unknown> {
     try {
       // Read schema file directly since loadSchema method doesn't exist
       const schemaPath = path.join(process.cwd(), 'zosql.schema.js');
@@ -413,7 +431,7 @@ export class FileBasedSharedCteApi {
       
       const sharedCteTables: string[] = [];
       const sharedCteColumns: Record<string, string[]> = {};
-      const sharedCtes: Record<string, any> = {};
+      const sharedCtes: Record<string, SharedCteResponse> = {};
 
       for (const [name, metadata] of Object.entries(this.cache)) {
         sharedCteTables.push(name);
@@ -450,10 +468,10 @@ export class FileBasedSharedCteApi {
   }
 
   // Methods needed for QueryExecutorApi compatibility
-  public getAllSharedCtes(): Record<string, any> {
+  public getAllSharedCtes(): Record<string, SharedCteResponse> {
     this.scanAndUpdateCache();
     
-    const sharedCtes: Record<string, any> = {};
+    const sharedCtes: Record<string, SharedCteResponse> = {};
     
     for (const [name, metadata] of Object.entries(this.cache)) {
       try {

@@ -4,7 +4,9 @@
  */
 
 import { BaseViewModel } from './base-viewmodel';
-import { Tab, QueryExecutionResult, WorkspaceEntity, SqlModelEntity } from '@shared/types';
+import { Tab, WorkspaceEntity } from '@shared/types';
+import { QueryExecutionResult, migrateLegacyResult, hasQueryResultCapability } from '@core/types/query-types';
+import { SqlModelEntity } from '@core/entities/sql-model';
 import { OpenedObject } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
 import { ExecuteQueryCommand } from '@core/commands/execute-query-command';
@@ -21,9 +23,11 @@ export class MainContentViewModel extends BaseViewModel {
   private _isExecuting: boolean = false;
   private _queryResult: QueryExecutionResult | null = null;
   private _resultsVisible: boolean = false;
+  private _resultsPanelHeight: number = 40; // Default 40% height for results panel
   private _workspace: WorkspaceEntity | null = null;
   private _tabModelMap: Map<string, SqlModelEntity> = new Map();
   private _useSchemaCollector: boolean = true;
+  private _dataTabResults: Map<string, QueryExecutionResult> = new Map(); // Results for root and each CTE
   
   // Callbacks
   private _onSqlExecuted?: (sql: string) => void;
@@ -73,19 +77,12 @@ export class MainContentViewModel extends BaseViewModel {
   }
 
   get queryResult(): QueryExecutionResult | null {
-    // Get result from active tab's model, fallback to global result
-    if (this.activeTab) {
-      const model = this.tabModelMap.get(this.activeTab.id);
-      DebugLogger.debug('MainContentViewModel', `Getting query result for tab: ${this.activeTab.id}, model: ${!!model}`);
-      
-      if (model && 'getQueryResult' in model && typeof (model as any).getQueryResult === 'function') {
-        const result = (model as any).getQueryResult();
-        DebugLogger.debug('MainContentViewModel', `Model has result: ${!!result} for tab: ${this.activeTab.id}`);
-        if (result) {
-          return result;
-        }
-      }
+    // Get result directly from active tab
+    if (this.activeTab && this.activeTab.queryResult) {
+      DebugLogger.debug('MainContentViewModel', `Using tab-specific result for: ${this.activeTab.id}`);
+      return this.activeTab.queryResult;
     }
+    
     // Fallback to global result for backward compatibility
     DebugLogger.debug('MainContentViewModel', `Using fallback global result for tab: ${this.activeTab?.id}`);
     return this._queryResult;
@@ -104,6 +101,17 @@ export class MainContentViewModel extends BaseViewModel {
     if (this._resultsVisible !== value) {
       this._resultsVisible = value;
       this.notifyChange('resultsVisible', value);
+    }
+  }
+
+  get resultsPanelHeight(): number {
+    return this._resultsPanelHeight;
+  }
+
+  set resultsPanelHeight(value: number) {
+    if (this._resultsPanelHeight !== value) {
+      this._resultsPanelHeight = Math.max(20, Math.min(80, value)); // Clamp between 20% and 80%
+      this.notifyChange('resultsPanelHeight', this._resultsPanelHeight);
     }
   }
 
@@ -153,6 +161,15 @@ export class MainContentViewModel extends BaseViewModel {
     }
   }
 
+  get dataTabResults(): Map<string, QueryExecutionResult> {
+    return this._dataTabResults;
+  }
+
+  set dataTabResults(value: Map<string, QueryExecutionResult>) {
+    this._dataTabResults = value;
+    this.notifyChange('dataTabResults', value);
+  }
+
   // Callback setters
   setOnSqlExecuted(callback: (sql: string) => void): void {
     this._onSqlExecuted = callback;
@@ -160,6 +177,87 @@ export class MainContentViewModel extends BaseViewModel {
 
 
   // Commands
+
+  async executeDataTabQueries(): Promise<void> {
+    if (!this.workspace) {
+      this.notifyChange('error', 'No workspace loaded');
+      return;
+    }
+
+    this.isExecuting = true;
+
+    try {
+      const results = new Map<string, QueryExecutionResult>();
+      
+      // Get all SQL models (root + CTEs)
+      const models = this.workspace.sqlModels.filter(m => m.type === 'main' || m.type === 'cte');
+      
+      // Execute each model using the EXACT same logic as individual tab execution
+      for (const model of models) {
+        try {
+          console.log(`[DEBUG] Executing data tab query for: ${model.name} (${model.type})`);
+          
+          // Create a temporary tab content that matches what each individual tab would have
+          let tabContent: string;
+          if (model.type === 'main') {
+            // For main model, use the saved content (which includes the main SELECT)
+            tabContent = model.sqlWithoutCte;
+          } else {
+            // For CTE model, use the actual CTE definition content to avoid circular reference
+            tabContent = model.sqlWithoutCte;
+          }
+          
+          // Use the EXACT same context structure as regular executeQuery()
+          const context = {
+            workspace: this.workspace,
+            sqlModel: model,
+            tabContent: tabContent,
+            tabType: model.type as 'main' | 'cte'
+          };
+
+          // Use the same ExecuteQueryCommand that works for individual tabs
+          const command = new ExecuteQueryCommand(context);
+          const result = await commandExecutor.execute(command);
+          const migratedResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
+          
+          // Store result with model name as key
+          const displayName = model.type === 'main' ? 'root' : model.name;
+          results.set(displayName, migratedResult);
+          
+          console.log(`[DEBUG] Data tab query completed for: ${displayName}`, {
+            status: migratedResult.status,
+            rowsCount: migratedResult.rows?.length
+          });
+          
+        } catch (error) {
+          console.error(`[DEBUG] Error executing query for ${model.name}:`, error);
+          
+          const errorResult = migrateLegacyResult({
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+            executionTime: 0
+          });
+          
+          const displayName = model.type === 'main' ? 'root' : model.name;
+          results.set(displayName, errorResult);
+        }
+      }
+      
+      // Update results
+      this.dataTabResults = results;
+      console.log(`[DEBUG] Data tab execution completed. Results for: ${Array.from(results.keys()).join(', ')}`);
+      
+    } catch (error) {
+      console.error('[DEBUG] Failed to execute data tab queries:', error);
+      this.notifyChange('errorWithDetails', {
+        message: 'Data tab execution failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    } finally {
+      this.isExecuting = false;
+    }
+  }
 
   async executeQuery(): Promise<void> {
     if (!this.canExecute || !this.activeTab) {
@@ -193,18 +291,41 @@ export class MainContentViewModel extends BaseViewModel {
       });
 
       // Execute command
-      const command = new ExecuteQueryCommand(context as any);
+      const command = new ExecuteQueryCommand(context);
       const result = await commandExecutor.execute(command);
 
-      this.queryResult = result;
+      const migratedResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
+      
+      // Save result directly to the tab
+      const tabIndex = this._tabs.findIndex(t => t.id === this.activeTab!.id);
+      if (tabIndex !== -1) {
+        const updatedTabs = [...this._tabs];
+        updatedTabs[tabIndex] = {
+          ...updatedTabs[tabIndex],
+          queryResult: migratedResult
+        };
+        this.tabs = updatedTabs;
+        console.log('[DEBUG] Saved query result directly to tab:', this.activeTab.id);
+      }
+
+      // Check if result indicates an error and show error panel
+      if (!result.success && result.error) {
+        // Send error to error panel even for successful command execution with error result
+        this.notifyChange('errorWithDetails', {
+          message: 'SQL Execution Error',
+          details: result.error,
+          stack: undefined
+        });
+      }
 
       // Notify parent component about executed SQL
       // Show the ACTUAL executed SQL (with CTEs, filter conditions, etc.)
-      if (this._onSqlExecuted && result.executedSql) {
+      const executedSql = (result as unknown as Record<string, unknown>)?.executedSql;
+      if (this._onSqlExecuted && typeof executedSql === 'string') {
         try {
           // Use the actual executed SQL from the result
-          this._onSqlExecuted(result.executedSql);
-          console.log('[DEBUG] Sent ACTUAL executed SQL to LastExecutedSQL:', result.executedSql.substring(0, 100) + '...');
+          this._onSqlExecuted(executedSql);
+          console.log('[DEBUG] Sent ACTUAL executed SQL to LastExecutedSQL:', executedSql.substring(0, 100) + '...');
         } catch (error) {
           console.error('[DEBUG] Failed to send executed SQL to LastExecutedSQL:', error);
           // Fallback to tab content
@@ -216,8 +337,8 @@ export class MainContentViewModel extends BaseViewModel {
 
       // Save result to model if available
       const model = this.tabModelMap.get(this.activeTab.id);
-      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
-        (model as any).setQueryResult(result);
+      if (model && hasQueryResultCapability(model)) {
+        model.setQueryResult(migrateLegacyResult(result as unknown as Record<string, unknown>));
         // Notify that query result has changed for this tab
         this.notifyChange('queryResult', this.queryResult);
         console.log('[DEBUG] Saved query result to model:', this.activeTab.id);
@@ -231,16 +352,22 @@ export class MainContentViewModel extends BaseViewModel {
         executionTime: 0
       };
       
-      this.queryResult = errorResult;
+      const migratedErrorResult = migrateLegacyResult(errorResult);
       
-      // Save error result to model if available
-      const model = this.tabModelMap.get(this.activeTab.id);
-      if (model && 'setQueryResult' in model && typeof (model as any).setQueryResult === 'function') {
-        (model as any).setQueryResult(errorResult);
-        // Notify that query result has changed for this tab
-        this.notifyChange('queryResult', this.queryResult);
-        console.log('[DEBUG] Saved error result to model:', this.activeTab.id);
+      // Save error result directly to the tab
+      const tabIndex = this._tabs.findIndex(t => t.id === this.activeTab!.id);
+      if (tabIndex !== -1) {
+        const updatedTabs = [...this._tabs];
+        updatedTabs[tabIndex] = {
+          ...updatedTabs[tabIndex],
+          queryResult: migratedErrorResult
+        };
+        this.tabs = updatedTabs;
+        console.log('[DEBUG] Saved error result directly to tab:', this.activeTab.id);
       }
+      
+      // Notify that query result has changed
+      this.notifyChange('queryResult', this.queryResult);
       
       // Send error to error panel
       this.notifyChange('errorWithDetails', {
@@ -288,6 +415,49 @@ export class MainContentViewModel extends BaseViewModel {
 
   closeResults(): void {
     this.resultsVisible = false;
+  }
+
+  // Handle splitter resize
+  handleSplitterResize(sizes: [number, number]): void {
+    // sizes[1] is the bottom pane (results panel) percentage
+    this.resultsPanelHeight = sizes[1];
+  }
+
+  // Complete workspace reset - clears all state when switching workspaces
+  resetWorkspaceState(): void {
+    DebugLogger.debug('MainContentViewModel', 'Resetting all workspace state');
+    
+    // Clear all tabs and related state
+    this._tabs = [];
+    this._activeTabId = '';
+    this._tabModelMap = new Map();
+    
+    // Clear query results and execution state
+    this._queryResult = null;
+    this._resultsVisible = false;
+    this._resultsPanelHeight = 40; // Reset to default height
+    this._isExecuting = false;
+    
+    // Clear workspace reference
+    this._workspace = null;
+    
+    // Reset other state
+    this._useSchemaCollector = false;
+    this._dataTabResults = new Map();
+    
+    // Notify all property changes
+    this.notifyChange('tabs', this._tabs);
+    this.notifyChange('activeTabId', this._activeTabId);
+    this.notifyChange('queryResult', this._queryResult);
+    this.notifyChange('resultsVisible', this._resultsVisible);
+    this.notifyChange('resultsPanelHeight', this._resultsPanelHeight);
+    this.notifyChange('isExecuting', this._isExecuting);
+    this.notifyChange('workspace', this._workspace);
+    this.notifyChange('useSchemaCollector', this._useSchemaCollector);
+    this.notifyChange('dataTabResults', this._dataTabResults);
+    this.notifyChange('tabModelMap', this._tabModelMap);
+    
+    DebugLogger.debug('MainContentViewModel', 'Workspace state reset completed');
   }
 
   async runStaticAnalysis(): Promise<void> {
@@ -475,6 +645,12 @@ export class MainContentViewModel extends BaseViewModel {
     }
 
     console.log('[DEBUG] Tab saved:', tabId);
+    
+    // CRITICAL: Sync to workspace and localStorage after save
+    this.syncTabsToWorkspace();
+    
+    // Show success notification
+    this.notifyChange('success', `${tab.title} saved successfully`);
   }
 
   closeTab(tabId: string): void {
@@ -484,8 +660,8 @@ export class MainContentViewModel extends BaseViewModel {
 
     // Clear query result from model before removing
     const model = this._tabModelMap.get(tabId);
-    if (model && 'clearQueryResult' in model && typeof (model as any).clearQueryResult === 'function') {
-      (model as any).clearQueryResult();
+    if (model && hasQueryResultCapability(model)) {
+      model.clearQueryResult();
       console.log('[DEBUG] Cleared query result for closing tab:', tabId);
     }
 
@@ -518,10 +694,12 @@ export class MainContentViewModel extends BaseViewModel {
     // Add new tab
     this.tabs = [...this._tabs, tab];
     this.activeTabId = tab.id;
-    console.log('[DEBUG] New tabs count:', this._tabs.length);
+    console.log('[DEBUG] New tabs count after adding:', this._tabs.length);
     
-    // Sync tabs to workspace
+    // CRITICAL: Sync tabs to workspace immediately after adding
+    console.log('[DEBUG] About to call syncTabsToWorkspace after addTab');
     this.syncTabsToWorkspace();
+    console.log('[DEBUG] syncTabsToWorkspace completed after addTab');
   }
 
   // Model Management
@@ -535,9 +713,12 @@ export class MainContentViewModel extends BaseViewModel {
 
   // Sync tabs to workspace opened objects
   private syncTabsToWorkspace(): void {
-    if (!this.workspace) return;
+    if (!this.workspace) {
+      console.log('[DEBUG] syncTabsToWorkspace: No workspace available');
+      return;
+    }
 
-    console.log('[DEBUG] Syncing tabs to workspace opened objects');
+    console.log('[DEBUG] syncTabsToWorkspace: Starting sync with', this._tabs.length, 'tabs');
     
     // Convert tabs to opened objects
     const openedObjects: OpenedObject[] = this._tabs.map(tab => ({
@@ -546,19 +727,28 @@ export class MainContentViewModel extends BaseViewModel {
       type: tab.type,
       content: tab.content,
       isDirty: tab.isDirty,
-      modelEntity: this._tabModelMap.get(tab.id) as any
+      modelEntity: this._tabModelMap.get(tab.id) as SqlModelEntity | undefined
     }));
+
+    console.log('[DEBUG] syncTabsToWorkspace: Created openedObjects:', openedObjects.map(obj => `${obj.id} (${obj.type})`));
 
     // Update workspace opened objects
     this.workspace.setOpenedObjects(openedObjects);
     this.workspace.setActiveObjectId(this._activeTabId);
 
-    console.log('[DEBUG] Synced', openedObjects.length, 'tabs to workspace, active:', this._activeTabId);
+    console.log('[DEBUG] syncTabsToWorkspace: Updated workspace - openedObjects count:', this.workspace.openedObjects.length);
+    console.log('[DEBUG] syncTabsToWorkspace: Synced', openedObjects.length, 'tabs to workspace, active:', this._activeTabId);
 
     // Save to localStorage
     try {
-      localStorage.setItem('zosql_workspace_v3', JSON.stringify(this.workspace.toJSON()));
+      const workspaceJson = this.workspace.toJSON();
+      localStorage.setItem('zosql_workspace_v3', JSON.stringify(workspaceJson));
       console.log('[DEBUG] Saved workspace state to localStorage');
+      console.log('[DEBUG] Saved openedObjects count:', workspaceJson.openedObjects?.length || 0);
+      console.log('[DEBUG] Saved activeObjectId:', workspaceJson.activeObjectId);
+      if (workspaceJson.openedObjects?.length > 0) {
+        console.log('[DEBUG] Saved objects:', workspaceJson.openedObjects.map(obj => `${obj.id} (${obj.type})`).join(', '));
+      }
     } catch (error) {
       console.warn('Failed to save workspace to localStorage:', error);
     }
@@ -579,7 +769,7 @@ export class MainContentViewModel extends BaseViewModel {
     });
 
     switch (tab.type) {
-      case 'main':
+      case 'main': {
         // Update main SQL model with edited content
         const mainModel = this.workspace.sqlModels.find(m => m.type === 'main');
         console.log('[DEBUG] Found main model:', {
@@ -599,8 +789,9 @@ export class MainContentViewModel extends BaseViewModel {
           console.log('[DEBUG] No main model found');
         }
         break;
+      }
 
-      case 'cte':
+      case 'cte': {
         // Update CTE SQL model with edited content
         const cteModel = this.workspace.sqlModels.find(m => m.type === 'cte' && m.name === tab.id);
         if (cteModel) {
@@ -609,6 +800,7 @@ export class MainContentViewModel extends BaseViewModel {
           cteModel.save(); // Save editor content to persistent storage
         }
         break;
+      }
 
       case 'values':
         try {

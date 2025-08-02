@@ -84,38 +84,10 @@ src/
 
 ## Key Technologies
 
-### **rawsql-ts Usage**
-SQL parsing and manipulation is handled exclusively by `rawsql-ts`:
-
-```typescript
-import { SelectQueryParser } from 'rawsql-ts';
-
-// Parse SQL (static method - no instantiation needed)
-const query = SelectQueryParser.parse('SELECT id, name FROM users');
-
-// For WITH clauses, always convert to SimpleSelectQuery
-const withQuery = SelectQueryParser.parse(`
-  WITH user_stats AS (SELECT user_id, COUNT(*) FROM orders GROUP BY user_id)
-  SELECT * FROM user_stats
-`).toSimpleQuery();
-```
-
-### **PGlite Constraints (CRITICAL)**
-PGlite should ONLY be used for SQL validation and execution. Do NOT create tables or insert data:
-
-```typescript
-// ✅ Allowed: SQL execution/validation
-const db = new PGlite();
-await db.exec(userSql);
-
-// ❌ Forbidden: Schema/data operations
-await db.exec('CREATE TABLE users (...)');    
-await db.exec('INSERT INTO users VALUES(...)');
-```
-
-### **Key Libraries**
-- **Monaco Editor**: Use `@monaco-editor/react` for SQL editing
-- **State Management**: Zustand for lightweight state management
+- **rawsql-ts**: SQL parsing and manipulation → See `rules/sql-processing-rules.md`
+- **PGlite**: In-browser SQL execution → See `rules/sql-processing-rules.md`
+- **Monaco Editor**: SQL editing → See `rules/monaco-editor-rules.md`
+- **Zustand**: State management
 - **DI Container**: Located in `src/core/di/container.ts`
 
 ## Development Patterns
@@ -178,37 +150,7 @@ function SqlEditor({ viewModel }: { viewModel: SqlEditorViewModel }) {
 
 ## Testing Strategy
 
-### **Test Structure**
-- **Unit Tests**: Focus on business logic in `src/core/`
-- **Integration Tests**: Test adapter implementations
-- **Component Tests**: Minimal UI binding verification only
-
-### **Key Test Files**
-- `test/intellisense-regression.test.ts` - 60+ test cases for IntelliSense functionality
-- `test/core/` - Business logic unit tests
-- `test/ui/viewmodels/` - ViewModel unit tests (UI-independent)
-
-### **Testing Guidelines**
-```typescript
-// ✅ Good: ViewModel unit test (no UI)
-describe('SqlEditorViewModel', () => {
-  it('should enable execute when SQL is not empty', () => {
-    const vm = new SqlEditorViewModel();
-    vm.sql = 'SELECT * FROM users';
-    expect(vm.canExecute).toBe(true);
-  });
-});
-
-// ✅ Good: Command unit test
-describe('ExecuteQueryCommand', () => {
-  it('should validate SQL before execution', async () => {
-    const command = new ExecuteQueryCommand(context);
-    expect(command.canExecute()).toBe(true);
-  });
-});
-
-// ❌ Avoid: Heavy UI integration tests
-```
+See `rules/testing-standards.md` for comprehensive testing guidelines including React component testing rules, Context Provider requirements, and business logic testing patterns.
 
 ## Configuration and Deployment
 
@@ -263,17 +205,19 @@ ZOSQL_LOG_LEVEL=error            # Set log level
 
 ## Quality Gates
 
-Before committing, ensure:
-```bash
-tsc --noEmit              # Zero type errors
-npm run test:run          # All tests pass
-npm run lint              # Zero lint warnings
-```
+See `rules/quality-gates.md` for complete quality standards and validation requirements.
 
-File size limits:
-- **500 lines recommended**
-- **1000 lines maximum** (excluding comments)
-- Split files by responsibility when exceeding limits
+### **Project-Specific Commands**
+```bash
+# Essential pre-push validation (matches GitHub Actions)
+npm run ci:essential      # TypeScript + ESLint
+npm run ci:check          # TypeScript + ESLint + Tests  
+npm run ci:full           # TypeScript + ESLint + Tests + Build
+
+# Development workflow
+npm run quality           # Full quality checks for development
+npm run quality:fix       # Auto-fix ESLint issues, then typecheck
+```
 
 ## Legacy Information
 

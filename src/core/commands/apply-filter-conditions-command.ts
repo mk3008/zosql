@@ -104,7 +104,7 @@ export class ApplyFilterConditionsCommand implements Command<ApplyFilterResult> 
 
     for (const [columnName, columnConditions] of Object.entries(conditions)) {
       if (typeof columnConditions === 'object' && columnConditions !== null) {
-        const columnFilter: Record<string, any> = {};
+        const columnFilter: Record<string, unknown> = {};
         let hasValidConditions = false;
 
         for (const [operator, value] of Object.entries(columnConditions)) {

@@ -1,10 +1,11 @@
-import { WorkspaceRepository, SqlParser, CTEDependencyResolver } from '@core/ports/workspace';
+import { WorkspaceRepositoryPort } from '@core/ports/workspace-repository-port';
+import { SqlParser, CTEDependencyResolver } from '@core/ports/workspace';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { Workspace, ApiResponse } from '@shared/types';
 
 export class WorkspaceUseCase {
   constructor(
-    private workspaceRepository: WorkspaceRepository,
+    private workspaceRepository: WorkspaceRepositoryPort,
     private sqlParser: SqlParser,
     private cteResolver: CTEDependencyResolver
   ) {}
@@ -38,16 +39,27 @@ export class WorkspaceUseCase {
       // TODO: Implement proper CTE integration for extracted CTEs
       console.log(`[WORKSPACE] Extracted ${extractedCTEs.length} CTEs`);
       
-      // Set original and decomposed queries
-      (workspace as any).originalQuery = params.sql;
-      (workspace as any).decomposedQuery = decomposedQuery;
+      // Save workspace entity
+      const saveResult = await this.workspaceRepository.save(workspace);
+      if (!saveResult.success) {
+        return {
+          success: false,
+          error: saveResult.error || 'Failed to save workspace'
+        };
+      }
 
-      // Save workspace (legacy implementation with type casting)
-      await this.workspaceRepository.save(workspace as any);
+      // Create Workspace interface from WorkspaceEntity
+      const workspaceResult = workspace.toWorkspaceInterface();
+      // Override with creation-specific values
+      workspaceResult.originalQuery = params.sql;
+      workspaceResult.decomposedQuery = decomposedQuery;
+      if (params.originalFilePath) {
+        workspaceResult.originalFilePath = params.originalFilePath;
+      }
 
       return {
         success: true,
-        data: workspace as any,
+        data: workspaceResult,
         message: 'Workspace created successfully'
       };
     } catch (error) {
@@ -60,7 +72,17 @@ export class WorkspaceUseCase {
 
   async loadWorkspace(): Promise<ApiResponse<Workspace | null>> {
     try {
-      const workspace = await this.workspaceRepository.findById('current');
+      const workspaceResult = await this.workspaceRepository.findById('current');
+      
+      if (!workspaceResult.success || !workspaceResult.data) {
+        return {
+          success: true,
+          data: null
+        };
+      }
+      
+      // Convert WorkspaceEntity to Workspace interface
+      const workspace = workspaceResult.data.toWorkspaceInterface();
       
       return {
         success: true,
@@ -78,32 +100,35 @@ export class WorkspaceUseCase {
     cteName: string;
     query: string;
     description?: string;
-  }): Promise<ApiResponse<void>> {
+  }): Promise<ApiResponse<Workspace>> {
     try {
-      const workspace = await this.workspaceRepository.findById('current');
-      if (!workspace) {
+      const workspaceResult = await this.workspaceRepository.findById('current');
+      if (!workspaceResult.success || !workspaceResult.data) {
         return {
           success: false,
           error: 'No active workspace found'
         };
       }
-
-      const workspaceEntity = new WorkspaceEntity(
-        workspace.id,
-        workspace.name,
-        workspace.originalFilePath || null,
-        [] // SQL models from workspace
-      );
+      const workspace = workspaceResult.data;
 
       // Legacy CTE update functionality
       // TODO: Implement proper CTE update mechanism
       console.log(`[WORKSPACE] Would update CTE ${params.cteName}`);
-      (workspaceEntity as any).privateCtes = workspace.privateCtes;
+      
+      const updateResult = await this.workspaceRepository.save(workspace);
+      if (!updateResult.success) {
+        return {
+          success: false,
+          error: updateResult.error || 'Failed to save workspace'
+        };
+      }
 
-      await this.workspaceRepository.save(workspaceEntity as any);
+      // Return updated workspace with the CTE modification (converting entity to interface)
+      const updatedWorkspace = workspace.toWorkspaceInterface();
 
       return {
         success: true,
+        data: updatedWorkspace,
         message: `CTE ${params.cteName} updated successfully`
       };
     } catch (error) {
@@ -116,14 +141,15 @@ export class WorkspaceUseCase {
 
   async generateExecutableCTE(cteName: string): Promise<ApiResponse<string>> {
     try {
-      const workspace = await this.workspaceRepository.findById('current');
-      if (!workspace) {
+      const workspaceResult = await this.workspaceRepository.findById('current');
+      if (!workspaceResult.success || !workspaceResult.data) {
         return {
           success: false,
           error: 'No active workspace found'
         };
       }
 
+      const workspace = workspaceResult.data.toWorkspaceInterface();
       if (!workspace.privateCtes[cteName]) {
         return {
           success: false,
@@ -150,14 +176,15 @@ export class WorkspaceUseCase {
 
   async validateWorkspace(): Promise<ApiResponse<{ isValid: boolean; errors: string[] }>> {
     try {
-      const workspace = await this.workspaceRepository.findById('current');
-      if (!workspace) {
+      const workspaceResult = await this.workspaceRepository.findById('current');
+      if (!workspaceResult.success || !workspaceResult.data) {
         return {
           success: false,
           error: 'No active workspace found'
         };
       }
 
+      const workspace = workspaceResult.data.toWorkspaceInterface();
       const errors: string[] = [];
 
       // Check for circular dependencies

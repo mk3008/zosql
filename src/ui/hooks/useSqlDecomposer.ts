@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { SqlModelEntity } from '@shared/types';
+import { SqlModelEntity } from '@core/entities/sql-model';
 import { SqlDecomposerUseCase } from '@core/usecases/sql-decomposer-usecase';
 import { SqlDecomposerParser } from '@adapters/parsers/sql-decomposer-parser';
 import { CteDependencyAnalyzerAdapter } from '@adapters/dependency-analyzer/cte-dependency-analyzer-adapter';
@@ -53,7 +53,7 @@ export const useSqlDecomposer = (): UseSqlDecomposerResult => {
   }, [decomposer]);
 
   const reconstructSql = useCallback(async (
-    models: import('@core/entities/sql-model').SqlModelEntity[], 
+    models: SqlModelEntity[], 
     mainModelName: string
   ): Promise<string> => {
     try {
@@ -72,7 +72,7 @@ export const useSqlDecomposer = (): UseSqlDecomposerResult => {
 
   return {
     decomposeSql,
-    reconstructSql: reconstructSql as any,
+    reconstructSql,
     isDecomposing,
     error,
     models,

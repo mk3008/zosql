@@ -4,7 +4,7 @@ import { Logger } from '../utils/logging.js';
 export interface IntelliSenseDebugLog {
   timestamp: string;
   phase: string;
-  data: any;
+  data: unknown;
   error?: string;
 }
 
@@ -87,7 +87,22 @@ export class IntelliSenseDebugApi {
     }
   }
 
-  private analyzeIntelliSenseIssues(): any {
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private analyzeIntelliSenseIssues(): {
+    totalLogs: number;
+    phases: Record<string, number>;
+    commonIssues: string[];
+    successfulAliasDetections: number;
+    failedAliasDetections: number;
+    sqlParseSuccesses: number;
+    sqlParseFailures: number;
+    columnResolutionSuccesses: number;
+    columnResolutionFailures: number;
+    suggestions: string[];
+  } {
     const recentLogs = this.debugLogs.slice(-20); // Analyze last 20 logs
     
     const analysis = {
@@ -108,32 +123,36 @@ export class IntelliSenseDebugApi {
       analysis.phases[log.phase] = (analysis.phases[log.phase] || 0) + 1;
 
       // Analyze specific issues
-      if (log.phase === 'ALIAS_DETECTION') {
-        if (log.data?.result) {
+      if (log.phase === 'ALIAS_DETECTION' && this.isRecord(log.data)) {
+        if (log.data.result) {
           analysis.successfulAliasDetections++;
         } else {
           analysis.failedAliasDetections++;
-          if (log.data?.textBeforeCursor?.includes('.')) {
+          const textBeforeCursor = log.data.textBeforeCursor;
+          if (typeof textBeforeCursor === 'string' && textBeforeCursor.includes('.')) {
             analysis.commonIssues.push('Alias detection failed despite dot in text');
           }
         }
       }
 
-      if (log.phase === 'SQL_PARSING') {
-        if (log.data?.success) {
+      if (log.phase === 'SQL_PARSING' && this.isRecord(log.data)) {
+        if (log.data.success) {
           analysis.sqlParseSuccesses++;
         } else {
           analysis.sqlParseFailures++;
-          analysis.commonIssues.push(`SQL parse error: ${log.data?.error || 'Unknown'}`);
+          const error = log.data.error;
+          analysis.commonIssues.push(`SQL parse error: ${typeof error === 'string' ? error : 'Unknown'}`);
         }
       }
 
-      if (log.phase === 'COLUMN_RESOLUTION') {
-        if (log.data?.columns?.length > 0) {
+      if (log.phase === 'COLUMN_RESOLUTION' && this.isRecord(log.data)) {
+        const columns = log.data.columns;
+        if (Array.isArray(columns) && columns.length > 0) {
           analysis.columnResolutionSuccesses++;
         } else {
           analysis.columnResolutionFailures++;
-          analysis.commonIssues.push(`No columns found for table: ${log.data?.tableName || 'Unknown'}`);
+          const tableName = log.data.tableName;
+          analysis.commonIssues.push(`No columns found for table: ${typeof tableName === 'string' ? tableName : 'Unknown'}`);
         }
       }
 

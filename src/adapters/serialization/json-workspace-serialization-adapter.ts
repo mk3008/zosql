@@ -60,6 +60,27 @@ interface SerializedSqlModel {
 }
 
 /**
+ * Extended SqlModelEntity interface for serialization
+ * Includes optional properties that might exist on instances
+ */
+interface SerializableSqlModel extends SqlModelEntity {
+  id?: string;
+  sql?: string;
+  description?: string;
+  testData?: string;
+  conditions?: string;
+}
+
+/**
+ * Extended WorkspaceEntity interface for serialization
+ * Includes optional properties that might exist on instances
+ */
+interface SerializableWorkspace extends WorkspaceEntity {
+  created: string;
+  lastModified: string;
+}
+
+/**
  * JSON implementation of WorkspaceSerializationPort
  * Provides workspace serialization using JSON with optional compression
  */
@@ -84,15 +105,19 @@ export class JsonWorkspaceSerializationAdapter implements WorkspaceSerialization
       
       // Calculate checksum
       const checksum = this.calculateChecksum(jsonString);
-      (serialized as any).metadata = {
+      // Create mutable copy to add checksum
+      const mutableSerialized = { ...serialized } as SerializedWorkspace & { metadata?: SerializedWorkspace['metadata'] & { checksum?: string } };
+      mutableSerialized.metadata = {
+        exporterVersion: serialized.metadata?.exporterVersion || 'unknown',
+        platform: serialized.metadata?.platform || 'unknown',
         ...serialized.metadata,
         checksum
       };
       
       // Re-serialize with checksum
       const finalJson = options.prettyPrint 
-        ? JSON.stringify(serialized, null, 2)
-        : JSON.stringify(serialized);
+        ? JSON.stringify(mutableSerialized, null, 2)
+        : JSON.stringify(mutableSerialized);
       
       // Handle compression if requested
       let exportData: string | Buffer = finalJson;
@@ -187,7 +212,8 @@ export class JsonWorkspaceSerializationAdapter implements WorkspaceSerialization
         const expectedChecksum = migrated.metadata.checksum;
         const withoutChecksum = { ...migrated };
         if (withoutChecksum.metadata) {
-          delete (withoutChecksum.metadata as any).checksum;
+          const { checksum: _, ...metadataWithoutChecksum } = withoutChecksum.metadata;
+          withoutChecksum.metadata = metadataWithoutChecksum;
         }
         
         const jsonForChecksum = JSON.stringify(withoutChecksum);
@@ -450,23 +476,24 @@ export class JsonWorkspaceSerializationAdapter implements WorkspaceSerialization
     const sqlModels: SerializedSqlModel[] = [];
     
     for (const model of workspace.sqlModels) {
+      const serializableModel = model as SerializableSqlModel;
       const serializedModel: SerializedSqlModel = {
-        id: (model as any).id || model.name,
+        id: serializableModel.id || model.name,
         name: model.name,
-        sql: model.sqlWithoutCte || (model as any).sql,
-        description: (model as any).description || '',
+        sql: model.sqlWithoutCte || serializableModel.sql || '',
+        description: serializableModel.description || '',
         isRootCte: model.type === 'main',
         dependents: [],
         createdAt: new Date().toISOString(),
         lastModified: new Date().toISOString()
       };
       
-      if (options.includeTestData && (model as any).testData) {
-        (serializedModel as any).testData = (model as any).testData;
+      if (options.includeTestData && serializableModel.testData) {
+        (serializedModel as SerializedSqlModel & { testData: string }).testData = serializableModel.testData;
       }
       
-      if ((model as any).conditions) {
-        (serializedModel as any).conditions = (model as any).conditions;
+      if (serializableModel.conditions) {
+        (serializedModel as SerializedSqlModel & { conditions: string }).conditions = serializableModel.conditions;
       }
       
       sqlModels.push(serializedModel);
@@ -500,9 +527,10 @@ export class JsonWorkspaceSerializationAdapter implements WorkspaceSerialization
       serialized.workspace.description || null
     );
     
-    // Override timestamps
-    (workspace as any).created = serialized.workspace.createdAt;
-    (workspace as any).lastModified = serialized.workspace.lastModified;
+    // Override timestamps - these properties exist on WorkspaceEntity
+    const serializableWorkspace = workspace as SerializableWorkspace;
+    serializableWorkspace.created = serialized.workspace.createdAt;
+    serializableWorkspace.lastModified = serialized.workspace.lastModified;
     
     // Add SQL models
     for (const serializedModel of serialized.workspace.sqlModels) {

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SelectQueryParser, WithClauseParser } from 'rawsql-ts';
+import { WithClause } from 'rawsql-ts/dist/src/models/Clause';
 import { Logger } from '../utils/logging.js';
 import { CteComposer } from '../utils/cte-composer.js';
 
@@ -44,7 +45,7 @@ export class CteComposeApi {
 
       // Parse and validate CTE definitions if provided
       let processedCteDefinitions = cteDefinitions || '';
-      let parsedWithClause: any = null;
+      let parsedWithClause: WithClause | null = null;
       let parseMethod = 'none';
       
       if (cteDefinitions && cteDefinitions.trim() !== '') {
@@ -111,7 +112,7 @@ export class CteComposeApi {
    * @returns WithClause object and parsing method used
    * @throws Error if parsing fails with all strategies
    */
-  private getWithClauseFromInput(input: string): { withClause: any; method: string } {
+  private getWithClauseFromInput(input: string): { withClause: WithClause; method: string } {
     // Strategy 1: Try WithClauseParser (for pure WITH clauses)
     try {
       const withClause = WithClauseParser.parse(input);

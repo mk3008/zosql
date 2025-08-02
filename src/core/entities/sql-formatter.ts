@@ -51,7 +51,7 @@ export class SqlFormatterEntity {
    * Update config from SqlFormatter options object
    * @param options - Formatter options object to convert to string
    */
-  setFormatterConfig(options: any): void {
+  setFormatterConfig(options: Record<string, unknown>): void {
     try {
       this.config = JSON.stringify(options, null, 2);
     } catch (error) {
@@ -112,7 +112,7 @@ export class SqlFormatterEntity {
   /**
    * Create from plain object (for deserialization)
    */
-  static fromJSON(data: any): SqlFormatterEntity {
+  static fromJSON(data: { config?: string }): SqlFormatterEntity {
     return new SqlFormatterEntity(data.config || JSON.stringify(DEFAULT_FORMATTER_CONFIG, null, 2));
   }
 

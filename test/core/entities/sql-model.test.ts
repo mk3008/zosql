@@ -3,7 +3,7 @@
  * Core Layer Entity Tests
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { SqlModelEntity } from '@core/entities/sql-model';
 
 describe('SqlModelEntity', () => {
@@ -60,7 +60,7 @@ describe('SqlModelEntity', () => {
       expect(result).toContain('SELECT * FROM users');
     });
 
-    it('should include test values in WITH clause', () => {
+    it('should include test values in WITH clause', async () => {
       const model = new SqlModelEntity(
         'main',
         'test.sql',
@@ -69,13 +69,13 @@ describe('SqlModelEntity', () => {
       );
 
       const testValues = 'test_data(id, name) AS (VALUES (1, \'Test\'))';
-      const result = model.getFullSql(testValues);
+      const result = await model.getFullSql(testValues);
 
       expect(result).toContain('WITH test_data(id, name) AS (VALUES (1, \'Test\'))');
       expect(result).toContain('SELECT * FROM test_data');
     });
 
-    it('should combine test values and dependencies', () => {
+    it('should combine test values and dependencies', async () => {
       const usersModel = new SqlModelEntity(
         'cte',
         'users',
@@ -92,7 +92,7 @@ describe('SqlModelEntity', () => {
       );
 
       const testValues = 'test_data(id, name) AS (VALUES (1, \'Test\'))';
-      const result = mainModel.getFullSql(testValues);
+      const result = await mainModel.getFullSql(testValues);
 
       expect(result).toContain('WITH test_data(id, name) AS (VALUES (1, \'Test\'))');
       expect(result).toContain('users(id, name) AS');
@@ -100,7 +100,7 @@ describe('SqlModelEntity', () => {
       expect(result).toContain('SELECT * FROM test_data JOIN users');
     });
 
-    it('should handle complex dependency chains', () => {
+    it('should handle complex dependency chains', async () => {
       const baseModel = new SqlModelEntity(
         'cte',
         'base',
@@ -129,7 +129,7 @@ describe('SqlModelEntity', () => {
         [level2Model]
       );
 
-      const result = mainModel.getFullSql();
+      const result = await mainModel.getFullSql();
 
       const withIndex = result.indexOf('WITH');
       const selectIndex = result.lastIndexOf('SELECT * FROM level2');
@@ -178,11 +178,11 @@ describe('SqlModelEntity', () => {
   });
 
   describe('parseTestValues', () => {
-    it('should handle WITH keyword removal', () => {
+    it('should handle WITH keyword removal', async () => {
       const model = new SqlModelEntity('main', 'test', 'SELECT 1', []);
       const testValues = 'WITH users AS (SELECT 1), orders AS (SELECT 2)';
       
-      const result = model.getFullSql(testValues);
+      const result = await model.getFullSql(testValues);
       
       // Should contain the CTEs without duplicate WITH
       expect(result.match(/WITH/g)?.length).toBe(1);

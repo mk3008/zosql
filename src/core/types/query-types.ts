@@ -267,15 +267,15 @@ export function validateQueryResult(result: unknown): result is QueryExecutionRe
 /**
  * Convert legacy result format to type-safe format
  */
-export function migrateLegacyResult(legacyResult: any): QueryExecutionResult {
+export function migrateLegacyResult(legacyResult: Record<string, unknown>): QueryExecutionResult {
   if (validateQueryResult(legacyResult)) {
-    return legacyResult;
+    return legacyResult as QueryExecutionResult;
   }
 
   // Handle common legacy formats
-  const sql = legacyResult?.query || legacyResult?.sql || '';
-  const rows = Array.isArray(legacyResult?.data) ? legacyResult.data : [];
-  const error = legacyResult?.error;
+  const sql = (legacyResult?.query as string) || (legacyResult?.sql as string) || '';
+  const rows = Array.isArray(legacyResult?.data) ? legacyResult.data as Record<string, unknown>[] : [];
+  const error = legacyResult?.error as { code?: string; message?: string } | undefined;
 
   if (error) {
     return createErrorResult(sql, {
@@ -299,16 +299,28 @@ function generateExecutionId(): string {
  * Type-safe query result builder
  */
 export class QueryResultBuilder {
-  private result: any = {};
+  private result: {
+    sql: string;
+    context?: QueryExecutionContext;
+    status?: QueryExecutionStatus;
+    rows?: readonly Record<string, unknown>[];
+    columns?: readonly ColumnMetadata[];
+    stats?: QueryExecutionStats;
+    errors?: QueryError[];
+    warnings?: QueryError[];
+    formattedSql?: string;
+  };
 
   constructor(sql: string) {
-    this.result.sql = sql;
-    this.result.context = {
-      startTime: new Date(),
-      executionId: generateExecutionId()
+    this.result = {
+      sql,
+      context: {
+        startTime: new Date(),
+        executionId: generateExecutionId()
+      },
+      errors: [],
+      warnings: []
     };
-    this.result.errors = [];
-    this.result.warnings = [];
   }
 
   setStatus(status: QueryExecutionStatus): this {
@@ -374,7 +386,7 @@ export class QueryResultBuilder {
       stats: requiredStats,
       errors: this.result.errors || [],
       warnings: this.result.warnings || [],
-      sql: this.result.sql!,
+      sql: this.result.sql,
       formattedSql: this.result.formattedSql
     };
   }

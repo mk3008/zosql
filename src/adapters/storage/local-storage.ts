@@ -6,6 +6,8 @@ export class LocalStorageWorkspaceRepository implements WorkspaceRepository {
   private readonly VERSION = '2.0.0';
 
   async findById(_id: string): Promise<Workspace | null> {
+    // Parameter intentionally unused as localStorage only stores one workspace
+    void _id;
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       

@@ -13,7 +13,7 @@ describe('SQL Formatter Configuration', () => {
       SELECT * FROM user_stats
     `;
     
-    const result = decomposeSQL(sql);
+    const result = decomposeSQL(sql, 'output');
     const cteContent = result.files[0].content;
     
     // デフォルトフォーマットスタイルの確認
@@ -27,11 +27,11 @@ describe('SQL Formatter Configuration', () => {
     
     // フォーマット構造の確認
     expect(cteContent).toContain('\n    '); // 4スペースインデント
-    expect(cteContent).toMatch(/select\n    /); // SELECTの後に改行とインデント
-    expect(cteContent).toMatch(/\n    , /); // カンマが行頭（commaBreak: before）
-    expect(cteContent).toMatch(/\nfrom\n    /); // FROMの前後に改行
-    expect(cteContent).toMatch(/\nwhere\n    /); // WHEREの前後に改行
-    expect(cteContent).toMatch(/\n    and /); // ANDが行頭（andBreak: before）
+    expect(cteContent).toMatch(/select\n {4}/); // SELECTの後に改行とインデント
+    expect(cteContent).toMatch(/\n {4}, /); // カンマが行頭（commaBreak: before）
+    expect(cteContent).toMatch(/\nfrom\n {4}/); // FROMの前後に改行
+    expect(cteContent).toMatch(/\nwhere\n {4}/); // WHEREの前後に改行
+    expect(cteContent).toMatch(/\n {4}and /); // ANDが行頭（andBreak: before）
     
     // クォートが除去されていることを確認
     expect(cteContent).not.toContain('"user_id"');

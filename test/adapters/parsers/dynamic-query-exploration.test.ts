@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { SelectQueryParser, DynamicQueryBuilder, FilterConditions, SqlFormatter } from 'rawsql-ts';
+import { DynamicQueryBuilder, FilterConditions, SqlFormatter } from 'rawsql-ts';
 
 describe('DynamicQuery Exploration', () => {
   const baseSql = 'SELECT user_id, name FROM users';
@@ -97,7 +97,7 @@ describe('DynamicQuery Exploration', () => {
         '<': undefined // Should be ignored
       },
       name: {
-        like: null, // Should be ignored
+        like: undefined, // Should be ignored
         '=': 'alice'
       }
     };

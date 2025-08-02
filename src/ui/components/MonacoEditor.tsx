@@ -3,6 +3,7 @@ import Editor, { Monaco } from '@monaco-editor/react';
 import { editor } from 'monaco-editor';
 import { useEditor } from '../context/EditorContext';
 import { WorkspaceEntity } from '@shared/types';
+import { DebugLogger } from '../../utils/debug-logger';
 
 // Global flag to ensure theme is only defined once across all editor instances
 let globalThemeInitialized = false;
@@ -51,7 +52,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     return () => {
       console.log('[DEBUG] MonacoEditor component unmounting, language:', language, 'isMainEditor:', isMainEditor);
     };
-  }, []);
+  }, [language, isMainEditor]);
 
   // Get indent size from workspace formatter configuration
   const getIndentSize = (): number => {
@@ -185,16 +186,16 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         '<<', '>>', '>>>', '+=', '-=', '*=', '/=', '&=', '|=', '^=',
         '%=', '<<=', '>>=', '>>>='
       ],
-      symbols: /[=><!~?:&|+\-*\/\^%]+/,
+      symbols: /[=><!~?:&|+\-*/^%]+/,
       tokenizer: {
         root: [
           // Match identifiers and keywords (case-insensitive)
           [/[a-zA-Z_$][\w$]*/, { cases: { '@keywords': 'keyword', '@default': 'identifier' } }],
           { include: '@whitespace' },
-          [/[{}()\[\]]/, '@brackets'],
+          [/[{}()[\]]/, '@brackets'],
           [/[<>](?!@symbols)/, '@brackets'],
           [/@symbols/, { cases: { '@operators': 'operator', '@default': '' } }],
-          [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+          [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
           [/0[xX][0-9a-fA-F]+/, 'number.hex'],
           [/\d+/, 'number'],
           [/[;,.]/, 'delimiter'],
@@ -204,10 +205,10 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
           [/"/, { token: 'string.quote', bracket: '@open', next: '@dblstring' }]
         ],
         comment: [
-          [/[^\/*]+/, 'comment'],
+          [/[^/*]+/, 'comment'],
           [/\/\*/, 'comment', '@push'],
           [/\*\//, 'comment', '@pop'],
-          [/[\/*]/, 'comment']
+          [/[/*]/, 'comment']
         ],
         string: [
           [/[^\\']+/, 'string'],
@@ -227,10 +228,8 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       }
     });
     
-    console.log('[DEBUG] SQL Monarch tokenizer configured with keywords including:', 
-      ['select', 'from', 'where'].every(_kw => 
-        monaco.languages.getLanguages().find(lang => lang.id === 'sql')
-      ) ? 'SQL language found' : 'SQL language not found'
+    console.log('[DEBUG] SQL Monarch tokenizer configured, SQL language availability:', 
+      monaco.languages.getLanguages().find(lang => lang.id === 'sql') ? 'SQL language found' : 'SQL language not found'
     );
     
     // Set the language explicitly for the current model
@@ -347,22 +346,24 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   }, [language]);
 
   // Watch for workspace formatter changes and update indent settings
-  const formatterConfig = workspace?.formatter.config;
+  // Use stable values to prevent infinite re-renders
+  const workspaceIndentSize = workspace ? getIndentSize() : 4;
+  const workspaceId = workspace?.id; // Stable identifier to track workspace changes
+  
   useEffect(() => {
-    if (editorRef.current && language === 'sql' && formatterConfig) {
-      const indentSize = getIndentSize();
-      console.log('[DEBUG] Updating Monaco editor indent settings, indentSize:', indentSize);
+    if (editorRef.current && language === 'sql' && workspace) {
+      DebugLogger.debug('MonacoEditor', 'Updating Monaco editor indent settings, indentSize:', workspaceIndentSize);
       
       // Update editor options for indent
       editorRef.current.updateOptions({
-        tabSize: indentSize,
+        tabSize: workspaceIndentSize,
         insertSpaces: true
         // rulers: 無効化（過剰表示で見づらいため）
       });
       
-      console.log('[DEBUG] Updated Monaco editor with tabSize:', indentSize);
+      DebugLogger.debug('MonacoEditor', 'Updated Monaco editor with tabSize:', workspaceIndentSize);
     }
-  }, [formatterConfig, language]); // Remove refreshTrigger dependency to prevent unnecessary re-renders
+  }, [workspaceId, language, workspaceIndentSize]); // Use stable workspaceId instead of the entire workspace object
 
   // Watch for value prop changes and sync with editor content
   useEffect(() => {
@@ -412,7 +413,14 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       
       try {
         // Access the find controller directly
-        const findController = (editor as any).getContribution('editor.contrib.findController');
+        const findController = editor.getContribution('editor.contrib.findController') as {
+          closeFindWidget(): void;
+          getState(): { 
+            searchString: string;
+            change?: (options: { searchString: string; isRegex: boolean; matchCase: boolean; wholeWord: boolean }, moveToNextAfterFind: boolean) => void;
+          };
+          moveToNextMatch?(): void;
+        } | null;
         
         if (findController) {
           // First, close the find widget if it's already open to reset state
@@ -429,7 +437,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
                 const findState = findController.getState();
                 if (findState) {
                   // Clear previous search and set new one
-                  findState.change({ 
+                  findState.change?.({ 
                     searchString: searchTerm,
                     isRegex: false,
                     matchCase: false,
@@ -438,7 +446,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
                   console.log('[DEBUG] Set search term:', searchTerm);
                   
                   // Trigger the search
-                  findController.moveToNextMatch();
+                  findController.moveToNextMatch?.();
                 }
               } catch (error) {
                 console.error('[DEBUG] Failed to set search term:', error);
@@ -459,7 +467,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     theme: 'zosql-dark',
     fontSize: 14,
     fontFamily: 'Consolas, Monaco, Courier New, monospace',
-    lineNumbers: 'on',
+    lineNumbers: 'on' as editor.LineNumbersType,
     roundedSelection: false,
     scrollBeyondLastLine: false,
     readOnly,
@@ -473,14 +481,14 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     insertSpaces: true,
     // rulers: インデント縦線は無効化（過剰表示で見づらいため）
     // rulers: language === 'sql' ? [indentSize * 4, indentSize * 8, indentSize * 12] : undefined,
-    wordWrap: 'off',
+    wordWrap: 'off' as const,
     contextmenu: true,
     mouseWheelZoom: true,
     smoothScrolling: true,
-    cursorSmoothCaretAnimation: 'on',
-    renderLineHighlight: 'line',
+    cursorSmoothCaretAnimation: 'on' as const,
+    renderLineHighlight: 'line' as const,
     selectionHighlight: true,
-    occurrencesHighlight: 'singleFile',
+    occurrencesHighlight: 'singleFile' as const,
     suggest: {
       showKeywords: true,
       showSnippets: true,
@@ -495,8 +503,8 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       enabled: true
     },
     acceptSuggestionOnCommitCharacter: true,
-    acceptSuggestionOnEnter: 'on',
-    accessibilitySupport: 'auto',
+    acceptSuggestionOnEnter: 'on' as const,
+    accessibilitySupport: 'auto' as const,
     // Merge custom options, allowing override of defaults
     ...options
   };
@@ -509,7 +517,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         value={value}
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}
-        options={dynamicOptions as any}
+        options={dynamicOptions}
       />
     </div>
   );

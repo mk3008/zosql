@@ -13,7 +13,7 @@ export interface FileItem {
 
 export interface FileSystemResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 

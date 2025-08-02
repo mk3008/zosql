@@ -3,9 +3,9 @@
  * Testing command execution management
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { CommandExecutor } from '@core/services/command-executor';
-import { Command, BaseCommand } from '@core/commands/base';
+import { BaseCommand } from '@core/commands/base';
 
 // Mock command for testing
 class TestCommand extends BaseCommand<string> {
@@ -50,8 +50,8 @@ class UnexecutableCommand extends BaseCommand<void> {
 
 describe('CommandExecutor', () => {
   let executor: CommandExecutor;
-  let consoleLogSpy: any;
-  let consoleErrorSpy: any;
+  let consoleLogSpy: MockInstance;
+  let consoleErrorSpy: MockInstance;
   
   beforeEach(() => {
     executor = new CommandExecutor();

@@ -318,7 +318,7 @@ export class NodeFileStorageAdapter implements FileStoragePort {
       // Apply sorting if specified
       if (options?.sortBy) {
         files.sort((a, b) => {
-          let aValue: any, bValue: any;
+          let aValue: string | number | Date, bValue: string | number | Date;
           
           switch (options.sortBy) {
             case 'name':

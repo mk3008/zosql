@@ -144,3 +144,10 @@ zosql/resources/cache/
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Serena
+.serena
+/serena
+
+# GitHub Pages build output
+/docs/

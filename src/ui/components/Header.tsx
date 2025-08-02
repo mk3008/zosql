@@ -152,9 +152,15 @@ export const Header: React.FC<HeaderProps> = ({
         isOpen={showFileOpenDialog}
         onClose={() => setShowFileOpenDialog(false)}
         onFileOpen={onFileOpen}
-        onWorkspaceOpen={async (workspace) => {
+        onWorkspaceOpen={async (workspaceData) => {
           if (onWorkspaceCreated) {
-            onWorkspaceCreated(workspace);
+            // Convert unknown JSON data to WorkspaceEntity
+            try {
+              const workspace = WorkspaceEntity.fromJSON(workspaceData as Record<string, unknown>);
+              onWorkspaceCreated(workspace);
+            } catch (error) {
+              console.error('Failed to convert workspace data:', error);
+            }
           }
         }}
       />

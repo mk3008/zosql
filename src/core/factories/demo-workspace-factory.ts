@@ -72,6 +72,21 @@ with users(user_id, name) as (
 
   // Open main.sql tab by default in the workspace
   workspace.openSqlModelTab(mainModel);
+  
+  // CRITICAL: Verify that openedObjects was properly set
+  if (workspace.openedObjects.length === 0) {
+    throw new Error('CRITICAL: Demo workspace creation failed - openSqlModelTab did not add to openedObjects');
+  }
+  
+  if (!workspace.activeObjectId) {
+    throw new Error('CRITICAL: Demo workspace creation failed - no activeObjectId set');
+  }
+  
+  console.log('[DEBUG] Demo workspace created successfully:', {
+    openedObjectsCount: workspace.openedObjects.length,
+    activeObjectId: workspace.activeObjectId,
+    openedObjects: workspace.openedObjects.map(obj => `${obj.id} (${obj.type})`)
+  });
 
   return workspace;
 }

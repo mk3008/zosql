@@ -9,8 +9,11 @@ import { WorkspaceStorageInterface, WorkspaceInfo, PrivateCte } from '../storage
 import { FilesystemWorkspaceStorage } from '../storage/filesystem-workspace-storage.js';
 import { LocalStorageWorkspaceStorage } from '../storage/localstorage-workspace-storage.js';
 
-// Use any for now to avoid type compatibility issues
-type FormatterConfig = any;
+interface FormatterConfig {
+  indentSize: number;
+  keywordCase: string;
+  [key: string]: unknown;
+}
 
 // Use interfaces from storage layer
 
@@ -91,7 +94,7 @@ export class WorkspaceApi {
       // Clear FileManager for this operation
       this.fileManager.clear();
       
-      let privateCtes: Record<string, PrivateCte> = {};
+      const privateCtes: Record<string, PrivateCte> = {};
       let decomposedQuery = sql;
       let flowDiagram: string | undefined;
       
@@ -122,7 +125,11 @@ export class WorkspaceApi {
           
           // Format using full-oneline WITH clause style
           const formatterConfig = await this.loadFormatterConfig();
-          const formatter = new SqlFormatter(formatterConfig);
+          const sqlFormatterOptions = {
+            ...formatterConfig,
+            keywordCase: formatterConfig.keywordCase as "upper" | "lower" | "none" | undefined
+          };
+          const formatter = new SqlFormatter(sqlFormatterOptions);
           
           const formatResult = formatter.format(simpleQuery);
           decomposedQuery = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
@@ -324,7 +331,11 @@ export class WorkspaceApi {
 
       // Format the query
       const formatterConfig = await this.loadFormatterConfig();
-      const formatter = new SqlFormatter(formatterConfig);
+      const sqlFormatterOptions = {
+        ...formatterConfig,
+        keywordCase: formatterConfig.keywordCase as "upper" | "lower" | "none" | undefined
+      };
+      const formatter = new SqlFormatter(sqlFormatterOptions);
       let formattedQuery = query;
       try {
         const parsedQuery = SelectQueryParser.parse(query);
@@ -510,7 +521,7 @@ ${formattedQuery}`;
           
           // For compose functionality, use the complete SQL as-is
           // Since compose needs to rebuild the WITH clause structure
-          let query = fullQuery;
+          const query = fullQuery;
           const cteName = nameMatch ? nameMatch[1] : path.basename(file, '.sql');
           
           privateCtes[cteName] = {

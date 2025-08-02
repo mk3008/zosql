@@ -1,0 +1,14 @@
+# Serena tool files
+serena/
+.serena/
+
+# Build output
+docs/
+dist/
+
+# Dependencies
+node_modules/
+
+# Test files that use external configs
+*.test.js
+*.spec.js

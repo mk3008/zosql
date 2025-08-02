@@ -46,7 +46,7 @@ export class CTEDecomposer {
     /**
      * フォーマット設定をロード
      */
-    private async loadFormatterConfig(): Promise<any> {
+    private async loadFormatterConfig(): Promise<Record<string, unknown>> {
         try {
             const configPath = path.join(process.cwd(), 'zosql.formatter.json');
             const configContent = await fs.readFile(configPath, 'utf8');
@@ -122,7 +122,7 @@ export class CTEDecomposer {
                     name: cteData.name,
                     query: formattedQuery,
                     dependencies,
-                    comment: (cteData as any).comment
+                    comment: (cteData as { comment?: string }).comment
                 };
 
                 // ファイル内容を作成

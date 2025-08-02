@@ -54,7 +54,7 @@ describe('CteComposer', () => {
 
     it('CTE定義がnullの場合はメインクエリをそのまま返す', () => {
       const mainQuery = 'SELECT * FROM users';
-      const cteDefinitions = null as any;
+      const cteDefinitions = null as unknown as string;
       
       const result = composer.compose(mainQuery, cteDefinitions);
       

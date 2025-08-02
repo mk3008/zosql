@@ -32,6 +32,15 @@ interface WorkspaceIndex {
   };
 }
 
+interface MutableWorkspaceIndex {
+  [id: string]: {
+    name: string;
+    createdAt: string;
+    lastModified: string;
+    tags: string[];
+  };
+}
+
 /**
  * LocalStorage implementation of WorkspaceRepositoryPort
  * Provides persistent storage using browser localStorage with index optimization
@@ -272,6 +281,39 @@ export class LocalStorageWorkspaceRepository implements WorkspaceRepositoryPort 
     return result.success ? result.data?.length || 0 : 0;
   }
 
+  async clear(): Promise<RepositoryResult<void>> {
+    try {
+      // Get all workspace IDs from index
+      const index = this.getIndex();
+      const workspaceIds = Object.keys(index);
+      
+      // Remove all workspace data
+      for (const id of workspaceIds) {
+        const storageKey = `${STORAGE_KEYS.WORKSPACES}_${id}`;
+        localStorage.removeItem(storageKey);
+      }
+      
+      // Clear the index
+      localStorage.removeItem(STORAGE_KEYS.WORKSPACE_INDEX);
+      localStorage.removeItem(STORAGE_KEYS.WORKSPACE_METADATA);
+      
+      console.log(`[REPOSITORY] Cleared ${workspaceIds.length} workspaces`);
+      
+      return {
+        success: true
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to clear workspaces';
+      console.error(`[REPOSITORY] Clear failed:`, error);
+      
+      return {
+        success: false,
+        error: `Clear failed: ${errorMessage}`
+      };
+    }
+  }
+
   /**
    * Get workspace index for fast lookups
    */
@@ -291,8 +333,9 @@ export class LocalStorageWorkspaceRepository implements WorkspaceRepositoryPort 
   private async updateIndex(workspace: WorkspaceEntity): Promise<void> {
     try {
       const index = this.getIndex();
+      const mutableIndex = index as MutableWorkspaceIndex;
       
-      (index as any)[workspace.id] = {
+      mutableIndex[workspace.id] = {
         name: workspace.name,
         createdAt: workspace.created,
         lastModified: new Date().toISOString(),
@@ -312,7 +355,8 @@ export class LocalStorageWorkspaceRepository implements WorkspaceRepositoryPort 
   private async removeFromIndex(workspaceId: string): Promise<void> {
     try {
       const index = this.getIndex();
-      delete (index as any)[workspaceId];
+      const mutableIndex = index as MutableWorkspaceIndex;
+      delete mutableIndex[workspaceId];
       localStorage.setItem(STORAGE_KEYS.WORKSPACE_INDEX, JSON.stringify(index));
       
     } catch (error) {

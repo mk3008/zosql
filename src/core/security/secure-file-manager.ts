@@ -264,7 +264,9 @@ export class SecureFileManager {
     const suspiciousPatterns = [
       /\.\.[/\\]/,  // Path traversal
       /[<>"|]/,     // Dangerous characters
+      // eslint-disable-next-line no-control-regex
       /\x00/,       // Null bytes
+      // eslint-disable-next-line no-control-regex
       /[\x01-\x1f\x7f-\x9f]/, // Control characters
       /^[.~]/       // Hidden files (optional security measure)
     ];

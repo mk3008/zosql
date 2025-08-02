@@ -5,6 +5,7 @@ export { FilterConditionsEntity } from '@core/entities/filter-conditions';
 export { SqlFormatterEntity } from '@core/entities/sql-formatter';
 export { WorkspaceEntity } from '@core/entities/workspace';
 export type { ModelFilterConditions } from '@core/entities/workspace';
+import { QueryExecutionResult as CoreQueryExecutionResult } from '@core/types/query-types';
 
 // Domain Types
 export interface CTE {
@@ -34,49 +35,17 @@ export interface Workspace {
 
 export interface QueryExecutionResult {
   success: boolean;
-  data?: any[];
+  data?: unknown[];
   error?: string;
   executionTime?: number;
   rowCount?: number;
   executedSql?: string; // The actual SQL that was executed (with WITH clauses)
 }
 
-// Forward declaration for circular reference
-export interface SqlModelEntity {
-  type: 'main' | 'cte';
-  name: string;
-  sqlWithoutCte: string;
-  editorContent: string;
-  dependents: SqlModelEntity[];
-  columns?: string[];
-  originalSql?: string;
-  hasUnsavedChanges: boolean;
-  updateEditorContent(content: string): void;
-  save(): void;
-  getFullSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean, useEditorContent?: boolean): Promise<string>;
-  getDependentNames(): string[];
-  getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: any, forExecution?: boolean, useEditorContent?: boolean): Promise<any>;
-}
+// Forward declaration for circular reference - use actual class from core/entities
+export type { SqlModelEntity } from '@core/entities/sql-model';
 
-export interface SqlModel {
-  /** Type of SQL model - main query or CTE */
-  type: 'main' | 'cte';
-  
-  /** Name of the model - file name for main, CTE name for CTEs */
-  name: string;
-  
-  /** SQL query without WITH clause */
-  sqlWithoutCte: string;
-  
-  /** List of SQL models this model depends on */
-  dependents: SqlModelEntity[];
-  
-  /** Optional: Column information if available */
-  columns?: string[];
-  
-  /** Optional: Original full SQL (for main type only) */
-  originalSql?: string;
-}
+// SqlModel interface removed - use SqlModelEntity class directly to avoid circular dependencies
 
 // UI State Types
 export interface UIState {
@@ -93,6 +62,7 @@ export interface Tab {
   content: string;
   isDirty: boolean;
   cteName?: string;
+  queryResult?: CoreQueryExecutionResult; // Add query result directly to tab
 }
 
 // Test Values Types
@@ -121,14 +91,14 @@ export interface FilterConditionsModel {
 export interface SqlFormatterModel {
   config: string;
   getSqlFormatter(): import('rawsql-ts').SqlFormatter;
-  setFormatterConfig(options: any): void;
+  setFormatterConfig(options: unknown): void;
   isValid(): boolean;
   clone(): SqlFormatterModel;
   displayString: string; // getter for GUI binding
 }
 
 // API Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;

@@ -1,4 +1,5 @@
-import { SelectQueryParser } from 'rawsql-ts';
+import { SelectQueryParser, SqlFormatter } from 'rawsql-ts';
+import { CommonTable } from 'rawsql-ts/dist/src/models/Clause';
 import { SqlParser, ParsedQuery, FormatOptions } from '@core/ports/workspace';
 import { CTE } from '@shared/types';
 import { CTEEntity } from '@core/entities/cte';
@@ -53,17 +54,30 @@ export class RawSqlParser implements SqlParser {
     }
   }
 
-  async formatQuery(sql: string, _options: FormatOptions = {}): Promise<string> {
+  async formatQuery(sql: string, options: FormatOptions = {}): Promise<string> {
     try {
-      // For now, return the original SQL
-      // TODO: Implement proper formatting when rawsql-ts formatter is available
-      return sql;
+      // Parse SQL with SelectQueryParser
+      const query = SelectQueryParser.parse(sql);
+      
+      // Convert FormatOptions to SqlFormatterOptions
+      const formatterOptions = {
+        indent: options.indentSize ? ' '.repeat(options.indentSize) : '  ',
+        keywordCase: options.uppercase ? 'upper' as const : 'lower' as const,
+        linesBetweenQueries: options.linesBetweenQueries || 1
+      };
+      
+      // Format with SqlFormatter
+      const formatter = new SqlFormatter(formatterOptions);
+      const result = formatter.format(query);
+      
+      // Return only the formatted SQL string
+      return result.formattedSql;
     } catch (error) {
       throw new Error(`SQL formatting failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  private async extractCTEQuery(cte: any): Promise<string> {
+  private async extractCTEQuery(cte: CommonTable): Promise<string> {
     if (!cte || !cte.query) {
       return '';
     }
@@ -71,7 +85,7 @@ export class RawSqlParser implements SqlParser {
     try {
       // Try to convert CTE query to SQL string
       if (typeof cte.query.toSqlString === 'function') {
-        return cte.query.toSqlString();
+        return (cte.query as unknown as { toSqlString: () => string }).toSqlString();
       }
       
       // Fallback: return empty string if extraction fails
@@ -82,7 +96,7 @@ export class RawSqlParser implements SqlParser {
     }
   }
 
-  private async extractCTEDependencies(cte: any): Promise<string[]> {
+  private async extractCTEDependencies(cte: CommonTable): Promise<string[]> {
     const dependencies: string[] = [];
     
     if (!cte || !cte.query) {

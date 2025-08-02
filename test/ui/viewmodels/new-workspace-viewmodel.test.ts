@@ -6,6 +6,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NewWorkspaceViewModel } from '@ui/viewmodels/new-workspace-viewmodel';
 import { WorkspaceEntity } from '@core/entities/workspace';
+import { TestValuesModel } from '@core/entities/test-values-model';
+import { SqlFormatterEntity } from '@core/entities/sql-formatter';
+import { FilterConditionsEntity } from '@core/entities/filter-conditions';
 
 // CommandのMock
 vi.mock('@ui/commands/create-workspace-command', () => ({
@@ -16,9 +19,9 @@ vi.mock('@ui/commands/create-workspace-command', () => ({
       name,
       `${name}.sql`,
       [],
-      {} as any,
-      {} as any,
-      {} as any,
+      new TestValuesModel(''),
+      new SqlFormatterEntity(),
+      new FilterConditionsEntity(),
       {}
     ))
   }))
@@ -130,7 +133,7 @@ describe('NewWorkspaceViewModel', () => {
 
       // Assert
       expect(createdWorkspace).toBeInstanceOf(WorkspaceEntity);
-      expect(createdWorkspace?.name).toBe('test-workspace');
+      expect(createdWorkspace!.name).toBe('test-workspace');
     });
 
     it('実行中はisLoadingがtrueになる', async () => {
@@ -171,7 +174,7 @@ describe('NewWorkspaceViewModel', () => {
       };
       
       // ViewModelの内部コマンドをモック
-      (viewModel as any).createCommand = () => mockCommand;
+      (viewModel as unknown as { createCommand: () => unknown }).createCommand = () => mockCommand;
       
       viewModel.name = 'test';
       viewModel.sql = 'SELECT 1';
@@ -202,7 +205,7 @@ describe('NewWorkspaceViewModel', () => {
   describe('エラー処理', () => {
     it('エラーをクリアできる', () => {
       // Arrange
-      (viewModel as any)._error = 'Test error';
+      (viewModel as unknown as { _error: string })._error = 'Test error';
 
       // Act
       viewModel.clearError();
@@ -216,7 +219,7 @@ describe('NewWorkspaceViewModel', () => {
     it('プロパティ変更時にイベントが発火される', () => {
       // Arrange
       const mockCallback = vi.fn();
-      viewModel.addPropertyChangeListener(mockCallback);
+      viewModel.subscribe(mockCallback);
 
       // Act
       viewModel.name = 'test';
@@ -229,7 +232,7 @@ describe('NewWorkspaceViewModel', () => {
       // Arrange
       viewModel.name = 'test';
       const mockCallback = vi.fn();
-      viewModel.addPropertyChangeListener(mockCallback);
+      viewModel.subscribe(mockCallback);
 
       // Act
       viewModel.name = 'test'; // 同じ値
@@ -243,7 +246,7 @@ describe('NewWorkspaceViewModel', () => {
     it('disposeでリスナーがクリアされる', () => {
       // Arrange
       const mockCallback = vi.fn();
-      viewModel.addPropertyChangeListener(mockCallback);
+      viewModel.subscribe(mockCallback);
 
       // Act
       viewModel.dispose();

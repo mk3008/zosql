@@ -59,8 +59,8 @@ export class WorkspaceManagementUseCase {
     private readonly workspaceRepository: WorkspaceRepositoryPort,
     private readonly serialization: WorkspaceSerializationPort,
     private readonly fileAccess: SecureFileAccessPort,
-    private readonly backup: BackupRestorePort,
-    private readonly sqlDecomposer: SqlDecomposerUseCase
+    private readonly backup: BackupRestorePort | null,
+    private readonly sqlDecomposer: SqlDecomposerUseCase | null
   ) {}
 
   /**
@@ -88,7 +88,7 @@ export class WorkspaceManagementUseCase {
       let sqlModels: SqlModelEntity[] = [];
 
       // If SQL is provided, decompose it
-      if (request.sql) {
+      if (request.sql && this.sqlDecomposer) {
         // Decompose SQL into models
         sqlModels = await this.sqlDecomposer.decomposeSql(request.sql, `${request.name}.sql`);
       }
@@ -108,10 +108,12 @@ export class WorkspaceManagementUseCase {
       }
 
       // Create automatic backup
-      await this.backup.createBackup(workspace.id, workspace.toJSON(), {
-        compress: true,
-        includeHistory: false
-      });
+      if (this.backup) {
+        await this.backup.createBackup(workspace.id, workspace.toJSON(), {
+          compress: true,
+          includeHistory: false
+        });
+      }
 
       return {
         success: true,
@@ -177,10 +179,12 @@ export class WorkspaceManagementUseCase {
       }
 
       // Create backup after update
-      await this.backup.createBackup(workspace.id, workspace.toJSON(), {
-        compress: true,
-        includeHistory: false
-      });
+      if (this.backup) {
+        await this.backup.createBackup(workspace.id, workspace.toJSON(), {
+          compress: true,
+          includeHistory: false
+        });
+      }
 
       return {
         success: true,
@@ -219,10 +223,12 @@ export class WorkspaceManagementUseCase {
       // Create final backup before deletion
       const workspace = await this.workspaceRepository.findById(workspaceId);
       if (workspace.success && workspace.data) {
-        await this.backup.createBackup(workspaceId, workspace.data.toJSON(), {
-          compress: true,
-          includeHistory: true
-        });
+        if (this.backup) {
+          await this.backup.createBackup(workspaceId, workspace.data.toJSON(), {
+            compress: true,
+            includeHistory: true
+          });
+        }
       }
 
       // Delete from repository
@@ -300,10 +306,12 @@ export class WorkspaceManagementUseCase {
       }
 
       // Create backup of imported workspace
-      await this.backup.createBackup(workspace.id, workspace.toJSON(), {
-        compress: true,
-        includeHistory: false
-      });
+      if (this.backup) {
+        await this.backup.createBackup(workspace.id, workspace.toJSON(), {
+          compress: true,
+          includeHistory: false
+        });
+      }
 
       return {
         success: true,
@@ -414,25 +422,25 @@ export class WorkspaceManagementUseCase {
       }
 
       // Create backup
-      const backupResult = await this.backup.createBackup(
+      const backupResult = this.backup ? await this.backup.createBackup(
         workspaceId,
         workspaceResult.data.toJSON(),
         {
           compress: options?.compress ?? true,
           includeHistory: options?.includeHistory ?? false
         }
-      );
+      ) : { success: true, data: null };
 
-      if (!backupResult.success || !backupResult.data) {
+      if (!backupResult?.success) {
         return {
           success: false,
-          error: backupResult.error || 'Failed to create backup'
+          error: ('error' in backupResult && backupResult.error) ? backupResult.error : 'Failed to create backup'
         };
       }
 
       return {
         success: true,
-        data: backupResult.data
+        data: backupResult.data || ''
       };
 
     } catch (error) {

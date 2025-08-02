@@ -5,7 +5,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SqlEditorViewModel } from '@ui/viewmodels/sql-editor-viewmodel';
-import { WorkspaceEntity } from '@core/entities/workspace';
 
 // Mock command executor
 vi.mock('@core/services/command-executor', () => ({
@@ -65,7 +64,7 @@ describe('SqlEditorViewModel', () => {
     it('should execute command when canExecute is true', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
       const mockResult = { success: true, data: [], executionTime: 100 };
-      (commandExecutor.execute as any).mockResolvedValue(mockResult);
+      (commandExecutor.execute as unknown as { mockResolvedValue: (value: unknown) => void }).mockResolvedValue(mockResult);
       
       viewModel.sql = 'SELECT 1';
       await viewModel.executeQuery();
@@ -80,7 +79,7 @@ describe('SqlEditorViewModel', () => {
     
     it('should handle execution errors', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
-      (commandExecutor.execute as any).mockRejectedValue(new Error('Database error'));
+      (commandExecutor.execute as unknown as { mockRejectedValue: (error: Error) => void }).mockRejectedValue(new Error('Database error'));
       
       viewModel.sql = 'SELECT invalid';
       await viewModel.executeQuery();
@@ -94,11 +93,11 @@ describe('SqlEditorViewModel', () => {
     
     it('should manage isExecuting state during execution', async () => {
       const { commandExecutor } = await import('@core/services/command-executor');
-      let resolveExecution: (value: any) => void;
+      let resolveExecution!: (value: unknown) => void;
       const executionPromise = new Promise(resolve => {
         resolveExecution = resolve;
       });
-      (commandExecutor.execute as any).mockReturnValue(executionPromise);
+      (commandExecutor.execute as unknown as { mockReturnValue: (promise: Promise<unknown>) => void }).mockReturnValue(executionPromise);
       
       viewModel.sql = 'SELECT 1';
       const executePromise = viewModel.executeQuery();

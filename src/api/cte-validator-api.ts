@@ -40,7 +40,7 @@ export class CteValidatorApi {
       
       // Register tables from schema
       for (const table of schema.tables) {
-        const columns = table.columns.map((col: any) => col.name);
+        const columns = table.columns.map((col: { name: string }) => col.name);
         tableSchemas.push(new TableSchema(table.name, columns));
       }
       
@@ -138,7 +138,7 @@ export class CteValidatorApi {
       
       for (const [cteName, cteData] of Object.entries(sharedCtes)) {
         try {
-          const query = (cteData as any).query;
+          const query = (cteData as { query: string }).query;
           const validation = this.validateSqlWithRawsqlTs(query, tableSchemas);
           
           results.push({
