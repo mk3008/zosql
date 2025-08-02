@@ -1,5 +1,5 @@
-echo "🔍 Running CI checks before commit..."
-npm run ci:check
+echo "🔍 Running essential checks before commit..."
+npm run ci:essential
 
 if [ $? -ne 0 ]; then
   echo "❌ CI checks failed! Please fix the issues before committing."

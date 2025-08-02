@@ -264,9 +264,10 @@ ZOSQL_LOG_LEVEL=error            # Set log level
 ## Quality Gates
 
 ### **Pre-Push Validation**
-ALWAYS run CI checks locally before pushing:
+ALWAYS run essential checks locally before pushing:
 ```bash
-npm run ci:check          # Quick check: TypeScript + ESLint (matches GitHub Actions)
+npm run ci:essential      # Essential: TypeScript + ESLint (matches GitHub Actions)
+npm run ci:check          # With tests: TypeScript + ESLint + Tests  
 npm run ci:full           # Full check: TypeScript + ESLint + Tests + Build
 ```
 
