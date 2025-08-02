@@ -189,10 +189,18 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
 
   return (
     <div className="border border-dark-border-primary bg-dark-secondary rounded mb-4">
-      {/* Result Header */}
-      <div className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-2 flex items-center justify-between">
+      {/* Result Header - Clickable */}
+      <div 
+        className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-dark-hover"
+        onClick={onToggleCollapse}
+      >
         <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-dark-text-white">{title}</span>
+          <span className="text-dark-text-secondary text-xs">
+            {isCollapsed ? '▶' : '▼'}
+          </span>
+          <span className="text-sm font-medium text-dark-text-white hover:text-primary-400 transition-colors">
+            {title}
+          </span>
           
           {status === 'completed' && (
             <span className="flex items-center gap-1 text-xs text-success">
@@ -209,23 +217,13 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
           )}
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-4 text-xs text-dark-text-secondary">
-            {status === 'completed' && (
-              <>
-                <span>Rows: {result?.stats?.rowsReturned ?? (result as any)?.rowCount ?? rows.length ?? 0}</span>
-                <span>Time: {result?.stats?.executionTimeMs ?? (result as any)?.executionTime ?? 0}ms</span>
-              </>
-            )}
-          </div>
-          
-          <button
-            onClick={onToggleCollapse}
-            className="text-dark-text-secondary hover:text-dark-text-primary text-lg"
-            title={isCollapsed ? "Expand Results" : "Collapse Results"}
-          >
-            {isCollapsed ? "⌃" : "⌄"}
-          </button>
+        <div className="flex items-center gap-4 text-xs text-dark-text-secondary">
+          {status === 'completed' && (
+            <>
+              <span>Rows: {result?.stats?.rowsReturned ?? (result as any)?.rowCount ?? rows.length ?? 0}</span>
+              <span>Time: {result?.stats?.executionTimeMs ?? (result as any)?.executionTime ?? 0}ms</span>
+            </>
+          )}
         </div>
       </div>
 
