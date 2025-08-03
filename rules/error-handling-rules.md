@@ -2,6 +2,8 @@
 
 Specific error types and patterns for SQL operations, plus fallback restrictions.
 
+**Note**: See `rules/error-messages.md` for user-friendly error message formatting guidelines.
+
 ## Fallback Logic Restrictions (CRITICAL)
 
 **Fallback logic is PROHIBITED unless explicitly justified.**

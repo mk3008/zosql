@@ -20,6 +20,7 @@ Focus EXCLUSIVELY on business logic, entities, commands, and use cases.
 - Architecture principles: See `rules/architecture-principles.md`
 - Development patterns: See `rules/development-patterns.md`
 - TypeScript patterns: See `rules/common-typescript-patterns.md`
+- Error handling: See `rules/error-messages.md` for user-friendly error messages
 
 ## Core Responsibilities
 

@@ -333,8 +333,19 @@ export class SharedCteApi {
       fs.writeFileSync(filePath, fileContent, 'utf8');
       this.logger.log(`[SHARED-CTE] File written to: ${filePath}`);
     } catch (error) {
-      this.logger.error(`[SHARED-CTE] Failed to write file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw new Error(`Failed to write shared CTEs to file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unable to complete file operation';
+      this.logger.error(`[SHARED-CTE] Failed to write file: ${errorMessage}`);
+      
+      // Provide actionable guidance based on common file write errors
+      if (errorMessage.includes('EACCES') || errorMessage.includes('permission')) {
+        throw new Error(`Failed to write shared CTEs to file. Please check write permissions for the target directory: ${path.dirname(filePath)}`);
+      } else if (errorMessage.includes('ENOENT')) {
+        throw new Error(`Failed to write shared CTEs to file. Please ensure the target directory exists: ${path.dirname(filePath)}`);
+      } else if (errorMessage.includes('ENOSPC')) {
+        throw new Error(`Failed to write shared CTEs to file. Please free up disk space and try again.`);
+      } else {
+        throw new Error(`Failed to write shared CTEs to file. Error: ${errorMessage}. Please check file permissions and available disk space.`);
+      }
     }
   }
 

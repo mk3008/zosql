@@ -18,6 +18,7 @@ You are a UI development specialist focused on React, TypeScript, and Monaco Edi
 - Monaco Editor integration: See `rules/monaco-editor-rules.md`
 - Development patterns: See `rules/development-patterns.md`
 - Architecture principles: See `rules/architecture-principles.md`
+- Error handling: See `rules/error-messages.md` for user-facing error messages
 
 ## Key Patterns
 
