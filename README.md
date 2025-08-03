@@ -1,10 +1,9 @@
 # zosql
 
-https://mk3008.github.io/zosql
+**[🚀 Live Site](https://mk3008.github.io/zosql)** | **[🎮 Demo Mode](https://mk3008.github.io/zosql/#demo)**
 
-demo site
-https://mk3008.github.io/zosql/demo
-
+> **Live Site**: Start with a blank workspace, upload your SQL files  
+> **Demo Mode**: Try pre-loaded sample data and queries
 
 ## Overview
 
@@ -19,9 +18,9 @@ zosql is a SQL debugging tool that supports decomposition and composition of SQL
 - **Test Data Management**: CTE-format test data definition and management
 - **SQL Formatting**: Automatic SQL formatting with unified code style
 
-## Demo Site Usage
+## Demo Mode Usage
 
-The demo site ([https://mk3008.github.io/zosql/demo](https://mk3008.github.io/zosql/demo)) allows you to experience zosql's features through the following steps:
+To try zosql with sample data, visit the **[Demo Mode](https://mk3008.github.io/zosql/#demo)** which provides a pre-configured workspace with sample tables and queries. Follow these steps to explore the features:
 
 ### 1. Try Query Execution
 

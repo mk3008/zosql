@@ -1,10 +1,9 @@
 # zosql
 
-https://mk3008.github.io/zosql
+**[🚀 ライブサイト](https://mk3008.github.io/zosql)** | **[🎮 デモモード](https://mk3008.github.io/zosql/#demo)**
 
-デモ用
-https://mk3008.github.io/zosql/demo
-
+> **ライブサイト**: 空のワークスペースから開始、SQLファイルをアップロード  
+> **デモモード**: 事前設定されたサンプルデータとクエリを試用
 
 ## 概要
 
@@ -19,9 +18,9 @@ zosqlは、SQL文の分解・構成を支援するSQLデバッグツールです
 - **テストデータ管理**: CTE形式でのテストデータ定義と管理
 - **SQL整形**: 統一されたコードスタイルでのSQL自動整形
 
-## デモサイトの使い方
+## デモモードの使い方
 
-デモサイト（[https://mk3008.github.io/zosql/demo](https://mk3008.github.io/zosql/demo)）では、以下の手順でzosqlの機能を体験できます：
+サンプルデータでzosqlを試すには、**[デモモード](https://mk3008.github.io/zosql/#demo)**にアクセスしてください。サンプルテーブルとクエリが事前設定されたワークスペースで、以下の手順で機能を体験できます：
 
 ### 1. クエリ実行を試す
 
