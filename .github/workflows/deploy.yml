@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -32,6 +35,20 @@ jobs:
         
       - name: Build for GitHub Pages
         run: npm run build:github
+        
+      - name: Verify GitHub Pages files
+        run: |
+          echo "Checking for required GitHub Pages files..."
+          ls -la docs/
+          if [ ! -f docs/.nojekyll ]; then
+            echo "ERROR: .nojekyll file missing!"
+            exit 1
+          fi
+          if [ ! -f docs/404.html ]; then
+            echo "ERROR: 404.html file missing!"
+            exit 1
+          fi
+          echo "✅ All GitHub Pages files present"
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
