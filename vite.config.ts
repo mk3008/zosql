@@ -18,10 +18,16 @@ export default defineConfig(({ command, mode }) => {
           if (isGitHubPages) {
             const outDir = 'docs';
             try {
+              // Create SPA fallback for client-side routing
               const indexHtml = fs.readFileSync(path.join(outDir, 'index.html'), 'utf-8');
               fs.writeFileSync(path.join(outDir, '404.html'), indexHtml);
+              
+              // Disable Jekyll processing for GitHub Pages
+              fs.writeFileSync(path.join(outDir, '.nojekyll'), '');
+              
+              console.log('Created GitHub Pages files: 404.html and .nojekyll');
             } catch (error) {
-              console.error('Failed to create 404.html for GitHub Pages:', error);
+              console.error('Failed to create GitHub Pages files:', error);
               // Continue build process despite the error
             }
           }
