@@ -4,12 +4,22 @@ import { WorkspaceProvider } from './context/WorkspaceContext';
 import { EditorProvider } from './context/EditorContext';
 
 export const App: React.FC = () => {
-  // Check if we're on the /demo path
-  const isDemoPath = window.location.pathname === '/demo' || 
-                     window.location.pathname.startsWith('/demo/');
+  // Check for demo mode using hash-based routing or query parameters
+  const checkDemoMode = () => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+    
+    return hash === '#demo' || 
+           hash.startsWith('#demo') ||
+           search.includes('mode=demo') ||
+           search.includes('demo=true') ||
+           // Legacy support for path-based routing (for backward compatibility)
+           window.location.pathname === '/demo' || 
+           window.location.pathname.startsWith('/demo/');
+  };
   
-  // If demo path is requested, always show demo workspace
-  const [forceDemo] = React.useState(isDemoPath);
+  // If demo mode is requested, always show demo workspace
+  const [forceDemo] = React.useState(checkDemoMode());
   
   return (
     <WorkspaceProvider>
