@@ -1,5 +1,11 @@
 # zosql
 
+https://mk3008.github.io/zosql
+
+demo site
+https://mk3008.github.io/zosql/demo
+
+
 ## Overview
 
 zosql is a SQL debugging tool that supports decomposition and composition of SQL statements. It provides a modularized SQL development environment for efficiently developing and testing complex SQL statements with CTEs (Common Table Expressions).

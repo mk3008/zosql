@@ -1,5 +1,11 @@
 # zosql
 
+https://mk3008.github.io/zosql
+
+デモ用
+https://mk3008.github.io/zosql/demo
+
+
 ## 概要
 
 zosqlは、SQL文の分解・構成を支援するSQLデバッグツールです。複雑なCTE（Common Table Expression）を含むSQL文を効率的に開発・テストできるモジュラー化されたSQL開発環境を提供します。
