@@ -11,6 +11,7 @@ Your role is to prevent regressions by ensuring modifications stay within approp
 ## Reference Rules
 - Development environment: See `rules/development-environment.md`
 - Architecture principles: See `rules/architecture-principles.md`
+- Error handling: See `rules/error-messages.md` for consistent error message patterns
 
 ## Core Responsibility
 Analyze user requests and automatically invoke the correct specialized agent:
