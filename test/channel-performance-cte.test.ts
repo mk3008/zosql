@@ -38,11 +38,11 @@ describe('channel_performance CTE Tests', () => {
   let parsedQuery: ReturnType<typeof SelectQueryParser.parse>;
   
   beforeAll(async () => {
-    // テスト用SQLファイルを読み込み
+    // Load test SQL file
     const sqlPath = path.join(process.cwd(), 'zosql/workspace/user_behavior_analysis.sql');
     userBehaviorAnalysisSQL = await fs.readFile(sqlPath, 'utf-8');
     
-    // rawsql-tsでパース
+    // Parse with rawsql-ts
     parsedQuery = SelectQueryParser.parse(userBehaviorAnalysisSQL).toSimpleQuery();
   });
 
@@ -74,7 +74,7 @@ describe('channel_performance CTE Tests', () => {
     
     console.log('Extracted CTE names with rawsql-ts:', cteNames);
     
-    // 期待されるCTE名をチェック
+    // Check expected CTE names
     const expectedCTEs = [
       'session_data',
       'user_engagement', 
@@ -106,13 +106,13 @@ describe('channel_performance CTE Tests', () => {
     expect(channelPerformanceCTE).toBeTruthy();
     expect((channelPerformanceCTE as Record<string, unknown>).query).toBeTruthy();
     
-    // CTEクエリをSQL文字列に変換
+    // Convert CTE query to SQL string
     const formatter = new SqlFormatter({
       identifierEscape: { start: '', end: '' },
       keywordCase: 'lower'
     });
     
-    // formatメソッドを使用
+    // Use format method
     const cteQuery = isValidCteForTest(channelPerformanceCTE) && isQueryObject(channelPerformanceCTE.query) 
       ? channelPerformanceCTE.query 
       : null;
@@ -125,7 +125,7 @@ describe('channel_performance CTE Tests', () => {
     const channelPerformanceSQL = typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
     console.log('channel_performance CTE SQL:', channelPerformanceSQL);
     
-    // 依存関係をチェック
+    // Check dependencies
     expect(channelPerformanceSQL).toContain('session_data');
     expect(channelPerformanceSQL).toContain('funnel_analysis');
     expect(channelPerformanceSQL).toContain('sd.user_id = fa.user_id');
@@ -142,7 +142,7 @@ describe('channel_performance CTE Tests', () => {
       }
     );
     
-    // CTEのFROM句とJOIN句からテーブル参照を抽出
+    // Extract table references from CTE's FROM and JOIN clauses
     if (!isValidCteForTest(channelPerformanceCTE) || !isQueryObject(channelPerformanceCTE.query)) {
       throw new Error('Invalid CTE structure for channel_performance');
     }
@@ -150,14 +150,14 @@ describe('channel_performance CTE Tests', () => {
     const fromClause = (channelPerformanceCTE.query as Record<string, unknown>).fromClause as Record<string, unknown>;
     expect(fromClause).toBeTruthy();
     
-    // メインテーブル（session_data）
+    // Main table (session_data)
     const sourceData = fromClause.source as Record<string, unknown>;
     const datasource = sourceData?.datasource as Record<string, unknown>;
     const mainTable = (datasource?.qualifiedName as Record<string, unknown>)?.name as Record<string, unknown> | undefined;
     const tableName = mainTable?.name || (datasource?.table as Record<string, unknown>)?.name;
     console.log('Main table:', mainTable, 'table name:', tableName);
     
-    // JOINテーブル（funnel_analysis）
+    // JOIN table (funnel_analysis)
     const joins = (fromClause.joins as Record<string, unknown>[]) || [];
     const joinTables = joins.map((join: { source?: { datasource?: { qualifiedName?: { name?: { name?: string } }; table?: { name?: string } } } }) => 
       join.source?.datasource?.qualifiedName?.name?.name ||
@@ -185,7 +185,7 @@ describe('channel_performance CTE Tests', () => {
     const sessionDataIndex = cteOrder.find((cte: { name: string }) => cte.name === 'session_data')?.index;
     const funnelAnalysisIndex = cteOrder.find((cte: { name: string }) => cte.name === 'funnel_analysis')?.index;
     
-    // channel_performanceの依存関係が先に定義されているか確認
+    // Verify channel_performance dependencies are defined first
     expect(sessionDataIndex).toBeDefined();
     expect(funnelAnalysisIndex).toBeDefined();
     expect(channelPerformanceIndex).toBeDefined();
@@ -195,7 +195,7 @@ describe('channel_performance CTE Tests', () => {
   });
 
   it('should generate executable SQL for channel_performance with dependencies', () => {
-    // channel_performanceとその依存関係のCTEを抽出
+    // Extract channel_performance and its dependent CTEs
     const withClause = (parsedQuery as unknown as Record<string, unknown>).withClause as Record<string, unknown>;
     const tables = withClause.tables as unknown[];
     const channelPerformanceCTE = tables.find(
@@ -214,26 +214,26 @@ describe('channel_performance CTE Tests', () => {
     expect(channelPerformanceCTE).toBeTruthy();
     expect(sessionDataCTE).toBeTruthy();
     expect(funnelAnalysisCTE).toBeTruthy();
-    expect(conversionEventsCTE).toBeTruthy(); // funnel_analysisが依存
+    expect(conversionEventsCTE).toBeTruthy(); // funnel_analysis depends on this
     
-    // 依存関係を含む実行可能なSQLを構築する必要がある
+    // Need to build executable SQL with dependencies
     // const formatter = new SqlFormatter({
     //   identifierEscape: { start: '', end: '' },
     //   keywordCase: 'lower',
     //   withClauseStyle: 'full-oneline'
     // });
     
-    // 簡易的な依存関係チェーン
+    // Simple dependency chain
     const requiredCTEs = [
-      'session_data',        // channel_performanceが直接依存
-      'conversion_events',   // funnel_analysisが依存
-      'funnel_analysis',     // channel_performanceが直接依存
-      'channel_performance'  // 対象CTE
+      'session_data',        // channel_performance directly depends on this
+      'conversion_events',   // funnel_analysis depends on this
+      'funnel_analysis',     // channel_performance directly depends on this
+      'channel_performance'  // Target CTE
     ];
     
     console.log('Required CTEs for channel_performance:', requiredCTEs);
     
-    // 実際のCTE合成処理では、これらのCTEを含むWITH句を生成する必要がある
+    // In actual CTE composition, need to generate WITH clause containing these CTEs
     expect(requiredCTEs).toHaveLength(4);
   });
 });

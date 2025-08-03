@@ -17,8 +17,13 @@ export default defineConfig(({ command, mode }) => {
         writeBundle() {
           if (isGitHubPages) {
             const outDir = 'docs';
-            const indexHtml = fs.readFileSync(path.join(outDir, 'index.html'), 'utf-8');
-            fs.writeFileSync(path.join(outDir, '404.html'), indexHtml);
+            try {
+              const indexHtml = fs.readFileSync(path.join(outDir, 'index.html'), 'utf-8');
+              fs.writeFileSync(path.join(outDir, '404.html'), indexHtml);
+            } catch (error) {
+              console.error('Failed to create 404.html for GitHub Pages:', error);
+              // Continue build process despite the error
+            }
           }
         }
       }

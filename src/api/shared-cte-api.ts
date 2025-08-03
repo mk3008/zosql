@@ -329,9 +329,13 @@ export class SharedCteApi {
     const fileContent = this.generateSharedCteFileContent();
     
     // Write to file
-    fs.writeFileSync(filePath, fileContent, 'utf8');
-    
-    this.logger.log(`[SHARED-CTE] File written to: ${filePath}`);
+    try {
+      fs.writeFileSync(filePath, fileContent, 'utf8');
+      this.logger.log(`[SHARED-CTE] File written to: ${filePath}`);
+    } catch (error) {
+      this.logger.error(`[SHARED-CTE] Failed to write file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to write shared CTEs to file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Generate the content for zosql.shared-cte.js

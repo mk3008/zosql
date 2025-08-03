@@ -21,6 +21,8 @@ Run specialized sub-agents in parallel for fast and comprehensive quality checks
 - **test-execution**: Run all tests
 - **build-execution**: Run production build
 - **hexagonal-dependency-check**: Architecture layer violations
+- **file-operation-safety-check**: File system operations without try-catch
+- **comment-language-check**: Non-English comments in code
 
 ### Future Sub-Agents (Not Yet Implemented)
 - typescript-strict-check, eslint-warning-check, import-dependency-check
@@ -28,7 +30,7 @@ Run specialized sub-agents in parallel for fast and comprehensive quality checks
 - bundle-size-check, security-pattern-check
 
 ## Execution Strategy
-1. **Parallel Execution**: Run all 5 core sub-agents simultaneously
+1. **Parallel Execution**: Run all 7 core sub-agents simultaneously
 2. **Result Collection**: Aggregate results as they complete
 3. **Decision**: Pass → Auto-commit | Fail → Report issues
 
@@ -38,7 +40,7 @@ Run specialized sub-agents in parallel for fast and comprehensive quality checks
 ```
 🚀 Starting Quality Checks
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Running 5 parallel checks...
+Running 7 parallel checks...
 ```
 
 ### Final Report Template
@@ -54,6 +56,10 @@ Running 5 parallel checks...
 
 ### Architecture
 - **Hexagonal Dependencies**: ✅/❌ PASS/FAIL
+
+### Code Quality
+- **File Operation Safety**: ✅/❌ PASS/FAIL (X unsafe operations)
+- **Comment Language**: ✅/❌ PASS/FAIL (X non-English comments)
 
 ## Decision: ✅ APPROVED / ❌ BLOCKED
 [Next steps or commit confirmation]
