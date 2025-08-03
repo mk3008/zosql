@@ -54,7 +54,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./docs
-          retention-days: 1
+          retention-days: 7
 
   deploy:
     environment:
@@ -67,6 +67,6 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
         with:
-          # Disable Jekyll processing explicitly
+          # Jekyll processing is disabled by including a .nojekyll file in the deployed artifact (see build job above)
           artifact_name: github-pages
           preview: false
