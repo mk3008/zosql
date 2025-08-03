@@ -109,8 +109,8 @@ export class FilterConditionsEntity {
           template[columnName] = {} as Record<string, unknown>;
           console.log('[DEBUG] Set empty conditions for', columnName);
         } else if (columnName.includes('name') || columnName.includes('title') || columnName.includes('description')) {
-          // Text columns - case-insensitive like filter
-          template[columnName] = { ilike: "%a%" } as Record<string, unknown>;
+          // Text columns - empty condition
+          template[columnName] = {} as Record<string, unknown>;
         } else if (columnName.includes('date') || columnName.includes('time') || columnName.includes('created') || columnName.includes('updated')) {
           // Date/time columns - empty condition
           template[columnName] = {} as Record<string, unknown>;
@@ -133,7 +133,7 @@ export class FilterConditionsEntity {
   private static getDefaultTemplate(): string {
     const defaultTemplate: FilterConditions = {
       user_id: {} as Record<string, unknown>, // Empty condition for user_id
-      name: { ilike: "%a%" } as Record<string, unknown>, // Case-insensitive like filter
+      name: {} as Record<string, unknown>, // Empty condition for name
     };
 
     return JSON.stringify(defaultTemplate, null, 2);
