@@ -34,6 +34,81 @@ To try zosql with sample data, visit the **[Demo Mode](https://mk3008.github.io/
 2. Edit the Filter Conditions content (e.g., `{"name": {"ilike": "%a%"}}`)
 3. Click the **Run** button to see results with the applied filter
 
+#### Filter Conditions Specification
+
+Filter Conditions use the rawsql-ts specification and support various operators for dynamic WHERE clause generation:
+
+**Empty Conditions (ignored):**
+```json
+{
+  "user_id": {},
+  "name": {},
+  "status": {}
+}
+```
+Generated SQL: No WHERE clause added (empty conditions are ignored)
+
+**Basic Operators:**
+```json
+{
+  "user_id": {"=": 123},
+  "age": {">": 18, "<=": 65},
+  "status": {"!=": "inactive"}
+}
+```
+Generated SQL: `WHERE user_id = $1 AND age > $2 AND age <= $3 AND status != $4`
+
+**Text Search:**
+```json
+{
+  "name": {"ilike": "%john%"},
+  "description": {"like": "important%"}
+}
+```
+Generated SQL: `WHERE name ILIKE $1 AND description LIKE $2`
+
+**Array Operations:**
+```json
+{
+  "status": {"in": ["active", "pending"]},
+  "tags": {"any": ["urgent", "priority"]}
+}
+```
+Generated SQL: `WHERE status IN ($1, $2) AND tags = ANY($3)`
+
+**Range Conditions:**
+```json
+{
+  "price": {"min": 10, "max": 100}
+}
+```
+Generated SQL: `WHERE price >= $1 AND price <= $2`
+
+**Complex Logical Operations:**
+```json
+{
+  "premium_or_high_score": {
+    "or": [
+      {"column": "type", "=": "premium"},
+      {"column": "score", ">": 80}
+    ]
+  }
+}
+```
+Generated SQL: `WHERE (type = $1 OR score > $2)`
+
+Note: The key `premium_or_high_score` is used as a condition group name and doesn't appear in the generated SQL.
+
+**Multiple Conditions (automatically combined with AND):**
+```json
+{
+  "name": {"ilike": "%john%"},
+  "age": {">": 18},
+  "status": {"in": ["active", "verified"]}
+}
+```
+Generated SQL: `WHERE name ILIKE $1 AND age > $2 AND status IN ($3, $4)`
+
 ### 3. Change Test Data
 
 1. Open the **data** tab at the top
