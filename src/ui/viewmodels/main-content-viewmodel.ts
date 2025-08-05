@@ -486,18 +486,43 @@ export class MainContentViewModel extends BaseViewModel {
       const endTime = performance.now();
       const totalTime = Math.round(endTime - startTime);
       
-      // Show toast based on results
-      const passedCount = models.filter(m => {
-        const result = this.workspace!.getValidationResult(m.name);
-        return result && result.success;
-      }).length;
+      // Collect detailed results for analysis
+      const passedModels: string[] = [];
+      const failedModels: Array<{name: string, error: string}> = [];
       
-      if (passedCount === models.length) {
+      for (const model of models) {
+        const result = this.workspace.getValidationResult(model.name);
+        if (result && result.success) {
+          passedModels.push(model.name);
+        } else if (result && result.error) {
+          failedModels.push({
+            name: model.name,
+            error: result.error
+          });
+        } else {
+          // Model has no validation result - treat as failed
+          failedModels.push({
+            name: model.name,
+            error: 'No validation result available'
+          });
+        }
+      }
+      
+      if (failedModels.length === 0) {
         // All models passed - show success
-        this.notifyChange('success', `Static analysis completed: ${passedCount}/${models.length} models passed`);
+        this.notifyChange('success', `Static analysis completed: ${passedModels.length}/${models.length} models passed`);
       } else {
-        // Some models failed - show error
-        this.notifyChange('error', `Static analysis completed: ${passedCount}/${models.length} models passed`);
+        // Some models failed - show summary error and detailed errors
+        this.notifyChange('error', `Static analysis completed: ${passedModels.length}/${models.length} models passed`);
+        
+        // Send detailed error information to error panel for each failed model
+        for (const failedModel of failedModels) {
+          this.notifyChange('errorWithDetails', {
+            message: `Static analysis failed: ${failedModel.name}`,
+            details: failedModel.error,
+            stack: undefined
+          });
+        }
       }
       
       // Force re-render to update error displays in tabs and left sidebar

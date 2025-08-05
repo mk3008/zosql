@@ -137,10 +137,14 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
   async getDynamicSql(testValues?: TestValuesModel | string, filterConditions?: FilterConditionsEntity, forExecution: boolean = false, useEditorContent: boolean = false): Promise<DynamicSqlResult> {
     try {
       console.log('[DEBUG] getDynamicSql called with:', {
+        modelName: this.name,
+        modelType: this.type,
         testValuesType: testValues ? typeof testValues : 'undefined',
         testValuesWithClause: testValues && typeof testValues === 'object' && 'withClause' in testValues ? testValues.withClause.substring(0, 100) + '...' : 'N/A',
         dependentsCount: this.dependents.length,
-        sqlWithoutCteLength: this.sqlWithoutCte.length
+        dependentNames: this.dependents.map(d => d.name),
+        sqlWithoutCteLength: this.sqlWithoutCte.length,
+        useEditorContent: useEditorContent
       });
 
       // Step 1: Base SQL determination
@@ -397,6 +401,10 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
           hasPosition: parseResult.errorPosition !== undefined
         });
         
+        // Include the actual SQL in the error message for debugging
+        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
+        const baseErrorMessage = parseResult.error || 'Parse error';
+        
         // Use rawsql-ts provided data only
         if (parseResult.errorPosition !== undefined) {
           const errorPos = parseResult.errorPosition;
@@ -408,17 +416,16 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
           console.log('[DEBUG] Parse error context:', context);
           console.log('[DEBUG] Error character at position', errorPos, ':', errorChar, 'ASCII:', fullSql.charCodeAt(errorPos));
           
-          // Position display temporarily disabled due to rawsql-ts position accuracy issues
           return { 
             success: false, 
-            error: `Parse error` 
+            error: `${baseErrorMessage}\n\nSQL being analyzed:\n${sqlPreview}` 
           };
         } else {
           // Log cases where position is not available for debugging
           console.log('[DEBUG] Parse error without position info:', parseResult.error);
           return { 
             success: false, 
-            error: parseResult.error ? `Parse error: ${parseResult.error}` : `Parse error` 
+            error: `${baseErrorMessage}\n\nSQL being analyzed:\n${sqlPreview}`
           };
         }
       }
@@ -426,15 +433,19 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
       console.log('[DEBUG] SQL parsing successful, query type:', parseResult.query?.constructor.name);
       
       // Then, analyze schema extraction
+      // SchemaCollector can work without TableColumnResolver for simple queries
       const schemaCollector = new SchemaCollector();
       const schemaResult = schemaCollector.analyze(parseResult.query!);
       
       if (!schemaResult.success) {
         const errorMessage = schemaResult.error || 'Schema analysis failed';
         console.log('[DEBUG] Schema analysis failed:', errorMessage);
+        
+        // Include SQL in schema analysis errors too
+        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
         return { 
           success: false, 
-          error: `Schema Analysis Error: ${errorMessage}` 
+          error: `Schema Analysis Error: ${errorMessage}\n\nSQL being analyzed:\n${sqlPreview}` 
         };
       }
       
@@ -442,9 +453,12 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
       if (schemaResult.unresolvedColumns.length > 0) {
         const unresolvedList = schemaResult.unresolvedColumns.join(', ');
         console.log('[DEBUG] Schema analysis found unresolved columns:', unresolvedList);
+        
+        // Include SQL in unresolved columns errors too
+        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
         return {
           success: false,
-          error: `Unresolved columns: ${unresolvedList}`
+          error: `Unresolved columns: ${unresolvedList}\n\nSQL being analyzed:\n${sqlPreview}`
         };
       }
       
@@ -457,20 +471,86 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
       const errorMessage = error instanceof Error ? error.message : 'Unknown analysis error';
       console.log('[DEBUG] Static analysis failed with exception:', errorMessage);
       
-      // Create user-friendly error messages based on common patterns
-      return this.createUserFriendlyErrorMessage(errorMessage);
+      try {
+        // Try to get the SQL that was being analyzed for better error reporting
+        const fullSql = await this.getFullSql(
+          undefined, // no testValues
+          undefined, // no filterConditions  
+          false,     // not for execution
+          useEditorContent // use editor content for validation
+        );
+        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
+        
+        return {
+          success: false,
+          error: `${errorMessage}
+
+SQL being analyzed:
+${sqlPreview}`
+        };
+      } catch (sqlError) {
+        // If we can't even get the SQL, just return the original error
+        return this.createUserFriendlyErrorMessage(errorMessage);
+      }
     }
   }
+
+  /**
+   * Validate schema with workspace context for dependency resolution
+   * @param availableModels - All models available in the workspace
+   * @param useEditorContent - If true, validates against editor content instead of saved content
+   */
+  async validateSchemaWithWorkspace(availableModels: SqlModelEntity[], useEditorContent: boolean = false): Promise<{ success: boolean; error?: string }> {
+    console.log('[DEBUG] SqlModelEntity.validateSchemaWithWorkspace for:', this.name, 'type:', this.type, 'useEditorContent:', useEditorContent);
+    
+    try {
+      // Step 1: Refresh dependencies using command pattern
+      const { RefreshDependenciesCommand } = await import('@core/commands/refresh-dependencies-command');
+      const refreshCommand = new RefreshDependenciesCommand({
+        targetModel: this,
+        availableModels,
+        useEditorContent
+      });
+      
+      const refreshResult = await refreshCommand.execute();
+      if (!refreshResult.success) {
+        console.log('[DEBUG] Dependency refresh failed:', refreshResult.error);
+        // Continue with existing dependencies if refresh fails
+      } else {
+        console.log('[DEBUG] Dependency refresh succeeded:', {
+          originalCount: refreshResult.originalDependencies.length,
+          newCount: refreshResult.newDependencies.length,
+          newDeps: refreshResult.newDependencies
+        });
+      }
+      
+      // Step 2: Continue with normal schema validation
+      return await this.validateSchema(useEditorContent);
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+      console.log('[DEBUG] validateSchemaWithWorkspace failed with exception:', errorMessage);
+      
+      // Fallback to normal validation if workspace validation fails
+      return await this.validateSchema(useEditorContent);
+    }
+  }
+
+
+
+
+
+
 
 
   /**
    * Convert technical error messages to user-friendly ones using only rawsql-ts provided data
    */
-  private createUserFriendlyErrorMessage(_errorMessage: string): { success: false; error: string } {
-    // Position display temporarily disabled due to rawsql-ts position accuracy issues
+  private createUserFriendlyErrorMessage(errorMessage: string): { success: false; error: string } {
+    // Pass through the detailed error message instead of simplifying it
     return { 
       success: false, 
-      error: 'Parse error' 
+      error: errorMessage 
     };
   }
 

@@ -25,7 +25,7 @@ export class WorkspaceApi {
   private cteDecomposer: CTEDecomposer;
   private workspaceBasePath: string;
 
-  constructor(storageType: 'filesystem' | 'localstorage' = 'filesystem') {
+  constructor(storageType: 'filesystem' | 'localstorage' = 'localstorage') {
     this.logger = Logger.getInstance();
     
     // ストレージ実装の選択
@@ -42,7 +42,8 @@ export class WorkspaceApi {
     }
     
     this.formatterConfigPath = path.join(process.cwd(), 'zosql.formatter.json');
-    this.workspaceBasePath = path.join(process.cwd(), 'workspaces');
+    // workspaceBasePath is only used for filesystem storage
+    this.workspaceBasePath = storageType === 'filesystem' ? path.join(process.cwd(), 'workspaces') : '';
     this.fileManager = new FileManager();
     this.cteDecomposer = new CTEDecomposer();
   }

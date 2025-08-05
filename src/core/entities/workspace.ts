@@ -225,7 +225,8 @@ export class WorkspaceEntity {
     for (const model of modelsToValidate) {
       DebugLogger.debug('WorkspaceEntity', `Validating schema for: ${model.name}, type: ${model.type}`);
       try {
-        const result = await model.validateSchema(useEditorContent);
+        // Inject workspace context for dependency resolution
+        const result = await model.validateSchemaWithWorkspace(this.sqlModels, useEditorContent);
         this.setValidationResult(model.name, result);
         DebugLogger.debug('WorkspaceEntity', `Validation result for ${model.name}: ${JSON.stringify(result)}`);
       } catch (error) {
