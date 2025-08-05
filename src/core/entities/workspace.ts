@@ -83,6 +83,7 @@ export class WorkspaceEntity {
     public formatter: SqlFormatterEntity = new SqlFormatterEntity(), // SQL formatter wrapper
     public filterConditions: FilterConditionsEntity = new FilterConditionsEntity(), // rawsql-ts FilterConditions wrapper
     public modelFilterConditions: ModelFilterConditions = {}, // UI filter conditions for model display
+    public useSchemaCollector: boolean = true, // Enable schema collector by default for table structure analysis
     public created: string = new Date().toISOString(),
     public lastModified: string = new Date().toISOString()
   ) {}
@@ -303,7 +304,8 @@ export class WorkspaceEntity {
       new TestValuesModel(''),
       new SqlFormatterEntity(), // formatter
       new FilterConditionsEntity(), // filterConditions
-      {}  // modelFilterConditions
+      {},  // modelFilterConditions
+      true // useSchemaCollector - default to true
     );
 
     // Add all SQL models
@@ -567,6 +569,7 @@ export class WorkspaceEntity {
       this.formatter.clone(),
       this.filterConditions.clone(),
       { ...this.modelFilterConditions },
+      this.useSchemaCollector,
       this.created,
       this.lastModified
     );
@@ -584,6 +587,7 @@ export class WorkspaceEntity {
     formatter: ReturnType<SqlFormatterEntity['toJSON']>;
     filterConditions: ReturnType<FilterConditionsEntity['toJSON']>;
     modelFilterConditions: ModelFilterConditions;
+    useSchemaCollector: boolean;
     openedObjects: OpenedObject[];
     activeObjectId: string;
     layoutState: WorkspaceLayoutState;
@@ -599,6 +603,7 @@ export class WorkspaceEntity {
       formatter: this.formatter.toJSON(),
       filterConditions: this.filterConditions.toJSON(),
       modelFilterConditions: this.modelFilterConditions,
+      useSchemaCollector: this.useSchemaCollector,
       openedObjects: this._openedObjects,
       activeObjectId: this._activeObjectId,
       layoutState: this._layoutState,
@@ -658,6 +663,7 @@ export class WorkspaceEntity {
       SqlFormatterEntity.fromJSON((data.formatter as Record<string, unknown>) || {}),
       FilterConditionsEntity.fromJSON((data.filterConditions as Record<string, unknown>) || {}),
       (data.modelFilterConditions as ModelFilterConditions) || {},
+      (data.useSchemaCollector as boolean) ?? true, // Default to true if not specified
       data.created as string,
       data.lastModified as string
     );

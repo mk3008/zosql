@@ -122,6 +122,10 @@ export class MainContentViewModel extends BaseViewModel {
   set workspace(value: WorkspaceEntity | null) {
     this._workspace = value;
     this.notifyChange('workspace', value);
+    
+    // Notify useSchemaCollector change when workspace is loaded
+    // This ensures the UI reflects the workspace's useSchemaCollector setting
+    this.notifyChange('useSchemaCollector', this.useSchemaCollector);
   }
 
   get tabModelMap(): Map<string, SqlModelEntity> {
@@ -151,11 +155,19 @@ export class MainContentViewModel extends BaseViewModel {
   }
 
   get useSchemaCollector(): boolean {
-    return this._useSchemaCollector;
+    // If workspace is available, use its setting; otherwise use local fallback
+    return this._workspace?.useSchemaCollector ?? this._useSchemaCollector;
   }
 
   set useSchemaCollector(value: boolean) {
-    if (this._useSchemaCollector !== value) {
+    const currentValue = this.useSchemaCollector;
+    if (currentValue !== value) {
+      // Update workspace setting if workspace is available
+      if (this._workspace) {
+        this._workspace.useSchemaCollector = value;
+        this._workspace.lastModified = new Date().toISOString();
+      }
+      // Also update local fallback
       this._useSchemaCollector = value;
       this.notifyChange('useSchemaCollector', value);
     }
@@ -589,7 +601,7 @@ export class MainContentViewModel extends BaseViewModel {
       const schemaExtractor = new SchemaExtractor();
       const promptGenerator = new PromptGenerator(schemaExtractor);
       const prompt = await promptGenerator.generatePrompt(fullSql, {
-        useSchemaCollector: this._useSchemaCollector
+        useSchemaCollector: this.useSchemaCollector
       });
       console.log('[DEBUG] Generated prompt length:', prompt.length);
 
