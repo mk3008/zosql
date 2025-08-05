@@ -371,6 +371,82 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
    * This tests CTE dependency restoration without any arguments
    * @param useEditorContent - If true, validates against editor content instead of saved content
    */
+  /**
+   * Extract columns from CTE SQL dynamically
+   * @param cteSql - The CTE SQL to analyze
+   * @returns Array of column names or empty array if extraction fails
+   */
+  private async extractCteColumns(cteSql: string): Promise<string[]> {
+    try {
+      const { SelectQueryParser, SchemaCollector } = await import('rawsql-ts');
+      
+      const parseResult = SelectQueryParser.analyze(cteSql);
+      if (!parseResult.success || !parseResult.query) {
+        console.log('[DEBUG] Failed to parse CTE SQL for column extraction');
+        return [];
+      }
+      
+      const schemaCollector = new SchemaCollector();
+      const schemaResult = schemaCollector.analyze(parseResult.query);
+      
+      if (schemaResult.success && schemaResult.schemas && schemaResult.schemas.length > 0) {
+        const columns = schemaResult.schemas[0].columns || [];
+        console.log('[DEBUG] Extracted CTE columns:', columns);
+        return columns;
+      }
+      
+      return [];
+    } catch (error) {
+      console.log('[DEBUG] Error extracting CTE columns:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Create a table column resolver function for CTEs
+   * @param useEditorContent - If true, uses editor content for CTE analysis
+   * @returns A resolver function that returns columns for a given table/CTE name
+   */
+  private async createCteColumnResolver(useEditorContent: boolean = false): Promise<((tableName: string) => string[]) | undefined> {
+    try {
+      const cteColumns: Record<string, string[]> = {};
+      
+      // Collect all CTE dependencies and extract their columns
+      const allDependencies = this.collectAllDependencies();
+      
+      for (const dep of allDependencies) {
+        if (dep.type === 'cte') {
+          const cteSql = useEditorContent ? dep.editorContent : dep.sqlWithoutCte;
+          const columns = await this.extractCteColumns(cteSql);
+          
+          if (columns.length > 0) {
+            cteColumns[dep.name] = columns;
+            console.log('[DEBUG] CTE column resolver:', dep.name, '->', columns);
+          } else {
+            // Fallback to at least one column to avoid errors
+            cteColumns[dep.name] = ['dummy_column'];
+            console.log('[DEBUG] CTE column resolver fallback:', dep.name, '-> [dummy_column]');
+          }
+        }
+      }
+      
+      // Return resolver function
+      return (tableName: string): string[] => {
+        const columns = cteColumns[tableName];
+        if (columns) {
+          console.log('[DEBUG] Resolving CTE columns for', tableName, ':', columns);
+          return columns;
+        }
+        // Return empty array for unknown tables (let rawsql-ts handle actual table resolution)
+        return [];
+      };
+      
+    } catch (error) {
+      console.log('[DEBUG] Error creating CTE column resolver:', error);
+      return undefined;
+    }
+  }
+
   async validateSchema(useEditorContent: boolean = false): Promise<{ success: boolean; error?: string }> {
     console.log('[DEBUG] SqlModelEntity.validateSchema for:', this.name, 'type:', this.type, 'useEditorContent:', useEditorContent);
     
@@ -432,9 +508,11 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
       
       console.log('[DEBUG] SQL parsing successful, query type:', parseResult.query?.constructor.name);
       
-      // Then, analyze schema extraction
-      // SchemaCollector can work without TableColumnResolver for simple queries
-      const schemaCollector = new SchemaCollector();
+      // Then, analyze schema extraction with CTE column resolution
+      // Create a table column resolver function for CTEs
+      const cteColumnResolver = await this.createCteColumnResolver(useEditorContent);
+      
+      const schemaCollector = new SchemaCollector(cteColumnResolver);
       const schemaResult = schemaCollector.analyze(parseResult.query!);
       
       if (!schemaResult.success) {
@@ -458,8 +536,21 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
         const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
         return {
           success: false,
-          error: `Unresolved columns: ${unresolvedList}\n\nSQL being analyzed:\n${sqlPreview}`
+          error: `Unresolved columns: ${unresolvedList}
+
+SQL being analyzed:
+${sqlPreview}`
         };
+      }
+      
+      // Note: SelectValueCollector API differs from expected interface
+      // Skip SelectValueCollector validation and rely on regex-based validation below
+      
+      // Fallback validation using regex pattern matching
+      // This catches cases where rawsql-ts doesn't detect column reference errors in expressions
+      const regexValidation = this.validateCteColumnReferences(fullSql, cteColumnResolver);
+      if (!regexValidation.success) {
+        return regexValidation;
       }
       
       console.log('[DEBUG] Static analysis completed successfully, found', schemaResult.schemas.length, 'schemas:', 
@@ -492,6 +583,61 @@ ${sqlPreview}`
         // If we can't even get the SQL, just return the original error
         return this.createUserFriendlyErrorMessage(errorMessage);
       }
+    }
+  }
+
+  /**
+   * Validate CTE column references using regex pattern matching
+   * This is a fallback validation when rawsql-ts doesn't catch column reference errors
+   * @param fullSql - The complete SQL with CTEs
+   * @param cteColumnResolver - Function to resolve CTE columns
+   * @returns Validation result
+   */
+  private validateCteColumnReferences(fullSql: string, cteColumnResolver: ((tableName: string) => string[]) | undefined): { success: boolean; error?: string } {
+    try {
+      // Check if the query references CTEs that might have changed columns
+      const allDependencies = this.collectAllDependencies();
+      const cteNames = allDependencies.filter(dep => dep.type === 'cte').map(dep => dep.name);
+      
+      if (cteNames.length === 0 || !cteColumnResolver) {
+        return { success: true };
+      }
+      
+      console.log('[DEBUG] Checking CTE column references for CTEs:', cteNames);
+      
+      // Extract all column references from the SQL using regex
+      // This captures patterns like: table.column or "table"."column"
+      const columnRefPattern = /(?:^|[^.\w])(?:([a-zA-Z_]\w*)|"([^"]+)")\.(?:([a-zA-Z_]\w*)|"([^"]+)")/g;
+      let match;
+      const columnRefs: Array<{table: string, column: string}> = [];
+      
+      while ((match = columnRefPattern.exec(fullSql)) !== null) {
+        const table = match[1] || match[2];
+        const column = match[3] || match[4];
+        if (table && column && column !== '*') {
+          columnRefs.push({ table, column });
+          console.log('[DEBUG] Found column reference:', table + '.' + column);
+        }
+      }
+      
+      // Validate each column reference against CTE schemas
+      for (const ref of columnRefs) {
+        if (cteNames.includes(ref.table)) {
+          const cteColumns = cteColumnResolver(ref.table);
+          if (cteColumns.length > 0 && !cteColumns.includes(ref.column)) {
+            console.log('[DEBUG] Column validation error:', ref.column, 'not found in CTE', ref.table, 'which has columns:', cteColumns);
+            return {
+              success: false,
+              error: `Column '${ref.column}' does not exist in CTE '${ref.table}'. Available columns: ${cteColumns.join(', ')}\n\nSQL being analyzed:\n${fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql}`
+            };
+          }
+        }
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.log('[DEBUG] CTE column validation error:', error);
+      return { success: true }; // Don't fail the entire validation
     }
   }
 

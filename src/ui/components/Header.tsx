@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
         
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-bold text-dark-text-white">zosql</h1>
-          <span className="text-xs text-dark-text-secondary">v2.0</span>
+          <span className="text-xs text-dark-text-secondary">v1.1</span>
         </div>
       </div>
 
