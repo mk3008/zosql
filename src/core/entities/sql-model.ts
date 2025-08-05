@@ -176,8 +176,11 @@ export class SqlModelEntity implements SqlModel, QueryResultCapable {
         });
         
         for (const dep of allDependencies) {
-          const columns = dep.columns?.length ? `(${dep.columns.join(', ')})` : '';
-          const cteDef = `${dep.name}${columns} AS (\n${dep.sqlWithoutCte}\n)`;
+          // Don't include cached column information in CTE definition
+          // Let rawsql-ts infer columns from the actual SQL content
+          const cteDef = `${dep.name} AS (
+${dep.sqlWithoutCte}
+)`;
           console.log('[DEBUG] Adding CTE definition:', dep.name, 'length:', cteDef.length);
           cteDefinitions.push(cteDef);
         }
