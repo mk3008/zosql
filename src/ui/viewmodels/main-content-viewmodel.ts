@@ -276,6 +276,9 @@ export class MainContentViewModel extends BaseViewModel {
       return;
     }
 
+    // Save current tab before execution to persist editor changes
+    this.saveCurrentTabIfDirty();
+
     this.isExecuting = true;
     this.resultsVisible = true;
 
@@ -479,6 +482,9 @@ export class MainContentViewModel extends BaseViewModel {
       this.notifyChange('error', 'No workspace loaded');
       return;
     }
+
+    // Save all dirty tabs before static analysis to persist editor changes
+    this.saveAllDirtyTabs();
 
     try {
       DebugLogger.info('MainContentViewModel', 'Running static analysis for all models');
@@ -688,6 +694,31 @@ export class MainContentViewModel extends BaseViewModel {
     
     // Show success notification
     this.notifyChange('success', `${tab.title} saved successfully`);
+  }
+
+  /**
+   * Save current active tab if it has unsaved changes
+   * Used before SQL execution and static analysis
+   */
+  private saveCurrentTabIfDirty(): void {
+    if (this.activeTab && this.activeTab.isDirty) {
+      console.log('[DEBUG] Auto-saving current tab before execution:', this.activeTab.id);
+      this.saveTab(this.activeTab.id);
+    }
+  }
+
+  /**
+   * Save all dirty tabs
+   * Used before static analysis to ensure all changes are persisted
+   */
+  private saveAllDirtyTabs(): void {
+    const dirtyTabs = this._tabs.filter(tab => tab.isDirty);
+    if (dirtyTabs.length > 0) {
+      console.log('[DEBUG] Auto-saving all dirty tabs before static analysis:', dirtyTabs.map(t => t.id).join(', '));
+      dirtyTabs.forEach(tab => {
+        this.saveTab(tab.id);
+      });
+    }
   }
 
   closeTab(tabId: string): void {
