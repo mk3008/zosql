@@ -2,6 +2,11 @@
 
 This file serves as an agent directory for Claude Code when working with this repository. Choose the appropriate main agent based on your development task.
 
+## Project Structure
+- **Agents**: `.claude/agents/` - Agent implementation files
+- **Rules**: `rules/` - Development rules and guidelines  
+- **Configuration**: `CLAUDE.md` - Agent directory and selection guide
+
 ## Available Main Agents
 
 ### 🎯 dev-orchestrator
