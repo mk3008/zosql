@@ -10,9 +10,10 @@ Run specialized sub-agents in parallel for fast and comprehensive quality checks
 
 ## Orchestrator Role
 - Run ALL sub-agents in parallel using Task tool
-- Collect and integrate results
-- Make final commit execution decisions
-- Auto-commit on success (all required checks pass with 0 ESLint errors)
+- FAIL FAST: Stop immediately if any core check fails
+- Collect and integrate results from all checkers
+- Make final commit execution decisions based on ALL results
+- Auto-commit ONLY when ALL required checks pass with ZERO errors
 
 ## Available Sub-Agents
 ### Core Quality Checkers (via Task tool)
@@ -30,9 +31,16 @@ Run specialized sub-agents in parallel for fast and comprehensive quality checks
 - bundle-size-check, security-pattern-check
 
 ## Execution Strategy
-1. **Parallel Execution**: Run all 7 core sub-agents simultaneously
-2. **Result Collection**: Aggregate results as they complete
-3. **Decision**: Pass → Auto-commit | Fail → Report issues
+1. **Parallel Execution**: Run all 7 core sub-agents simultaneously using Task tool
+2. **Critical Checks First**: TypeScript compilation and ESLint errors are blocking
+3. **Fail Fast**: If typescript-compile-check or eslint-error-check fail, STOP immediately  
+4. **Result Collection**: Aggregate results from all completed checks
+5. **Final Decision**: ALL checks must pass → Auto-commit | ANY failure → Block and report
+
+## Critical Error Detection
+- **String Literal Errors**: TypeScript compiler MUST catch unterminated string literals
+- **Syntax Errors**: Any TypeScript syntax errors block commits
+- **ESLint Errors**: Zero tolerance for ESLint errors (warnings allowed per current limit)
 
 ## Report Format
 
