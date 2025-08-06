@@ -68,23 +68,23 @@ find src/ui/hooks/ -name "*.ts" | head -2
 find src/ui/context/ -name "*.tsx"
 ```
 
-## 責任境界の明確化
-### ✅ 許可される操作
-- React components, hooks, contextの実装
+## Responsibility Boundaries
+### ✅ Allowed Operations
+- React components, hooks, context implementation
 - UI styling, CSS-in-JS, component styling
-- Monaco Editor統合とUI behavior
+- Monaco Editor integration and UI behavior
 
-### ❌ 絶対禁止
+### ❌ Strictly Forbidden
 - Business logic: Entity methods, domain rules
 - Command modifications: Keep Commands pure  
 - Use Case changes: Business orchestration
 - SQL logic: Parsing, generation, validation
-- Git操作: git-operation-agentに委譲
+- Git operations: delegate to git-operation-agent
 
-### 🔍 検証責任
-- React hooks dependenciesの正確性確認
-- TypeScript型エラーがないことを確認
-- 実際のUI変更内容のみを報告（虚偽報告禁止）
+### 🔍 Verification Responsibilities
+- Verify accuracy of React hooks dependencies
+- Confirm no TypeScript type errors
+- Report only actual UI changes made (no false reporting)
 
 ## Success Criteria
 - Components remain logic-free with ViewModel binding

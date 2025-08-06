@@ -3,7 +3,7 @@
  * Functional programming approach with combined reducers
  */
 
-import React, { createContext, useContext, useReducer, useMemo } from 'react';
+import React, { createContext, useReducer, useMemo } from 'react';
 import type { Workspace } from '@shared/types';
 import type { editor } from 'monaco-editor';
 
@@ -211,112 +211,5 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   );
 };
 
-// ============================================================================
-// Custom Hooks
-// ============================================================================
-
-// Base hook
-export const useApp = (): AppContextType => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
-};
-
-// Workspace hooks
-export const useWorkspaceState = () => {
-  const { state } = useApp();
-  return state.workspace;
-};
-
-export const useWorkspaceDispatch = () => {
-  const { dispatch } = useApp();
-  
-  return useMemo(() => ({
-    loadWorkspace: (workspace: Workspace) => 
-      dispatch({ type: 'WORKSPACE_LOADED', payload: workspace }),
-    
-    setLoading: () => 
-      dispatch({ type: 'WORKSPACE_LOADING' }),
-    
-    setError: (error: string) => 
-      dispatch({ type: 'WORKSPACE_ERROR', payload: error }),
-    
-    clearWorkspace: () => 
-      dispatch({ type: 'WORKSPACE_CLEAR' }),
-  }), [dispatch]);
-};
-
-// Editor hooks
-export const useEditorState = () => {
-  const { state } = useApp();
-  return state.editor;
-};
-
-export const useEditorDispatch = () => {
-  const { dispatch } = useApp();
-  
-  return useMemo(() => ({
-    setEditorRef: (ref: editor.IStandaloneCodeEditor | null) =>
-      dispatch({ type: 'EDITOR_SET_REF', payload: ref }),
-    
-    updateContent: (content: string) =>
-      dispatch({ type: 'EDITOR_UPDATE_CONTENT', payload: content }),
-    
-    updateCursor: (position: { line: number; column: number }) =>
-      dispatch({ type: 'EDITOR_UPDATE_CURSOR', payload: position }),
-  }), [dispatch]);
-};
-
-// UI hooks
-export const useUIState = () => {
-  const { state } = useApp();
-  return state.ui;
-};
-
-export const useUIDispatch = () => {
-  const { dispatch } = useApp();
-  
-  return useMemo(() => ({
-    toggleSidebar: () =>
-      dispatch({ type: 'UI_TOGGLE_SIDEBAR' }),
-    
-    setTheme: (theme: 'light' | 'dark') =>
-      dispatch({ type: 'UI_SET_THEME', payload: theme }),
-    
-    updatePanelSize: (panel: keyof UIState['panelSizes'], size: number) =>
-      dispatch({ type: 'UI_UPDATE_PANEL_SIZE', payload: { panel, size } }),
-  }), [dispatch]);
-};
-
-// Combined selector hooks for specific use cases
-export const useAppLoading = () => {
-  const { workspace } = useApp().state;
-  return workspace.isLoading;
-};
-
-export const useAppError = () => {
-  const { workspace } = useApp().state;
-  return workspace.error;
-};
-
-export const useCurrentTheme = () => {
-  const { ui } = useApp().state;
-  return ui.theme;
-};
-
-// Utility hook for persisting state to localStorage
-export const usePersistAppState = () => {
-  const { state } = useApp();
-  
-  React.useEffect(() => {
-    const stateToSave = {
-      theme: state.ui.theme,
-      sidebarOpen: state.ui.sidebarOpen,
-      panelSizes: state.ui.panelSizes,
-    };
-    
-    localStorage.setItem('appState', JSON.stringify(stateToSave));
-  }, [state.ui]);
-};
+// NOTE: All hooks removed to avoid fast-refresh warnings
+// This file exports only the Provider component and types

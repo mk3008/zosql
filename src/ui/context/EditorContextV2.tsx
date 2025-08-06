@@ -3,7 +3,7 @@
  * Pure functional Monaco Editor state management
  */
 
-import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
+import React, { createContext, useReducer, useCallback, useMemo } from 'react';
 import type { editor } from 'monaco-editor';
 
 // State type - immutable data structure
@@ -11,6 +11,7 @@ interface EditorState {
   readonly editorRef: editor.IStandaloneCodeEditor | null;
   readonly content: string;
   readonly cursorPosition: { line: number; column: number };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly selection: any | null; // Monaco Selection type
 }
 
@@ -19,6 +20,7 @@ type EditorAction =
   | { type: 'SET_EDITOR_REF'; payload: editor.IStandaloneCodeEditor | null }
   | { type: 'UPDATE_CONTENT'; payload: string }
   | { type: 'UPDATE_CURSOR'; payload: { line: number; column: number } }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | { type: 'UPDATE_SELECTION'; payload: any | null }
   | { type: 'CLEAR_EDITOR' };
 
@@ -88,14 +90,7 @@ interface EditorContextType {
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
 
-// Custom hook for consuming context
-export const useEditorV2 = (): EditorContextType => {
-  const context = useContext(EditorContext);
-  if (!context) {
-    throw new Error('useEditorV2 must be used within an EditorProviderV2');
-  }
-  return context;
-};
+// NOTE: useEditorV2 hook removed to avoid fast-refresh warnings
 
 interface EditorProviderProps {
   children: React.ReactNode;
@@ -249,51 +244,4 @@ export const EditorProviderV2: React.FC<EditorProviderProps> = ({ children }) =>
   );
 };
 
-// Selector hooks for granular subscriptions
-export const useEditorContent = () => {
-  const { state } = useEditorV2();
-  return state.content;
-};
-
-export const useEditorCursor = () => {
-  const { state } = useEditorV2();
-  return state.cursorPosition;
-};
-
-export const useEditorSelection = () => {
-  const { state } = useEditorV2();
-  return state.selection;
-};
-
-export const useEditorActions = () => {
-  const { actions } = useEditorV2();
-  return actions;
-};
-
-// Utility hook for common editor operations
-export const useEditorOperations = () => {
-  const { actions } = useEditorV2();
-  
-  const appendText = useCallback((text: string) => {
-    const currentContent = actions.getCurrentContent();
-    actions.replaceContent(currentContent + text);
-  }, [actions]);
-  
-  const prependText = useCallback((text: string) => {
-    const currentContent = actions.getCurrentContent();
-    actions.replaceContent(text + currentContent);
-  }, [actions]);
-  
-  const wrapSelection = useCallback((before: string, after: string) => {
-    const selectedText = actions.getSelectedText();
-    if (selectedText) {
-      actions.insertAtCursor(before + selectedText + after);
-    }
-  }, [actions]);
-  
-  return {
-    appendText,
-    prependText,
-    wrapSelection,
-  };
-};
+// NOTE: Selector hooks removed to avoid fast-refresh warnings

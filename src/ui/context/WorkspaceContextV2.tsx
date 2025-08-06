@@ -3,7 +3,7 @@
  * Pure functional state management using useReducer pattern
  */
 
-import React, { createContext, useContext, useEffect, useReducer, useCallback, useMemo } from 'react';
+import React, { createContext, useEffect, useReducer, useCallback, useMemo } from 'react';
 import { Workspace, ApiResponse } from '@shared/types';
 import { WorkspaceUseCase } from '@core/usecases/workspace-usecase';
 import { LocalStorageWorkspaceRepository } from '@adapters/repositories/localStorage-workspace-repository';
@@ -77,14 +77,7 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
-// Custom hook for consuming context
-export const useWorkspaceV2 = (): WorkspaceContextType => {
-  const context = useContext(WorkspaceContext);
-  if (!context) {
-    throw new Error('useWorkspaceV2 must be used within a WorkspaceProviderV2');
-  }
-  return context;
-};
+// NOTE: useWorkspaceV2 hook removed to avoid fast-refresh warnings
 
 interface WorkspaceProviderProps {
   children: React.ReactNode;
@@ -240,23 +233,4 @@ export const WorkspaceProviderV2: React.FC<WorkspaceProviderProps> = ({ children
   );
 };
 
-// Selector hooks for granular subscriptions (prevents unnecessary re-renders)
-export const useWorkspaceData = () => {
-  const { state } = useWorkspaceV2();
-  return state.workspace;
-};
-
-export const useWorkspaceLoading = () => {
-  const { state } = useWorkspaceV2();
-  return state.isLoading;
-};
-
-export const useWorkspaceError = () => {
-  const { state } = useWorkspaceV2();
-  return state.error;
-};
-
-export const useWorkspaceActions = () => {
-  const { actions } = useWorkspaceV2();
-  return actions;
-};
+// NOTE: Selector hooks removed to avoid fast-refresh warnings

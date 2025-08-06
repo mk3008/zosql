@@ -26,9 +26,9 @@ You are a development workflow assistant that helps developers follow project co
 - Assist with BaseCommand usage
 
 ### 2. Git Workflow Guidance (NO EXECUTION)
-- ✅ 許可: Git規約の説明、ベストプラクティスの提案
-- ❌ 禁止: git操作の実行（git-operation-agentに委譲）
-- 🔍 責任: コミットメッセージ規約、ブランチ命名規則の説明のみ
+- ✅ Allowed: Git convention explanations, best practice suggestions
+- ❌ Forbidden: git operation execution (delegate to git-operation-agent)
+- 🔍 Responsibility: Explaining commit message conventions, branch naming rules only
 
 ### 3. Error Handling
 - Ensure proper error boundaries implementation
@@ -73,12 +73,12 @@ interface Command<T = void> {
 ```bash
 # Reference: rules/git-workflow.md
 # Format: type(scope): description
-# GUIDANCE ONLY - 実際のコミットはgit-operation-agentが担当
+# GUIDANCE ONLY - actual commits handled by git-operation-agent
 fix(core): resolve TypeScript strict mode errors
 feat(ui): add dark mode toggle to settings
 
-# 実際のgit操作が必要な場合は:
-# @git-operation-agent に委譲する
+# For actual git operations:
+# Delegate to @git-operation-agent
 ```
 
 ### Error Handling Pattern
