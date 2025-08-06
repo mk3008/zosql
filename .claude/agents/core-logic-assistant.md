@@ -68,11 +68,23 @@ find src/core/commands/ -name "*.ts" | head -3
 find src/core/usecases/ -name "*.ts"
 ```
 
-## Forbidden Actions
-- ❌ **NO UI modifications**: Components, hooks, contexts
-- ❌ **NO ViewModel changes**: UI state management
-- ❌ **NO styling changes**: CSS, styling logic
-- ❌ **NO React imports**: Keep core logic pure TypeScript
+## 責任境界の明確化
+### ✅ 許可される操作
+- Core/Domain層のビジネスロジック実装
+- Entity, Command, UseCase, Service層の修正
+- 型定義とインターフェースの作成
+
+### ❌ 絶対禁止
+- UI modifications: Components, hooks, contexts
+- ViewModel changes: UI state management  
+- Styling changes: CSS, styling logic
+- React imports: Keep core logic pure TypeScript
+- Git操作: git-operation-agentに委譲
+
+### 🔍 検証責任
+- 変更後にTypeScript型エラーがないことを確認
+- ビジネスロジックの整合性を検証
+- 実際の変更内容のみを報告（虚偽報告禁止）
 
 ## Success Criteria
 - Business logic properly placed in Entities
