@@ -6,8 +6,6 @@
 
 import React from 'react';
 import { WorkspaceEntity } from '@core/entities/workspace';
-import { isFeatureEnabled, FeatureFlag } from '@ui/utils/feature-flags';
-import { NewWorkspaceDialog } from './NewWorkspaceDialog';
 import { NewWorkspaceDialogV2 } from './NewWorkspaceDialogV2';
 
 interface NewWorkspaceDialogContainerProps {
@@ -21,16 +19,8 @@ interface NewWorkspaceDialogContainerProps {
  * Based on feature flag configuration
  */
 export const NewWorkspaceDialogContainer: React.FC<NewWorkspaceDialogContainerProps> = (props) => {
-  // Check feature flag to determine which implementation to use
-  const useHooksImplementation = isFeatureEnabled(FeatureFlag.USE_NEW_WORKSPACE_HOOK);
-  
-  if (useHooksImplementation) {
-    // New functional implementation with hooks
-    return <NewWorkspaceDialogV2 {...props} />;
-  } else {
-    // Legacy MVVM implementation
-    return <NewWorkspaceDialog {...props} />;
-  }
+  // Use the functional implementation directly
+  return <NewWorkspaceDialogV2 {...props} />;
 };
 
 // Re-export for backward compatibility

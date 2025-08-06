@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useWorkspace } from '../context/WorkspaceContext';
-import { SqlModelsList } from './SqlModelsList';
-import { SqlModelEntity, WorkspaceEntity } from '@shared/types';
-import { MainContentRef } from './MainContentMvvm';
 import { DebugLogger } from '../../utils/debug-logger';
+import { SqlModelEntity } from '@shared/types';
+import { WorkspaceEntity } from '@core/entities/workspace';
+import { useWorkspace } from '@ui/context/WorkspaceContext';
+import { SqlModelsList } from './SqlModelsList';
 
 interface LeftSidebarProps {
   onOpenValuesTab?: () => void;
@@ -16,7 +16,7 @@ interface LeftSidebarProps {
   activeTabId?: string | null;
   showErrorWithDetails?: (message: string, details?: string, stack?: string) => void;
   showSuccess?: (message: string) => void;
-  mainContentRef?: React.RefObject<MainContentRef>;
+  mainContentRef?: React.RefObject<unknown>;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
@@ -83,9 +83,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     
     _setIsValidating(true);
     try {
-      DebugLogger.info('LeftSidebar', 'Delegating static analysis to MainContentViewModel');
-      // Delegate to MainContentViewModel for unified entity management and UI binding
-      await mainContentRef.current.runStaticAnalysis();
+      DebugLogger.info('LeftSidebar', 'MainContentViewModel removed - static analysis needs functional implementation');
+      // TODO: Implement static analysis using functional services
+      console.warn('[LEFT-SIDEBAR] MainContentViewModel removed - needs functional implementation');
       DebugLogger.info('LeftSidebar', 'Static analysis delegation completed');
       
       // Force component re-render to show updated validation icons

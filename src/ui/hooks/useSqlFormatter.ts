@@ -37,7 +37,7 @@ const formatExecutionTime = (startTime: number): number =>
   Date.now() - startTime;
 
 // SQL formatting service function (pure)
-const formatSqlQuery = async (sql: string, options: SqlFormatOptions): Promise<FormatResult> => {
+const formatSqlQuery = async (sql: string, _options: SqlFormatOptions): Promise<FormatResult> => {
   const startTime = Date.now();
   
   if (!validateSqlForFormatting(sql)) {
@@ -50,31 +50,29 @@ const formatSqlQuery = async (sql: string, options: SqlFormatOptions): Promise<F
 
   try {
     // Dynamic import to avoid dependencies
-    const { FormatQueryCommand } = await import('@core/commands/format-query-command');
-    const { SqlFormatterEntity } = await import('@core/entities/sql-formatter');
+    // FormatQueryCommand removed - functionality moved to functional services
+    const { SqlFormatterEntity: _SqlFormatterEntity } = await import('@core/entities/sql-formatter');
     
-    // Create formatter with options
-    const formatterOptions = {
-      indentSize: options.indent,
-      keywordCase: options.uppercase ? 'upper' as const : 'lower' as const,
-      indentChar: " " as const,
-      newline: "\n" as const,
-      commaBreak: "after" as const,
-      andBreak: "before" as const,
-    };
-    const formatter = new SqlFormatterEntity(JSON.stringify(formatterOptions));
+    // Create formatter with options (currently unused in functional implementation)
+    // const formatterOptions = {
+    //   indentSize: options.indent,
+    //   keywordCase: options.uppercase ? 'upper' as const : 'lower' as const,
+    //   indentChar: " " as const,
+    //   newline: "\n" as const,
+    //   commaBreak: "after" as const,
+    //   andBreak: "before" as const,
+    // };
+    // const formatter = new SqlFormatterEntity(JSON.stringify(formatterOptions)); // TODO: Use when implementing functional formatting
     
-    // Create and execute format command
-    const command = new FormatQueryCommand({
-      sql,
-      formatter,
-    });
-    const formattedSql = await command.execute();
+    // FormatQueryCommand removed - implementing functional approach
+    console.warn('[SQL-FORMATTER] FormatQueryCommand removed - needs functional implementation');
     
+    // TODO: Implement formatting using functional services
     return {
-      success: true,
-      formattedSql,
+      success: false,
+      formattedSql: sql, // Return original SQL as fallback
       executionTime: formatExecutionTime(startTime),
+      error: 'SQL formatting functionality needs to be reimplemented without Command pattern'
     };
   } catch (error) {
     return {

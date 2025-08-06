@@ -649,29 +649,13 @@ ${sqlPreview}`
    * @param availableModels - All models available in the workspace
    * @param useEditorContent - If true, validates against editor content instead of saved content
    */
-  async validateSchemaWithWorkspace(availableModels: SqlModelEntity[], useEditorContent: boolean = false): Promise<{ success: boolean; error?: string }> {
+  async validateSchemaWithWorkspace(_availableModels: SqlModelEntity[], useEditorContent: boolean = false): Promise<{ success: boolean; error?: string }> {
     console.log('[DEBUG] SqlModelEntity.validateSchemaWithWorkspace for:', this.name, 'type:', this.type, 'useEditorContent:', useEditorContent);
     
     try {
-      // Step 1: Refresh dependencies using command pattern
-      const { RefreshDependenciesCommand } = await import('@core/commands/refresh-dependencies-command');
-      const refreshCommand = new RefreshDependenciesCommand({
-        targetModel: this,
-        availableModels,
-        useEditorContent
-      });
-      
-      const refreshResult = await refreshCommand.execute();
-      if (!refreshResult.success) {
-        console.log('[DEBUG] Dependency refresh failed:', refreshResult.error);
-        // Continue with existing dependencies if refresh fails
-      } else {
-        console.log('[DEBUG] Dependency refresh succeeded:', {
-          originalCount: refreshResult.originalDependencies.length,
-          newCount: refreshResult.newDependencies.length,
-          newDeps: refreshResult.newDependencies
-        });
-      }
+      // Step 1: Dependency refresh functionality moved to functional services
+      // TODO: Implement dependency refresh using dependency-refresh-service
+      console.log('[DEBUG] Dependency refresh skipped - needs functional service implementation');
       
       // Step 2: Continue with normal schema validation
       return await this.validateSchema(useEditorContent);

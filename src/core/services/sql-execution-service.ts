@@ -64,23 +64,15 @@ export const executeSqlQuery = async (params: SqlExecutionParams): Promise<Query
   const context = createExecutionContext();
   
   try {
-    // Dynamic import to avoid circular dependencies
-    const { commandExecutor } = await import('@core/services/command-executor');
-    const { ExecuteQueryCommand } = await import('@core/commands/execute-query-command');
+    // TODO: Implement direct SQL execution to replace Command pattern
+    console.warn('[SQL-EXECUTION] Command pattern removed - needs functional implementation');
     
-    // Create command with functional approach
-    const command = new ExecuteQueryCommand({
-      workspace: params.workspace!,
-      sqlModel: null, // Will be derived from workspace context
-      tabContent: params.sql.trim(),
-      tabType: params.tabType ?? 'main',
-    });
-    
-    // Execute with timeout handling
-    const executionPromise = commandExecutor.execute(command);
-    const timeoutPromise = createTimeoutPromise(params.timeout ?? 30000);
-    
-    const result = await Promise.race([executionPromise, timeoutPromise]);
+    // Return placeholder result for now
+    const result = {
+      success: false,
+      error: 'SQL execution functionality needs to be reimplemented without Command pattern',
+      data: undefined
+    };
     
     return {
       ...result,
@@ -96,13 +88,13 @@ export const executeSqlQuery = async (params: SqlExecutionParams): Promise<Query
   }
 };
 
-// Helper function for timeout handling
-const createTimeoutPromise = (timeoutMs: number): Promise<QueryExecutionResult> =>
-  new Promise((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`Query execution timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
+// Helper function for timeout handling (currently unused in functional implementation)
+// const createTimeoutPromise = (timeoutMs: number): Promise<QueryExecutionResult> =>
+//   new Promise((_, reject) => {
+//     setTimeout(() => {
+//       reject(new Error(`Query execution timed out after ${timeoutMs}ms`));
+//     }, timeoutMs);
+//   });
 
 // Functional composition helpers
 export const pipe = <T>(...fns: Array<(arg: T) => T>) => (value: T): T =>

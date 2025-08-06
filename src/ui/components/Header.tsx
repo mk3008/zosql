@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NewWorkspaceDialog } from './NewWorkspaceDialog';
+import { NewWorkspaceDialogV2 as NewWorkspaceDialog } from './NewWorkspaceDialogV2';
 import { FileOpenDialog } from './FileOpenDialog';
 import { FinalSqlDialog } from './FinalSqlDialog';
 import { WorkspaceEntity } from '@core/entities/workspace';

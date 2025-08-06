@@ -3,9 +3,9 @@
  * UI Layer - React hook for command execution
  */
 
-import { useState, useCallback, useRef } from 'react';
-import { commandExecutor } from '@core/services/command-executor';
-import { ExecuteQueryCommand, ExecuteQueryContext } from '@core/commands/execute-query-command';
+import { useState, useRef, useCallback } from 'react';
+// CommandExecutor removed
+// ExecuteQueryCommand removed
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { SqlModelEntity } from '@core/entities/sql-model';
 
@@ -41,7 +41,7 @@ export function useCommands({
   commandContextRef.current = { workspace, tabModelMap, activeTab };
   
   const executeQuery = useCallback(async () => {
-    const { workspace, tabModelMap, activeTab } = commandContextRef.current;
+    const { workspace: _workspace, tabModelMap: _tabModelMap, activeTab } = commandContextRef.current;
     
     if (!activeTab || !activeTab.content.trim()) {
       setLastError('No query to execute');
@@ -52,19 +52,16 @@ export function useCommands({
     setLastError(null);
     
     try {
-      // Create command context
-      const context: ExecuteQueryContext = {
-        workspace,
-        sqlModel: tabModelMap.get(activeTab.id) || null,
-        tabContent: activeTab.content,
-        tabType: activeTab.type
+      // Command pattern removed - implementing functional approach
+      console.warn('[HOOKS] ExecuteQueryCommand removed - needs functional implementation');
+      
+      // TODO: Implement query execution using functional services
+      // For now, return placeholder result
+      const result = {
+        success: false,
+        error: 'Query execution functionality needs to be reimplemented without Command pattern'
       };
       
-      // Create and execute command
-      const command = new ExecuteQueryCommand(context);
-      const result = await commandExecutor.execute(command);
-      
-      // Handle result (this would be passed to a callback or state setter)
       if (!result.success) {
         setLastError(result.error || 'Query execution failed');
       }
