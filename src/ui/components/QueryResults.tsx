@@ -22,6 +22,10 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   const rows = result?.rows || (result as unknown as { data?: readonly unknown[] })?.data || [];
   const status = result?.status || ((result as unknown as { success?: boolean })?.success ? 'completed' : 'failed');
   
+  // State for selected row and cell
+  const [selectedRowIndex, setSelectedRowIndex] = React.useState<number | null>(null);
+  const [selectedCellColumn, setSelectedCellColumn] = React.useState<string | null>(null);
+  
   console.log('[DEBUG] QueryResults component:', {
     isVisible,
     result,
@@ -85,7 +89,9 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                 {columns.map((column) => (
                   <th 
                     key={column}
-                    className="px-3 py-1 text-left text-dark-text-white font-medium whitespace-nowrap border-r border-dark-border-primary"
+                    className={`px-3 py-1 text-left text-dark-text-white font-medium whitespace-nowrap border-r border-dark-border-primary ${
+                      selectedCellColumn === column ? 'bg-blue-600 bg-opacity-30' : ''
+                    }`}
                   >
                     {column}
                   </th>
@@ -98,14 +104,26 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
               {rows.map((row, rowIndex) => (
                 <tr 
                   key={rowIndex}
-                  className={`border-b border-dark-border-primary hover:bg-dark-hover ${
-                    rowIndex % 2 === 0 ? 'bg-dark-primary' : 'bg-dark-secondary'
+                  className={`border-b border-dark-border-primary hover:bg-dark-hover cursor-pointer ${
+                    selectedRowIndex === rowIndex 
+                      ? 'bg-blue-600 bg-opacity-30' 
+                      : rowIndex % 2 === 0 ? 'bg-dark-primary' : 'bg-dark-secondary'
                   }`}
+                  onClick={(e) => {
+                    // If clicking on a data cell, don't trigger row selection
+                    if ((e.target as HTMLElement).tagName === 'TD' && (e.target as HTMLElement).closest('td')?.getAttribute('data-column')) {
+                      return;
+                    }
+                    setSelectedRowIndex(rowIndex === selectedRowIndex ? null : rowIndex);
+                    setSelectedCellColumn(null);
+                  }}
                 >
                   <td 
                     className="px-2 py-1 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap sticky left-0 z-10"
                     style={{ 
-                      backgroundColor: rowIndex % 2 === 0 ? '#1a1a1a' : '#2a2a2a'
+                      backgroundColor: selectedRowIndex === rowIndex 
+                        ? 'rgba(37, 99, 235, 0.3)' 
+                        : rowIndex % 2 === 0 ? '#1a1a1a' : '#2a2a2a'
                     }}
                   >
                     {rowIndex + 1}
@@ -113,7 +131,17 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                   {columns.map((column) => (
                     <td 
                       key={column}
-                      className="px-3 py-1 text-dark-text-primary border-r border-dark-border-primary"
+                      data-column={column}
+                      className={`px-3 py-1 text-dark-text-primary border-r border-dark-border-primary cursor-pointer ${
+                        selectedRowIndex === rowIndex && selectedCellColumn === column 
+                          ? 'bg-blue-600 bg-opacity-50' 
+                          : ''
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRowIndex(rowIndex);
+                        setSelectedCellColumn(column === selectedCellColumn && rowIndex === selectedRowIndex ? null : column);
+                      }}
                     >
                       <div className="truncate" title={String(row[column])}>
                         {row[column] === null ? (
