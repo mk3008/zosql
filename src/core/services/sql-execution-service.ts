@@ -4,6 +4,7 @@
  */
 
 import { QueryExecutionResult, WorkspaceEntity } from '@shared/types';
+import { createErrorResult } from '@core/types/query-types';
 
 // Types for functional approach
 export interface SqlExecutionParams {
@@ -38,53 +39,57 @@ export const validateSqlExecution = (params: SqlExecutionParams): string[] => {
   return errors;
 };
 
-// Pure function to create execution context
-const createExecutionContext = (userId?: string): SqlExecutionContext => ({
-  startTime: Date.now(),
-  userId,
-  sessionId: `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-});
+// Pure function to create execution context (currently unused, kept for future use)
+// const createExecutionContext = (userId?: string): SqlExecutionContext => ({
+//   startTime: Date.now(),
+//   userId,
+//   sessionId: `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+// });
 
-// Pure function to calculate execution time
-const calculateExecutionTime = (context: SqlExecutionContext): number =>
-  Date.now() - context.startTime;
+// Pure function to calculate execution time (currently unused, kept for future use)
+// const calculateExecutionTime = (context: SqlExecutionContext): number =>
+//   Date.now() - context.startTime;
 
 // Main SQL execution function (pure, testable)
 export const executeSqlQuery = async (params: SqlExecutionParams): Promise<QueryExecutionResult> => {
   // Validate input
   const validationErrors = validateSqlExecution(params);
   if (validationErrors.length > 0) {
-    return {
-      success: false,
-      error: `Validation failed: ${validationErrors.join(', ')}`,
-      executionTime: 0,
-    };
+    return createErrorResult(
+      params.sql,
+      {
+        code: 'VALIDATION_FAILED',
+        message: `Validation failed: ${validationErrors.join(', ')}`,
+        severity: 'error'
+      }
+    );
   }
 
-  const context = createExecutionContext();
+  // const context = createExecutionContext(); // Currently unused
   
   try {
     // TODO: Implement direct SQL execution to replace Command pattern
     console.warn('[SQL-EXECUTION] Command pattern removed - needs functional implementation');
     
     // Return placeholder result for now
-    const result = {
-      success: false,
-      error: 'SQL execution functionality needs to be reimplemented without Command pattern',
-      data: undefined
-    };
-    
-    return {
-      ...result,
-      executionTime: calculateExecutionTime(context),
-    };
+    return createErrorResult(
+      params.sql,
+      {
+        code: 'NOT_IMPLEMENTED',
+        message: 'SQL execution functionality needs to be reimplemented without Command pattern',
+        severity: 'error'
+      }
+    );
     
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown execution error',
-      executionTime: calculateExecutionTime(context),
-    };
+    return createErrorResult(
+      params.sql,
+      {
+        code: 'EXECUTION_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown execution error',
+        severity: 'error'
+      }
+    );
   }
 };
 
@@ -149,10 +154,13 @@ export const executeSqlSafely = async (params: SqlExecutionParams): Promise<Quer
   try {
     return await executeSqlQuery(params);
   } catch (error) {
-    return {
-      success: false,
-      error: `Safe execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      executionTime: 0,
-    };
+    return createErrorResult(
+      params.sql,
+      {
+        code: 'SAFE_EXECUTION_FAILED',
+        message: `Safe execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      }
+    );
   }
 };

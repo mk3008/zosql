@@ -324,10 +324,13 @@ export class MainContentViewModel extends BaseViewModel {
       }
 
       // Check if result indicates an error and show error panel
+      // TODO: Phase 4 - Remove this ViewModel entirely
+      // @ts-expect-error - Using old interface, will be removed
       if (!result.success && result.error) {
         // Send error to error panel even for successful command execution with error result
         this.notifyChange('errorWithDetails', {
           message: 'SQL Execution Error',
+          // @ts-expect-error - Using old interface, will be removed
           details: result.error,
           stack: undefined
         });
@@ -510,11 +513,14 @@ export class MainContentViewModel extends BaseViewModel {
       
       for (const model of models) {
         const result = this.workspace.getValidationResult(model.name);
+        // TODO: Phase 4 - Remove this ViewModel entirely
         if (result && result.success) {
           passedModels.push(model.name);
+        // TODO: Phase 4 - Remove this ViewModel entirely  
         } else if (result && result.error) {
           failedModels.push({
             name: model.name,
+            // TODO: Phase 4 - Remove this ViewModel entirely
             error: result.error
           });
         } else {

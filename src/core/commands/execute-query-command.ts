@@ -11,7 +11,7 @@ import {
   hasQueryResultCapability,
   QueryResultBuilder
 } from '@core/types/query-types';
-import { QueryExecutionResult } from '@shared/types';
+import { QueryExecutionResult, createSuccessResult, createErrorResult } from '@core/types/query-types';
 
 export interface ExecuteQueryContext {
   workspace: WorkspaceEntity | null;
@@ -88,26 +88,25 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
             // Execute the SQL with parameters
             const result = await this.executeSqlWithPGlite(executableSql, dynamicResult.params);
             const executionTime = Math.round(performance.now() - startTime);
-            
-            return {
-              success: true,
-              data: result.rows,
-              executionTime,
-              rowCount: result.rows?.length || 0,
-              executedSql: executableSql
-            };
+            return createSuccessResult(
+              executableSql,
+              result.rows || [],
+              [],
+              { executionTimeMs: executionTime, rowsReturned: result.rows?.length || 0 }
+            );
           } catch (cteError) {
-            const executionTime = Math.round(performance.now() - startTime);
             const errorMessage = cteError instanceof Error ? cteError.message : 'CTE execution failed';
             
             console.log('[DEBUG] CTE getDynamicSql execution failed:', errorMessage);
             
-            return {
-              success: false,
-              error: `CTE execution failed: ${errorMessage}`,
-              executionTime,
-              executedSql: this.context.tabContent
-            };
+            return createErrorResult(
+              this.context.tabContent,
+              {
+                code: 'CTE_EXECUTION_FAILED',
+                message: `CTE execution failed: ${errorMessage}`,
+                severity: 'error'
+              }
+            );
           }
           
         } else {
@@ -176,14 +175,12 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
       // Execute SQL using PGlite with parameters
       const result = await this.executeSqlWithPGlite(dynamicResult.formattedSql, dynamicResult.params);
       const executionTime = Math.round(performance.now() - startTime);
-      
-      const executionResult: QueryExecutionResult = {
-        success: true,
-        data: result.rows,
-        executionTime,
-        rowCount: result.rows?.length || 0,
-        executedSql: dynamicResult.formattedSql
-      };
+      const executionResult = createSuccessResult(
+        dynamicResult.formattedSql,
+        result.rows || [],
+        [],
+        { executionTimeMs: executionTime, rowsReturned: result.rows?.length || 0 }
+      );
       
       // Save result to model if available - using type-safe approach
       if (this.context.sqlModel && hasQueryResultCapability(this.context.sqlModel)) {
@@ -204,19 +201,19 @@ export class ExecuteQueryCommand extends BaseCommand<QueryExecutionResult> {
       return executionResult;
       
     } catch (error) {
-      const executionTime = Math.round(performance.now() - startTime);
       const errorMessage = error instanceof Error ? error.message : 'SQL execution failed';
       const executedSql = dynamicResult?.formattedSql || this.context.tabContent;
       
-      return {
-        success: false,
-        error: `${errorMessage}${executedSql ? `
-
-Executed SQL:
-${executedSql}` : ''}`,
-        executionTime,
-        executedSql: executedSql || this.context.tabContent
-      };
+      return createErrorResult(
+        executedSql || this.context.tabContent || '',
+        {
+          code: 'EXECUTION_FAILED',
+          message: errorMessage,
+          severity: 'error',
+          detail: executedSql ? `Executed SQL:
+${executedSql}` : undefined
+        }
+      );
     }
   }
   

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { QueryExecutionResult } from '@core/types/query-types';
+import { QueryExecutionResult } from '@shared/types';
 
 // Type guard to check if a value is a record (object with string keys)
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -188,7 +188,7 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
   };
 
   return (
-    <div className="border border-dark-border-primary bg-dark-secondary rounded mb-4">
+    <div className="border border-dark-border-primary bg-dark-secondary rounded mb-4 w-full max-w-full overflow-hidden">
       {/* Result Header - Clickable */}
       <div 
         className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-dark-hover"
@@ -263,7 +263,7 @@ export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full max-w-full overflow-hidden">
       {sortedEntries.map(([key, result]) => (
         <ResultGrid
           key={key}

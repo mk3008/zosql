@@ -8,6 +8,16 @@
   -ms-overflow-style: none; /* IE/Edge legacy */
 }
 
+/* General scrollbar hide class */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+
 /* Custom scrollbar for query results */
 .scrollbar-thin::-webkit-scrollbar {
   width: 8px;

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck - This file will be removed in Phase 4
 /**
  * useSqlEditor Hook - Functional Programming Approach
  * Composable hooks for SQL Editor functionality

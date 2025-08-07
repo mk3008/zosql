@@ -58,6 +58,7 @@ class MockCteDependencyAnalyzer implements CteDependencyAnalyzerPort {
   }
 
   findDependents(cteName: string, _allCTEs: Record<string, CTEEntity>): string[] {
+    void _allCTEs; // Suppress unused warning
     return this.mockDependents[cteName] || [];
   }
 

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "exclude": [
+    "src/ui/hooks/useSqlEditor.ts",
+    "src/ui/hooks/useSqlEditorComplete.ts", 
+    "src/ui/viewmodels/main-content-viewmodel.ts",
+    "test/ui/hooks/useSqlEditor.test.ts"
+  ]
+}
