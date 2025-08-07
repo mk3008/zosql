@@ -147,7 +147,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   );
 
   return (
-    <aside className="w-sidebar bg-dark-secondary border-r border-dark-border-primary p-3 overflow-y-auto flex-shrink-0">
+    <aside className="h-full bg-dark-secondary border-r border-dark-border-primary p-3 overflow-y-auto w-full">
       {/* Workspace Overview */}
       <div className="mb-6">
         <CollapsibleHeader 

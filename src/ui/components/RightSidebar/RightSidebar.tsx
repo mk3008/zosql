@@ -75,7 +75,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({ workspace, lastExe
 
   return (
     <>
-      <div className="w-80 bg-dark-secondary border-l border-dark-border-primary flex flex-col h-full">
+      <div className="w-full bg-dark-secondary border-l border-dark-border-primary flex flex-col h-full">
         {/* Tab Header */}
         <div className="flex border-b border-dark-border-primary" style={{ backgroundColor: '#1a1a1a' }}>
           <button
