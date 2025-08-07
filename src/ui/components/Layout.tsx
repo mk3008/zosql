@@ -6,7 +6,8 @@ import { DebugLogger } from '../../utils/debug-logger';
 import { WorkspaceEntity, SqlModelEntity } from '@shared/types';
 import { Header } from './Header';
 import { LeftSidebar } from './LeftSidebar';
-import { MainContentMvvm as MainContent, MainContentRef as MainContentHandle } from './MainContent';
+// Phase 1 test: Use MainContentWithHook (minimal changes)
+import { MainContentWithHook as MainContent, MainContentRef as MainContentHandle } from './MainContentWithHook';
 import { RightSidebar } from './RightSidebar';
 import { Toast } from './Toast';
 import { ErrorPanel } from './ErrorPanel';

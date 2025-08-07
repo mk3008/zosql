@@ -128,6 +128,7 @@ async function testFileStorage(container: DIContainer): Promise<boolean> {
  * Enable debug logging for development
  */
 function enableDebugLogging(_container: DIContainer): void {
+  void _container; // Suppress ESLint warning
   console.log('[BOOTSTRAP] Enabling debug logging...');
   
   // TODO: Wrap adapters with logging decorators

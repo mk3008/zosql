@@ -363,6 +363,7 @@ export class PGliteSqlExecutor implements SqlExecutorPort {
     timeout: number,
     _maxRows: number
   ): Promise<{ rows: unknown[] }> {
+    void _maxRows; // Suppress ESLint warning
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         reject(new Error(`Query execution timeout after ${timeout}ms`));

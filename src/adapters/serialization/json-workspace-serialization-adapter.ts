@@ -213,6 +213,7 @@ export class JsonWorkspaceSerializationAdapter implements WorkspaceSerialization
         const withoutChecksum = { ...migrated };
         if (withoutChecksum.metadata) {
           const { checksum: _unused, ...metadataWithoutChecksum } = withoutChecksum.metadata;
+          void _unused; // Suppress ESLint warning
           withoutChecksum.metadata = metadataWithoutChecksum;
         }
         
@@ -622,6 +623,7 @@ export class JsonWorkspaceSerializationAdapter implements WorkspaceSerialization
    * Simple encryption (for demonstration - use proper encryption in production)
    */
   private async encrypt(data: string | Buffer, _passwordUnused: string): Promise<Buffer> {
+    void _passwordUnused; // Suppress ESLint warning
     // TODO: Implement proper encryption using crypto module
     console.warn('[SERIALIZATION] Password protection not fully implemented');
     return Buffer.isBuffer(data) ? data : Buffer.from(data);
@@ -631,6 +633,7 @@ export class JsonWorkspaceSerializationAdapter implements WorkspaceSerialization
    * Simple decryption (for demonstration - use proper decryption in production)
    */
   private async decrypt(data: string | Buffer, _passwordUnused: string): Promise<Buffer> {
+    void _passwordUnused; // Suppress ESLint warning
     // TODO: Implement proper decryption using crypto module
     console.warn('[SERIALIZATION] Password decryption not fully implemented');
     return Buffer.isBuffer(data) ? data : Buffer.from(data);
