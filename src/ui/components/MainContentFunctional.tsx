@@ -579,8 +579,8 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
             {/* Monaco Editor and Results Area - Always use ResizableSplitter */}
             <ResizableSplitter
               direction="vertical"
-              initialSizes={[85, 15]}
-              minSizes={[300, 0]}
+              initialSizes={[95, 5]}
+              minSizes={[500, 0]}
               className="flex-1"
             >
               {/* Monaco Editor - Always top pane */}
