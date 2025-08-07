@@ -470,7 +470,7 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
           // Three-panel layout with both sidebars (nested splitters)
           <ResizableSplitter
             direction="horizontal"
-            initialSizes={[25, 75]}
+            initialSizes={[15, 85]}
             minSizes={[250, 650]}
             className="h-full"
           >
@@ -504,7 +504,7 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
             {/* Main Content and Right Sidebar in nested splitter */}
             <ResizableSplitter
               direction="horizontal"
-              initialSizes={[75, 25]}
+              initialSizes={[85, 15]}
               minSizes={[400, 250]}
               className="h-full"
             >
@@ -539,7 +539,7 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
           // Two-panel layout with only left sidebar
           <ResizableSplitter
             direction="horizontal"
-            initialSizes={[25, 75]}
+            initialSizes={[15, 85]}
             minSizes={[250, 400]}
             className="h-full"
           >
@@ -594,7 +594,7 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
           // Two-panel layout with only right sidebar
           <ResizableSplitter
             direction="horizontal"
-            initialSizes={[75, 25]}
+            initialSizes={[85, 15]}
             minSizes={[400, 250]}
             className="h-full"
           >
