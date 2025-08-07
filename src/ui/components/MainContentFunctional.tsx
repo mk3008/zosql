@@ -62,7 +62,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
   // Local UI state
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [searchTerm] = useState<string | undefined>(undefined);
-  const [editorHeight, setEditorHeight] = useState<number>(70); // Percentage for editor height
+  const [editorHeight, setEditorHeight] = useState<number>(60); // Percentage for editor height
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -117,6 +117,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
               workspace,
               (results) => {
                 state.setDataTabResults(results);
+                state.setResultsVisible(true);
                 state.setIsExecuting(false);
                 showSuccess?.('Data queries executed');
               },
@@ -245,6 +246,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
             workspace,
             (results) => {
               state.setDataTabResults(results);
+              state.setResultsVisible(true);
               state.setIsExecuting(false);
               showSuccess?.('Data queries executed');
             },
@@ -356,9 +358,10 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
     }
   };
   
-  // Check display conditions - unified logic for all tab types
+  // Check display conditions - unified logic for all tab types  
   const showDataTabResults = state.activeTab?.type === 'values' && state.dataTabResults.size > 0;
   const showQueryResults = state.resultsVisible && state.activeTab?.queryResult && state.activeTab?.type !== 'values';
+  
   
   // Dynamic sizing based on whether results are shown
   const shouldShowResults = showDataTabResults || showQueryResults;
@@ -460,6 +463,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                             workspace,
                             (results) => {
                               state.setDataTabResults(results);
+                              state.setResultsVisible(true);
                               state.setIsExecuting(false);
                               showSuccess?.('Data queries executed');
                             },
@@ -472,7 +476,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                       }}
                       disabled={state.isExecuting}
                       className="px-3 py-1 bg-success text-white rounded hover:bg-green-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Execute all queries (Root + CTEs)"
+                      title="Run Query (Ctrl+Enter)"
                     >
                       {state.isExecuting ? 'Running...' : 'Run'}
                     </button>
@@ -667,18 +671,18 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                 />
               )}
               
-              {/* SQL Results Area - Dynamic height based on splitter */}
+              {/* SQL Results Area - Simplified structure */}
               {shouldShowResults && (
                 <div 
-                  className="overflow-auto bg-dark-secondary border-t border-dark-border-primary"
+                  className="relative bg-dark-secondary border-t border-dark-border-primary"
                   style={{
                     height: `${100 - editorHeight}%`,
-                    minHeight: '250px'
+                    minHeight: '200px'
                   }}
                 >
                   {state.isExecuting ? (
                     // Loading state
-                    <div className="h-full flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary mb-4"></div>
                         <div className="text-text-secondary">
@@ -687,13 +691,11 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                       </div>
                     </div>
                   ) : state.activeTab.type === 'values' && showDataTabResults ? (
-                    // Data tab results - scrollable content area
-                    <div className="h-full flex flex-col">
-                      <DataTabResults results={state.dataTabResults} />
-                    </div>
+                    // Data tab results - absolute positioning for complete control
+                    <DataTabResults results={state.dataTabResults} />
                   ) : state.activeTab.type !== 'values' && showQueryResults ? (
                     // SQL/CTE tab results - QueryResults handles header/data separation
-                    <div className="h-full flex flex-col">
+                    <div className="absolute inset-0">
                       <QueryResults
                         result={state.activeTab.queryResult || null}
                         isVisible={true}

@@ -62,11 +62,22 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
     const isError = status === 'failed' || !!(result as unknown as { error?: string })?.error;
     
     if (!result || isError || !rows || rows.length === 0) {
+      if (status === 'failed' || isError) {
+        // Display error with proper formatting
+        const errorMessage = result?.errors?.[0]?.message || (result as unknown as { error?: string })?.error || 'Query execution failed';
+        return (
+          <div className="p-4 bg-error bg-opacity-10 border border-error border-opacity-30 rounded m-4">
+            <h4 className="text-error font-medium mb-2">Query Error</h4>
+            <div className="text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3">
+              {errorMessage}
+            </div>
+          </div>
+        );
+      }
+      
       return (
         <div className="text-center text-dark-text-muted py-4">
-          {status === 'completed' ? 'No data returned from query' : 
-           status === 'failed' ? `Error: ${result?.errors?.[0]?.message || (result as unknown as { error?: string })?.error || 'Query execution failed'}` :
-           'No result available'}
+          {status === 'completed' ? 'No data returned from query' : 'No result available'}
         </div>
       );
     }
@@ -99,7 +110,7 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
     };
     
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col">
         {/* Table Header - Fixed */}
         <div className="flex-shrink-0 overflow-hidden border-b border-dark-border-primary">
           <div 
@@ -132,10 +143,10 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
           </div>
         </div>
 
-        {/* Table Body - Horizontally Scrollable */}
+        {/* Table Body - No vertical scroll, only horizontal */}
         <div 
           ref={bodyScrollRef}
-          className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin"
+          className="overflow-x-auto overflow-y-visible scrollbar-thin"
         >
           <table className="text-sm table-fixed w-full min-w-max">
             <colgroup>
@@ -227,8 +238,8 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
         </div>
       </div>
 
-      {/* Result Content */}
-      {!isCollapsed && (
+      {/* Result Content - Show errors even when collapsed */}
+      {(!isCollapsed || (status === 'failed' || !!(result as unknown as { error?: string })?.error)) && (
         <div>
           {renderTable()}
         </div>
@@ -238,6 +249,7 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
 };
 
 export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
+  // All sections expanded by default - simple and predictable
   const [collapsedState, setCollapsedState] = React.useState<Record<string, boolean>>({});
 
   const toggleCollapse = (key: string) => {
@@ -263,7 +275,14 @@ export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
   }
 
   return (
-    <div className="space-y-4 w-full max-w-full overflow-hidden">
+    <div 
+      className="absolute inset-0 overflow-y-auto"
+      style={{
+        backgroundColor: '#2a2a2a', // Match parent background
+        paddingBottom: '20px' // Extra padding to ensure last item is fully visible
+      }}
+    >
+      <div className="p-4 space-y-4">
       {sortedEntries.map(([key, result]) => (
         <ResultGrid
           key={key}
@@ -273,6 +292,9 @@ export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
           onToggleCollapse={() => toggleCollapse(key)}
         />
       ))}
+      {/* Additional bottom margin to ensure last item is fully scrollable */}
+      <div style={{ height: '24px' }}></div>
+      </div>
     </div>
   );
 };
