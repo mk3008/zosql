@@ -381,7 +381,7 @@ ${dep.sqlWithoutCte}
    */
   private async extractCteColumns(cteSql: string): Promise<string[]> {
     try {
-      const { SelectQueryParser, SchemaCollector } = await import('rawsql-ts');
+      const { SelectQueryParser } = await import('rawsql-ts');
       
       const parseResult = SelectQueryParser.analyze(cteSql);
       if (!parseResult.success || !parseResult.query) {
@@ -389,16 +389,36 @@ ${dep.sqlWithoutCte}
         return [];
       }
       
-      const schemaCollector = new SchemaCollector();
-      const schemaResult = schemaCollector.analyze(parseResult.query);
+      // Extract column aliases directly from the SELECT clause instead of using SchemaCollector
+      // SchemaCollector only returns existing table columns, not computed/aliased columns
+      const columns: string[] = [];
       
-      if (schemaResult.success && schemaResult.schemas && schemaResult.schemas.length > 0) {
-        const columns = schemaResult.schemas[0].columns || [];
-        console.log('[DEBUG] Extracted CTE columns:', columns);
-        return columns;
+      // Access the parsed query's SELECT clause items
+      // Use type assertion to access properties not in official types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const selectQuery = parseResult.query as any;
+      if (selectQuery && selectQuery.selectClause && selectQuery.selectClause.items) {
+        for (const item of selectQuery.selectClause.items) {
+          // Get column alias (identifier) first, then fall back to original column name
+          if (item.identifier && item.identifier.name) {
+            columns.push(item.identifier.name);
+            console.log('[DEBUG] Found CTE column alias:', item.identifier.name);
+          } else if (item.value && item.value.qualifiedName) {
+            // Handle simple column references
+            const columnName = typeof item.value.qualifiedName === 'string' 
+              ? item.value.qualifiedName 
+              : item.value.qualifiedName.name?.value || item.value.qualifiedName;
+            if (columnName) {
+              columns.push(columnName);
+              console.log('[DEBUG] Found CTE column name:', columnName);
+            }
+          }
+        }
       }
       
-      return [];
+      console.log('[DEBUG] Extracted CTE columns (direct from SELECT):', columns);
+      return columns;
+      
     } catch (error) {
       console.log('[DEBUG] Error extracting CTE columns:', error);
       return [];
