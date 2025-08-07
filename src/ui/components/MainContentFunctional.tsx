@@ -580,8 +580,8 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
             {(state.isExecuting || showDataTabResults || showQueryResults) ? (
               <ResizableSplitter
                 direction="vertical"
-                initialSizes={[60, 40]}
-                minSizes={[300, 200]}
+                initialSizes={[70, 30]}
+                minSizes={[400, 150]}
                 className="flex-1"
               >
                 {/* Monaco Editor - Resizable top pane */}
