@@ -168,11 +168,13 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   const renderError = () => {
     if (!result?.errors || result.errors.length === 0) return null;
     const errorMessage = result.errors[0].message;
+    const executedSql = result.sql || '';
     
     const handleCopyError = () => {
-      navigator.clipboard.writeText(errorMessage || '').then(() => {
+      const fullError = `Error: ${errorMessage}\n\nExecuted Query:\n${executedSql}`;
+      navigator.clipboard.writeText(fullError).then(() => {
         // Could add a toast notification here
-        console.log('Error message copied to clipboard');
+        console.log('Error and query copied to clipboard');
       }).catch(err => {
         console.error('Failed to copy error:', err);
       });
@@ -180,27 +182,50 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
     
     return (
       <div className="p-4 bg-error bg-opacity-10 border border-error border-opacity-30 rounded m-4">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <h4 className="text-error font-medium">Query Error</h4>
           <button
             onClick={handleCopyError}
             className="text-xs px-2 py-1 bg-dark-tertiary hover:bg-dark-hover text-dark-text-primary rounded border border-dark-border-primary transition-colors"
-            title="Copy error message"
+            title="Copy error message and query"
           >
-            Copy Error
+            Copy Error & Query
           </button>
         </div>
-        <textarea
-          readOnly
-          value={errorMessage}
-          className="w-full text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3 resize-none"
-          style={{ minHeight: '200px', height: 'auto' }}
-          rows={errorMessage.split('\n').length + 1}
-          onClick={(e) => {
-            // Select all text when clicked
-            e.currentTarget.select();
-          }}
-        />
+        
+        {/* Error Message */}
+        <div className="mb-4">
+          <h5 className="text-sm font-medium text-dark-text-white mb-2">Error Message:</h5>
+          <textarea
+            readOnly
+            value={errorMessage}
+            className="w-full text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3 resize-none"
+            style={{ minHeight: '80px', height: 'auto' }}
+            rows={errorMessage.split('\n').length + 1}
+            onClick={(e) => {
+              // Select all text when clicked
+              e.currentTarget.select();
+            }}
+          />
+        </div>
+        
+        {/* Executed Query */}
+        {executedSql && (
+          <div>
+            <h5 className="text-sm font-medium text-dark-text-white mb-2">Executed Query:</h5>
+            <textarea
+              readOnly
+              value={executedSql}
+              className="w-full text-sm text-dark-text-primary font-mono bg-dark-secondary border border-dark-border-primary rounded p-3 resize-none"
+              style={{ minHeight: '120px', height: 'auto' }}
+              rows={Math.max(6, executedSql.split('\n').length + 1)}
+              onClick={(e) => {
+                // Select all text when clicked
+                e.currentTarget.select();
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   };
