@@ -244,7 +244,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   };
 
   return (
-    <div className="border-t border-dark-border-primary bg-dark-secondary flex flex-col" style={{ minHeight: '300px', height: '40vh' }}>
+    <div className="h-full border-t border-dark-border-primary bg-dark-secondary flex flex-col">
       {/* Results Header */}
       <div className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">

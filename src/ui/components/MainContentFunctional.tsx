@@ -4,7 +4,7 @@
  * CRITICAL: MonacoEditor key remains fixed for stability
  */
 
-import React, { forwardRef, useImperativeHandle, useEffect, useRef, memo, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect, useRef, memo, useState, useCallback } from 'react';
 import '../styles/tab-scrollbar.css';
 import { WorkspaceEntity } from '@shared/types';
 import { SqlModelEntity } from '@core/entities/sql-model';
@@ -13,7 +13,6 @@ import { DebugLogger } from '../../utils/debug-logger';
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { DataTabResults } from './DataTabResults';
-import { ResizableSplitter } from './ResizableSplitter';
 
 // Import hooks
 import { useMainContentState } from '@ui/hooks/useMainContentState';
@@ -63,6 +62,9 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
   // Local UI state
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [searchTerm] = useState<string | undefined>(undefined);
+  const [editorHeight, setEditorHeight] = useState<number>(70); // Percentage for editor height
+  const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Load workspace tabs when workspace changes
   const workspaceId = workspace?.id;
@@ -290,6 +292,50 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
     }
   };
   
+  // Splitter resize handlers
+  const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!isResizing || !containerRef.current) return;
+
+    const container = containerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const mouseY = event.clientY - containerRect.top;
+    const containerHeight = containerRect.height;
+    const newEditorHeight = (mouseY / containerHeight) * 100;
+    
+    // Apply constraints: editor 30-80%, results 20-70%
+    const minEditorHeight = 30;
+    const maxEditorHeight = 80;
+    
+    const constrainedHeight = Math.max(minEditorHeight, Math.min(maxEditorHeight, newEditorHeight));
+    setEditorHeight(constrainedHeight);
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  // Add global mouse event listeners when resizing
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+  
   // Helper functions
   const getTabIcon = (tabType: string): string => {
     switch (tabType) {
@@ -313,6 +359,9 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
   // Check display conditions - unified logic for all tab types
   const showDataTabResults = state.activeTab?.type === 'values' && state.dataTabResults.size > 0;
   const showQueryResults = state.resultsVisible && state.activeTab?.queryResult && state.activeTab?.type !== 'values';
+  
+  // Dynamic sizing based on whether results are shown
+  const shouldShowResults = showDataTabResults || showQueryResults;
   
   return (
     <main className="h-screen flex flex-col bg-dark-primary text-text-primary overflow-hidden w-full max-w-full">
@@ -576,15 +625,16 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
               </div>
             )}
             
-            {/* Monaco Editor and Results Area - Always use ResizableSplitter */}
-            <ResizableSplitter
-              direction="vertical"
-              initialSizes={[95, 5]}
-              minSizes={[500, 0]}
-              className="flex-1"
-            >
-              {/* Monaco Editor - Always top pane */}
-              <div className="bg-dark-primary overflow-hidden">
+            {/* SQL Editor and Results Layout */}
+            <div className="flex-1 flex flex-col min-h-0" ref={containerRef}>
+              {/* SQL Editor Area - Dynamic height based on splitter */}
+              <div 
+                className="flex flex-col bg-dark-primary"
+                style={{
+                  height: shouldShowResults ? `${editorHeight}%` : '100%',
+                  minHeight: shouldShowResults ? '200px' : '300px'
+                }}
+              >
                 <MonacoEditor
                   key="main-editor-unified"
                   value={state.activeTab.content}
@@ -606,10 +656,27 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                 />
               </div>
               
-              {/* Results area - Always bottom pane, conditionally visible */}
-              <div className={`overflow-hidden ${(state.isExecuting || showDataTabResults || showQueryResults) ? 'border-t border-dark-border-primary bg-dark-secondary' : 'h-0'}`}>
-                {(state.isExecuting || showDataTabResults || showQueryResults) ? (
-                  state.isExecuting ? (
+              {/* Interactive Resizer - Only visible when results are shown */}
+              {shouldShowResults && (
+                <div 
+                  className="h-1 bg-dark-border-primary hover:bg-primary-600 cursor-row-resize transition-colors duration-150 flex-shrink-0"
+                  onMouseDown={handleMouseDown}
+                  style={{
+                    backgroundColor: isResizing ? '#007acc' : undefined
+                  }}
+                />
+              )}
+              
+              {/* SQL Results Area - Dynamic height based on splitter */}
+              {shouldShowResults && (
+                <div 
+                  className="overflow-auto bg-dark-secondary border-t border-dark-border-primary"
+                  style={{
+                    height: `${100 - editorHeight}%`,
+                    minHeight: '150px'
+                  }}
+                >
+                  {state.isExecuting ? (
                     // Loading state
                     <div className="h-full flex items-center justify-center">
                       <div className="text-center">
@@ -620,21 +687,23 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                       </div>
                     </div>
                   ) : state.activeTab.type === 'values' && showDataTabResults ? (
-                    // Data tab results
-                    <div className="h-full overflow-y-auto overflow-x-hidden p-4">
+                    // Data tab results - scrollable content area
+                    <div className="h-full flex flex-col">
                       <DataTabResults results={state.dataTabResults} />
                     </div>
                   ) : state.activeTab.type !== 'values' && showQueryResults ? (
-                    // SQL/CTE tab results
-                    <QueryResults
-                      result={state.activeTab.queryResult || null}
-                      isVisible={true}
-                      onClose={() => state.closeResults()}
-                    />
-                  ) : null
-                ) : null}
-              </div>
-            </ResizableSplitter>
+                    // SQL/CTE tab results - QueryResults handles header/data separation
+                    <div className="h-full flex flex-col">
+                      <QueryResults
+                        result={state.activeTab.queryResult || null}
+                        isVisible={true}
+                        onClose={() => state.closeResults()}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
