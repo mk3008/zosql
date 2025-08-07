@@ -840,7 +840,7 @@ const MainContentWithHookComponent = forwardRef<MainContentRef, MainContentProps
                   
                   {/* Data Tab Results - bottom pane with single vertical scroll */}
                   <div className="h-full overflow-y-auto overflow-x-hidden bg-dark-secondary p-4">
-                    <DataTabResults results={executionState.dataTabResults} />
+                    <DataTabResults results={executionState.dataTabResults} workspace={workspace} />
                   </div>
                 </ResizableSplitter>
               ) : (

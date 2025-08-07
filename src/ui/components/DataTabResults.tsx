@@ -1,5 +1,6 @@
 import React from 'react';
 import { QueryExecutionResult } from '@shared/types';
+import { WorkspaceEntity } from '@shared/types';
 
 // Type guard to check if a value is a record (object with string keys)
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -13,6 +14,7 @@ function isRecordArray(data: readonly unknown[]): data is readonly Record<string
 
 interface DataTabResultsProps {
   results: Map<string, QueryExecutionResult>;
+  workspace: WorkspaceEntity | null;
 }
 
 interface ResultGridProps {
@@ -204,7 +206,7 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
   );
 };
 
-export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
+export const DataTabResults: React.FC<DataTabResultsProps> = ({ results, workspace }) => {
   // All sections expanded by default - simple and predictable
   const [collapsedState, setCollapsedState] = React.useState<Record<string, boolean>>({});
 
@@ -215,10 +217,28 @@ export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
     }));
   };
 
-  // Sort results to show 'root' first, then CTEs alphabetically
+  // Sort results by dependency depth (hierarchy order)
   const sortedEntries = Array.from(results.entries()).sort(([a], [b]) => {
-    if (a === 'root') return -1;
-    if (b === 'root') return 1;
+    // If no workspace, fall back to simple sorting
+    if (!workspace) {
+      if (a === 'root') return 1; // root at bottom
+      if (b === 'root') return -1;
+      return a.localeCompare(b);
+    }
+
+    const depths = workspace.getModelDependencyDepths();
+    const depthA = depths.get(a) ?? 0;
+    const depthB = depths.get(b) ?? 0;
+
+    // CTEs with fewer nesting levels come first
+    // root (highest dependency depth) comes last
+    if (depthA !== depthB) {
+      return depthA - depthB;
+    }
+
+    // Same nesting level: sort alphabetically, but root always last
+    if (a === 'root') return 1;
+    if (b === 'root') return -1;
     return a.localeCompare(b);
   });
 

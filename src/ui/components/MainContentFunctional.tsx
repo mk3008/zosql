@@ -65,6 +65,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
   const [editorHeight, setEditorHeight] = useState<number>(60); // Percentage for editor height
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [useSchemaCollector, setUseSchemaCollector] = useState<boolean>(true); // Default to true
   
   // Load workspace tabs when workspace changes
   const workspaceId = workspace?.id;
@@ -437,6 +438,8 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                       <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
                         <input
                           type="checkbox"
+                          checked={useSchemaCollector}
+                          onChange={(e) => setUseSchemaCollector(e.target.checked)}
                           className="w-4 h-4 text-accent-primary bg-dark-primary border-border-secondary rounded focus:ring-accent-primary focus:ring-2"
                         />
                         use schema collector
@@ -692,7 +695,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                     </div>
                   ) : state.activeTab.type === 'values' && showDataTabResults ? (
                     // Data tab results - absolute positioning for complete control
-                    <DataTabResults results={state.dataTabResults} />
+                    <DataTabResults results={state.dataTabResults} workspace={workspace} />
                   ) : state.activeTab.type !== 'values' && showQueryResults ? (
                     // SQL/CTE tab results - QueryResults handles header/data separation
                     <div className="absolute inset-0">

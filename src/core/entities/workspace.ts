@@ -514,6 +514,47 @@ export class WorkspaceEntity {
     return maxDepth;
   }
 
+  // Get dependency depth for each model
+  public getModelDependencyDepths(): Map<string, number> {
+    const modelMap = new Map(this.sqlModels.map(m => [m.name, m]));
+    const depths = new Map<string, number>();
+
+    const getDepth = (modelName: string, visited: Set<string> = new Set()): number => {
+      if (depths.has(modelName)) {
+        return depths.get(modelName)!;
+      }
+
+      if (visited.has(modelName)) {
+        return 0; // Circular dependency
+      }
+
+      visited.add(modelName);
+      const model = modelMap.get(modelName);
+
+      if (!model || model.dependents.length === 0) {
+        depths.set(modelName, 0);
+        return 0;
+      }
+
+      const maxDepDepth = Math.max(
+        ...model.dependents
+          .filter(dep => modelMap.has(dep.name))
+          .map(dep => getDepth(dep.name, new Set(visited)))
+      );
+
+      const depth = 1 + maxDepDepth;
+      depths.set(modelName, depth);
+      return depth;
+    };
+
+    // Calculate depth for all models
+    for (const model of this.sqlModels) {
+      getDepth(model.name);
+    }
+
+    return depths;
+  }
+
   /**
    * Generate Final SQL for production use
    * - Includes WITH clause composition
