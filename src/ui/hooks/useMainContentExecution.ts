@@ -109,12 +109,16 @@ export function useMainContentExecution(): UseMainContentExecutionReturn {
   ) => {
     try {
       DebugLogger.debug('useMainContentExecution', 'Executing data tab queries');
+      console.log('[DEBUG] executeDataTabQueries called with workspace:', workspace?.name);
+      console.log('[DEBUG] SQL models count:', workspace?.sqlModels?.length);
       
       const results = new Map<string, QueryExecutionResult>();
       
       // Execute queries for each SQL model
       for (const model of workspace.sqlModels) {
         try {
+          console.log('[DEBUG] Processing model:', model.name, 'type:', model.type);
+          
           // Create ExecuteQueryCommand context
           const context = {
             workspace,
@@ -123,15 +127,18 @@ export function useMainContentExecution(): UseMainContentExecutionReturn {
             tabType: model.type as 'main' | 'cte'
           };
           
+          console.log('[DEBUG] Context created, executing command...');
           const command = new ExecuteQueryCommand(context);
           
           const result = await commandExecutor.execute(command);
+          console.log('[DEBUG] Command executed, result:', result);
           
           if (result) {
             // Result is already in core QueryExecutionResult format
             results.set(model.name, result);
           }
         } catch (error) {
+          console.error('[DEBUG] Error executing model:', model.name, error);
           // Create error result for this model
           const errorMessage = error instanceof Error ? error.message : 'Execution failed';
           const errorResult = createErrorResult(
@@ -146,8 +153,10 @@ export function useMainContentExecution(): UseMainContentExecutionReturn {
         }
       }
       
+      console.log('[DEBUG] All models processed, calling onSuccess with results:', results.size);
       onSuccess(results);
     } catch (error) {
+      console.error('[DEBUG] Top-level error in executeDataTabQueries:', error);
       const message = error instanceof Error ? error.message : 'Data tab execution failed';
       onError(message);
     }
