@@ -576,67 +576,15 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
               </div>
             )}
             
-            {/* Monaco Editor and Results Area - Conditional Splitter */}
-            {(state.isExecuting || showDataTabResults || showQueryResults) ? (
-              <ResizableSplitter
-                direction="vertical"
-                initialSizes={[75, 25]}
-                minSizes={[400, 150]}
-                className="flex-1"
-              >
-                {/* Monaco Editor - Resizable top pane */}
-                <div className="bg-dark-primary overflow-hidden">
-                  <MonacoEditor
-                    key="main-editor-unified"
-                    value={state.activeTab.content}
-                    onChange={(value) => {
-                      DebugLogger.debug('MainContentFunctional', `Monaco onChange for tab: ${state.activeTab!.id}, length: ${value.length}`);
-                      state.updateTabContent(state.activeTab!.id, value);
-                    }}
-                    language="sql"
-                    height="100%"
-                    isMainEditor={true}
-                    onKeyDown={handleKeyDown}
-                    workspace={workspace}
-                    searchTerm={searchTerm}
-                    options={{
-                      wordWrap: 'off',
-                      minimap: { enabled: false },
-                      folding: true,
-                    }}
-                  />
-                </div>
-                
-                {/* Results area - Active results */}
-                <div className="border-t border-dark-border-primary overflow-hidden">
-                  {state.isExecuting ? (
-                    // Loading state
-                    <div className="h-full flex items-center justify-center bg-dark-secondary">
-                      <div className="text-center">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary mb-4"></div>
-                        <div className="text-text-secondary">
-                          {state.activeTab.type === 'values' ? 'Executing queries...' : 'Executing query...'}
-                        </div>
-                      </div>
-                    </div>
-                  ) : state.activeTab.type === 'values' && showDataTabResults ? (
-                    // Data tab results
-                    <div className="h-full overflow-y-auto overflow-x-hidden bg-dark-secondary p-4">
-                      <DataTabResults results={state.dataTabResults} />
-                    </div>
-                  ) : state.activeTab.type !== 'values' && showQueryResults ? (
-                    // SQL/CTE tab results
-                    <QueryResults
-                      result={state.activeTab.queryResult || null}
-                      isVisible={true}
-                      onClose={() => state.closeResults()}
-                    />
-                  ) : null}
-                </div>
-              </ResizableSplitter>
-            ) : (
-              // Monaco Editor only - Full height when no results
-              <div className="flex-1 bg-dark-primary overflow-hidden">
+            {/* Monaco Editor and Results Area - Always use splitter for consistent layout */}
+            <ResizableSplitter
+              direction="vertical"
+              initialSizes={[70, 30]}
+              minSizes={[300, 0]}
+              className="flex-1"
+            >
+              {/* Monaco Editor - Always top pane */}
+              <div className="bg-dark-primary overflow-hidden">
                 <MonacoEditor
                   key="main-editor-unified"
                   value={state.activeTab.content}
@@ -657,7 +605,41 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                   }}
                 />
               </div>
-            )}
+              
+              {/* Results area - Always bottom pane, conditionally visible */}
+              <div className={`overflow-hidden ${(state.isExecuting || showDataTabResults || showQueryResults) ? 'border-t border-dark-border-primary' : ''}`}>
+                {(state.isExecuting || showDataTabResults || showQueryResults) ? (
+                  <>
+                    {state.isExecuting ? (
+                      // Loading state
+                      <div className="h-full flex items-center justify-center bg-dark-secondary">
+                        <div className="text-center">
+                          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary mb-4"></div>
+                          <div className="text-text-secondary">
+                            {state.activeTab.type === 'values' ? 'Executing queries...' : 'Executing query...'}
+                          </div>
+                        </div>
+                      </div>
+                    ) : state.activeTab.type === 'values' && showDataTabResults ? (
+                      // Data tab results
+                      <div className="h-full overflow-y-auto overflow-x-hidden bg-dark-secondary p-4">
+                        <DataTabResults results={state.dataTabResults} />
+                      </div>
+                    ) : state.activeTab.type !== 'values' && showQueryResults ? (
+                      // SQL/CTE tab results
+                      <QueryResults
+                        result={state.activeTab.queryResult || null}
+                        isVisible={true}
+                        onClose={() => state.closeResults()}
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  // Hidden results area - takes minimal space
+                  <div className="h-0 bg-dark-secondary opacity-0" />
+                )}
+              </div>
+            </ResizableSplitter>
           </div>
         )}
       </div>
