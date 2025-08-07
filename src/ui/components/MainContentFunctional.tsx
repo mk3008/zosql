@@ -607,7 +607,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
               </div>
               
               {/* Results area - Always bottom pane, conditionally visible */}
-              <div className={`overflow-hidden ${(state.isExecuting || showDataTabResults || showQueryResults) ? 'border-t border-dark-border-primary bg-dark-secondary' : 'bg-dark-primary'}`}>
+              <div className={`overflow-hidden ${(state.isExecuting || showDataTabResults || showQueryResults) ? 'border-t border-dark-border-primary bg-dark-secondary' : 'h-0'}`}>
                 {(state.isExecuting || showDataTabResults || showQueryResults) ? (
                   state.isExecuting ? (
                     // Loading state
