@@ -17,6 +17,7 @@ import { DataTabResults } from './DataTabResults';
 import { MainContentViewModel } from '@ui/viewmodels/main-content-viewmodel';
 import { useMvvmBinding } from '@ui/hooks/useMvvm';
 import { useTabState } from '@ui/hooks/useTabState';
+import { useQueryExecution } from '@ui/hooks/useQueryExecution';
 
 export interface MainContentRef {
   openValuesTab: () => void;
@@ -65,6 +66,9 @@ const MainContentWithHookComponent = forwardRef<MainContentRef, MainContentProps
   
   // Phase 1: Use hook for tab display only
   const tabState = useTabState();
+  
+  // Phase 2: Use hook for execution state
+  const executionState = useQueryExecution();
 
   // Update workspace reference only - use stable ID to prevent infinite updates
   const workspaceId = workspace?.id;
@@ -120,18 +124,27 @@ const MainContentWithHookComponent = forwardRef<MainContentRef, MainContentProps
   // MainContentMvvm should NOT create demo tabs - Layout.tsx handles all initialization
   // Remove fallback demo tab creation to force proper workspace initialization
   
-  // Phase 1: Sync ViewModel tabs with hook (temporary for migration)
+  // Phase 1 & 2: Sync ViewModel with hooks (temporary for migration)
   useEffect(() => {
-    // This is a controlled sync from ViewModel to hook
+    // This is a controlled sync from ViewModel to hooks
     // We still use ViewModel for all operations
     const syncInterval = setInterval(() => {
+      // Sync tabs
       if (vm.tabs.length !== tabState.tabs.length || vm.activeTabId !== tabState.activeTabId) {
         tabState.syncFromViewModel(vm.tabs, vm.activeTabId);
+      }
+      
+      // Sync execution state (Phase 2)
+      if (vm.queryResult !== executionState.queryResult) {
+        executionState.setQueryResult(vm.queryResult);
+      }
+      if (vm.dataTabResults !== executionState.dataTabResults) {
+        executionState.setDataTabResults(vm.dataTabResults);
       }
     }, 100);
     
     return () => clearInterval(syncInterval);
-  }, [vm.tabs, vm.activeTabId, tabState]);
+  }, [vm.tabs, vm.activeTabId, vm.queryResult, vm.dataTabResults, tabState, executionState]);
 
   // Notify parent of active tab changes and scroll to active tab
   useEffect(() => {
@@ -781,7 +794,7 @@ const MainContentWithHookComponent = forwardRef<MainContentRef, MainContentProps
                     })()}
                   </div>
                 </ResizableSplitter>
-              ) : vm.activeTab && vm.activeTab.type === 'values' && vm.dataTabResults.size > 0 ? (
+              ) : tabState.activeTab && tabState.activeTab.type === 'values' && executionState.dataTabResults.size > 0 ? (
                 // Split view for values tab with results
                 <ResizableSplitter
                   direction="vertical"
@@ -827,7 +840,7 @@ const MainContentWithHookComponent = forwardRef<MainContentRef, MainContentProps
                   
                   {/* Data Tab Results - bottom pane with single vertical scroll */}
                   <div className="h-full overflow-y-auto overflow-x-hidden bg-dark-secondary p-4">
-                    <DataTabResults results={vm.dataTabResults} />
+                    <DataTabResults results={executionState.dataTabResults} />
                   </div>
                 </ResizableSplitter>
               ) : (
