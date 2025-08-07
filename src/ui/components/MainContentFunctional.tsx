@@ -66,6 +66,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [useSchemaCollector, setUseSchemaCollector] = useState<boolean>(true); // Default to true
+  const [showErrorDetail, setShowErrorDetail] = useState<string | null>(null); // For error detail modal
   
   // Load workspace tabs when workspace changes
   const workspaceId = workspace?.id;
@@ -510,7 +511,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
               <div className="bg-dark-secondary border-b border-dark-border-primary px-4 py-2">
                 <div className="flex items-center justify-between">
                   {/* Left side - validation errors */}
-                  <div className="flex items-center gap-2 text-sm min-h-[24px] flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-sm min-h-[24px] flex-1 min-w-0 overflow-hidden">
                     {(() => {
                       // Get validation error for current tab
                       if (!workspace || !state.activeTab || (state.activeTab.type !== 'main' && state.activeTab.type !== 'cte')) {
@@ -527,16 +528,28 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                       
                       if (errorMessage.includes('Parse error') || errorMessage.includes('SQL Parse Error:')) {
                         return (
-                          <span className="text-error truncate" title={errorMessage}>
-                            Parse error
+                          <span 
+                            className="text-error cursor-pointer hover:text-red-300 hover:underline flex items-center gap-1" 
+                            onClick={() => setShowErrorDetail(errorMessage)}
+                            title="Click to view full error message"
+                          >
+                            <span>❌</span>
+                            <span className="truncate">Parse error</span>
+                            <span className="text-xs opacity-75">📋</span>
                           </span>
                         );
                       }
                       
                       if (errorMessage.includes('Analysis error')) {
                         return (
-                          <span className="text-error truncate" title={errorMessage}>
-                            Analysis error
+                          <span 
+                            className="text-error cursor-pointer hover:text-red-300 hover:underline flex items-center gap-1" 
+                            onClick={() => setShowErrorDetail(errorMessage)}
+                            title="Click to view full error message"
+                          >
+                            <span>❌</span>
+                            <span className="truncate">Analysis error</span>
+                            <span className="text-xs opacity-75">📋</span>
                           </span>
                         );
                       }
@@ -547,18 +560,27 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                           const columns = unresolvedMatch[1].trim();
                           return (
                             <span 
-                              className="text-error truncate cursor-pointer hover:text-red-300 hover:underline" 
-                              title={`Unresolved columns: ${columns} - Click to search in editor`}
+                              className="text-error cursor-pointer hover:text-red-300 hover:underline flex items-center gap-1" 
+                              onClick={() => setShowErrorDetail(errorMessage)}
+                              title="Click to view full error message and details"
                             >
-                              Unresolved columns: {columns}
+                              <span>❌</span>
+                              <span className="truncate">Unresolved columns: {columns}</span>
+                              <span className="text-xs opacity-75">📋</span>
                             </span>
                           );
                         }
                       }
                       
                       return (
-                        <span className="text-error truncate" title={errorMessage}>
-                          {errorMessage}
+                        <span 
+                          className="text-error cursor-pointer hover:text-red-300 hover:underline flex items-center gap-1" 
+                          onClick={() => setShowErrorDetail(errorMessage)}
+                          title="Click to view full error message"
+                        >
+                          <span>❌</span>
+                          <span className="truncate">{errorMessage.length > 50 ? `${errorMessage.substring(0, 50)}...` : errorMessage}</span>
+                          <span className="text-xs opacity-75">📋</span>
                         </span>
                       );
                     })()}
@@ -712,6 +734,68 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
           </div>
         )}
       </div>
+
+      {/* Error Detail Modal */}
+      {showErrorDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-dark-secondary border border-dark-border-primary rounded-lg max-w-6xl max-h-[90vh] w-full mx-4 flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-dark-border-primary">
+              <h3 className="text-lg font-semibold text-dark-text-white flex items-center gap-2">
+                <span>❌</span>
+                <span>Validation Error Details</span>
+              </h3>
+              <button
+                onClick={() => setShowErrorDetail(null)}
+                className="text-dark-text-secondary hover:text-dark-text-primary text-xl leading-none"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 overflow-auto p-4">
+              <div className="space-y-4">
+                {/* Copy Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(showErrorDetail).then(() => {
+                        showSuccess?.('Error message copied to clipboard');
+                      }).catch(() => {
+                        showError?.('Failed to copy to clipboard');
+                      });
+                    }}
+                    className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors text-sm"
+                    title="Copy error message to clipboard"
+                  >
+                    📋 Copy Error
+                  </button>
+                </div>
+                
+                {/* Error Message */}
+                <div className="bg-dark-primary border border-dark-border-primary rounded p-4 overflow-auto max-h-96">
+                  <pre className="text-sm text-dark-text-primary whitespace-pre-wrap font-mono leading-relaxed break-words overflow-wrap-anywhere min-w-0 w-full">
+                    {showErrorDetail}
+                  </pre>
+                </div>
+                
+                {/* Tips */}
+                <div className="bg-dark-tertiary border border-dark-border-primary rounded p-3">
+                  <h4 className="text-sm font-medium text-dark-text-white mb-2">💡 Troubleshooting Tips:</h4>
+                  <ul className="text-xs text-dark-text-secondary space-y-1">
+                    <li>• Check for syntax errors in your SQL query</li>
+                    <li>• Verify table and column names exist in your schema</li>
+                    <li>• Ensure all CTEs are properly defined before being used</li>
+                    <li>• Run static analysis (Ctrl+Shift+A) to validate all dependencies</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 });

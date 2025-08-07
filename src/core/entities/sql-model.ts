@@ -481,7 +481,7 @@ ${dep.sqlWithoutCte}
         });
         
         // Include the actual SQL in the error message for debugging
-        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
+        const sqlPreview = fullSql;
         const baseErrorMessage = parseResult.error || 'Parse error';
         
         // Use rawsql-ts provided data only
@@ -523,7 +523,7 @@ ${dep.sqlWithoutCte}
         console.log('[DEBUG] Schema analysis failed:', errorMessage);
         
         // Include SQL in schema analysis errors too
-        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
+        const sqlPreview = fullSql;
         return { 
           success: false, 
           error: `Schema Analysis Error: ${errorMessage}\n\nSQL being analyzed:\n${sqlPreview}` 
@@ -536,7 +536,7 @@ ${dep.sqlWithoutCte}
         console.log('[DEBUG] Schema analysis found unresolved columns:', unresolvedList);
         
         // Include SQL in unresolved columns errors too
-        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
+        const sqlPreview = fullSql;
         return {
           success: false,
           error: `Unresolved columns: ${unresolvedList}
@@ -573,7 +573,7 @@ ${sqlPreview}`
           false,     // not for execution
           useEditorContent // use editor content for validation
         );
-        const sqlPreview = fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql;
+        const sqlPreview = fullSql;
         
         return {
           success: false,
@@ -631,7 +631,7 @@ ${sqlPreview}`
             console.log('[DEBUG] Column validation error:', ref.column, 'not found in CTE', ref.table, 'which has columns:', cteColumns);
             return {
               success: false,
-              error: `Column '${ref.column}' does not exist in CTE '${ref.table}'. Available columns: ${cteColumns.join(', ')}\n\nSQL being analyzed:\n${fullSql.length > 200 ? fullSql.substring(0, 200) + '...' : fullSql}`
+              error: `Column '${ref.column}' does not exist in CTE '${ref.table}'. Available columns: ${cteColumns.join(', ')}\n\nSQL being analyzed:\n${fullSql}`
             };
           }
         }
