@@ -74,7 +74,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
       <div className="flex flex-col h-full">
         {/* Single table with sticky header */}
         <div className="flex-1 overflow-auto scrollbar-thin">
-          <table className="text-sm table-auto">
+          <table className="text-sm table-auto w-full">
             <thead className="bg-dark-tertiary sticky top-0 z-10">
               <tr>
                 <th 
@@ -82,16 +82,16 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                 >
                   #
                 </th>
-                {columns.map((column, index) => (
+                {columns.map((column) => (
                   <th 
                     key={column}
-                    className={`px-3 py-1 text-left text-dark-text-white font-medium whitespace-nowrap ${
-                      index < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
-                    }`}
+                    className="px-3 py-1 text-left text-dark-text-white font-medium whitespace-nowrap border-r border-dark-border-primary"
                   >
                     {column}
                   </th>
                 ))}
+                {/* Layout control column - fills remaining width */}
+                <th className="w-full"></th>
               </tr>
             </thead>
             <tbody>
@@ -110,12 +110,10 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                   >
                     {rowIndex + 1}
                   </td>
-                  {columns.map((column, colIndex) => (
+                  {columns.map((column) => (
                     <td 
                       key={column}
-                      className={`px-3 py-1 text-dark-text-primary ${
-                        colIndex < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
-                      }`}
+                      className="px-3 py-1 text-dark-text-primary border-r border-dark-border-primary"
                     >
                       <div className="truncate" title={String(row[column])}>
                         {row[column] === null ? (
@@ -128,6 +126,8 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                       </div>
                     </td>
                   ))}
+                  {/* Layout control column - fills remaining width */}
+                  <td className="w-full"></td>
                 </tr>
               ))}
             </tbody>
