@@ -673,7 +673,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                   className="overflow-auto bg-dark-secondary border-t border-dark-border-primary"
                   style={{
                     height: `${100 - editorHeight}%`,
-                    minHeight: '150px'
+                    minHeight: '250px'
                   }}
                 >
                   {state.isExecuting ? (
