@@ -13,6 +13,7 @@ import { DebugLogger } from '../../utils/debug-logger';
 import { MonacoEditor } from './MonacoEditor';
 import { QueryResults } from './QueryResults';
 import { DataTabResults } from './DataTabResults';
+import { ResizableSplitter } from './ResizableSplitter';
 
 // Import hooks
 import { useMainContentState } from '@ui/hooks/useMainContentState';
@@ -575,34 +576,39 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
               </div>
             )}
             
-            {/* Monaco Editor and Results Area - Fixed simple structure */}
-            <div className="flex-1 flex flex-col overflow-hidden w-full max-w-full">
-              {/* Monaco Editor - Fixed size top area */}
-              <div className="flex-1 bg-dark-primary overflow-hidden">
-                <MonacoEditor
-                  key="main-editor-unified"
-                  value={state.activeTab.content}
-                  onChange={(value) => {
-                    DebugLogger.debug('MainContentFunctional', `Monaco onChange for tab: ${state.activeTab!.id}, length: ${value.length}`);
-                    state.updateTabContent(state.activeTab!.id, value);
-                  }}
-                  language="sql"
-                  height="100%"
-                  isMainEditor={true}
-                  onKeyDown={handleKeyDown}
-                  workspace={workspace}
-                  searchTerm={searchTerm}
-                  options={{
-                    wordWrap: 'off',
-                    minimap: { enabled: false },
-                    folding: true,
-                  }}
-                />
-              </div>
-              
-              {/* Results area - Only show if there are results or loading */}
-              {(state.isExecuting || showDataTabResults || showQueryResults) && (
-                <div className="h-80 border-t border-dark-border-primary overflow-hidden">
+            {/* Monaco Editor and Results Area - Resizable Splitter */}
+            {(state.isExecuting || showDataTabResults || showQueryResults) ? (
+              <ResizableSplitter
+                direction="vertical"
+                initialSizes={[60, 40]}
+                minSizes={[300, 200]}
+                className="flex-1"
+              >
+                {/* Monaco Editor - Resizable top pane */}
+                <div className="bg-dark-primary overflow-hidden">
+                  <MonacoEditor
+                    key="main-editor-unified"
+                    value={state.activeTab.content}
+                    onChange={(value) => {
+                      DebugLogger.debug('MainContentFunctional', `Monaco onChange for tab: ${state.activeTab!.id}, length: ${value.length}`);
+                      state.updateTabContent(state.activeTab!.id, value);
+                    }}
+                    language="sql"
+                    height="100%"
+                    isMainEditor={true}
+                    onKeyDown={handleKeyDown}
+                    workspace={workspace}
+                    searchTerm={searchTerm}
+                    options={{
+                      wordWrap: 'off',
+                      minimap: { enabled: false },
+                      folding: true,
+                    }}
+                  />
+                </div>
+                
+                {/* Results area - Resizable bottom pane */}
+                <div className="border-t border-dark-border-primary overflow-hidden">
                   {state.isExecuting ? (
                     // Loading state
                     <div className="h-full flex items-center justify-center bg-dark-secondary">
@@ -627,8 +633,31 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                     />
                   ) : null}
                 </div>
-              )}
-            </div>
+              </ResizableSplitter>
+            ) : (
+              // Editor only - No results to show
+              <div className="flex-1 bg-dark-primary overflow-hidden">
+                <MonacoEditor
+                  key="main-editor-unified"
+                  value={state.activeTab.content}
+                  onChange={(value) => {
+                    DebugLogger.debug('MainContentFunctional', `Monaco onChange for tab: ${state.activeTab!.id}, length: ${value.length}`);
+                    state.updateTabContent(state.activeTab!.id, value);
+                  }}
+                  language="sql"
+                  height="100%"
+                  isMainEditor={true}
+                  onKeyDown={handleKeyDown}
+                  workspace={workspace}
+                  searchTerm={searchTerm}
+                  options={{
+                    wordWrap: 'off',
+                    minimap: { enabled: false },
+                    folding: true,
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

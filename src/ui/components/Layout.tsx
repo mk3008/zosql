@@ -9,6 +9,7 @@ import { LeftSidebar } from './LeftSidebar';
 // Phase 3: Use MainContentFunctional (complete functional implementation)
 import { MainContentFunctional as MainContent, MainContentRef as MainContentHandle } from './MainContentFunctional';
 import { RightSidebar } from './RightSidebar';
+import { ResizableSplitter } from './ResizableSplitter';
 import { Toast } from './Toast';
 import { ErrorPanel } from './ErrorPanel';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
@@ -463,63 +464,188 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
         currentWorkspace={currentWorkspace}
       />
       
-      {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
-        {leftSidebarVisible && (
-          <LeftSidebar 
-            key={leftSidebarKey} // Force re-render when static analysis completes
-            onOpenValuesTab={() => {
-              DebugLogger.debug('Layout', 'onOpenValuesTab called');
-              DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
-              // Update states synchronously to prevent flicker
-              setActiveTabId('values');
-              // Keep selectedModelName as is - don't clear it to avoid flicker
-              DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
-              // Open values tab in MainContent
-              if (mainContentRef.current) {
-                mainContentRef.current.openValuesTab();
-              }
-            }} 
-            sqlModels={currentWorkspace?.sqlModels || []}
-            onModelClick={handleModelClick}
-            selectedModelName={selectedModelName}
-            onDecomposeQuery={handleDecomposeQuery}
-            isDecomposing={isDecomposing}
-            workspace={currentWorkspace}
-            activeTabId={activeTabId}
-            showErrorWithDetails={addError}
-            showSuccess={showSuccess}
-            mainContentRef={mainContentRef}
-          />
-        )}
-        
-        {/* Main Content Area */}
-        <MainContent 
-          ref={mainContentRef}
-          workspace={currentWorkspace}
-          onActiveTabChange={(tabId) => {
-            setActiveTabId(tabId);
-            // Update selectedModelName if it's a SQL model tab
-            if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
-              setSelectedModelName(tabId);
-            }
-          }}
-          showSuccess={showSuccess}
-          showError={showError}
-          showErrorWithDetails={addError}
-          onAnalysisUpdated={() => {
-            // Force re-render of LeftSidebar when static analysis completes
-            // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
-          }}
-        />
-        
-        {/* Right Sidebar */}
-        {rightSidebarVisible && (
-          <RightSidebar 
-            lastExecutedSql={lastExecutedSql}
-            workspace={currentWorkspace}
-          />
+      {/* Main Container - Resizable Layout */}
+      <div className="flex-1 overflow-hidden">
+        {leftSidebarVisible && rightSidebarVisible ? (
+          // Three-panel layout with both sidebars (nested splitters)
+          <ResizableSplitter
+            direction="horizontal"
+            initialSizes={[25, 75]}
+            minSizes={[250, 650]}
+            className="h-full"
+          >
+            {/* Left Sidebar */}
+            <LeftSidebar 
+              key={leftSidebarKey} // Force re-render when static analysis completes
+              onOpenValuesTab={() => {
+                DebugLogger.debug('Layout', 'onOpenValuesTab called');
+                DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
+                // Update states synchronously to prevent flicker
+                setActiveTabId('values');
+                // Keep selectedModelName as is - don't clear it to avoid flicker
+                DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
+                // Open values tab in MainContent
+                if (mainContentRef.current) {
+                  mainContentRef.current.openValuesTab();
+                }
+              }} 
+              sqlModels={currentWorkspace?.sqlModels || []}
+              onModelClick={handleModelClick}
+              selectedModelName={selectedModelName}
+              onDecomposeQuery={handleDecomposeQuery}
+              isDecomposing={isDecomposing}
+              workspace={currentWorkspace}
+              activeTabId={activeTabId}
+              showErrorWithDetails={addError}
+              showSuccess={showSuccess}
+              mainContentRef={mainContentRef}
+            />
+            
+            {/* Main Content and Right Sidebar in nested splitter */}
+            <ResizableSplitter
+              direction="horizontal"
+              initialSizes={[75, 25]}
+              minSizes={[400, 250]}
+              className="h-full"
+            >
+              {/* Main Content Area */}
+              <MainContent 
+                ref={mainContentRef}
+                workspace={currentWorkspace}
+                onActiveTabChange={(tabId) => {
+                  setActiveTabId(tabId);
+                  // Update selectedModelName if it's a SQL model tab
+                  if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
+                    setSelectedModelName(tabId);
+                  }
+                }}
+                showSuccess={showSuccess}
+                showError={showError}
+                showErrorWithDetails={addError}
+                onAnalysisUpdated={() => {
+                  // Force re-render of LeftSidebar when static analysis completes
+                  // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
+                }}
+              />
+              
+              {/* Right Sidebar */}
+              <RightSidebar 
+                lastExecutedSql={lastExecutedSql}
+                workspace={currentWorkspace}
+              />
+            </ResizableSplitter>
+          </ResizableSplitter>
+        ) : leftSidebarVisible ? (
+          // Two-panel layout with only left sidebar
+          <ResizableSplitter
+            direction="horizontal"
+            initialSizes={[25, 75]}
+            minSizes={[250, 400]}
+            className="h-full"
+          >
+            {/* Left Sidebar */}
+            <LeftSidebar 
+              key={leftSidebarKey} // Force re-render when static analysis completes
+              onOpenValuesTab={() => {
+                DebugLogger.debug('Layout', 'onOpenValuesTab called');
+                DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
+                // Update states synchronously to prevent flicker
+                setActiveTabId('values');
+                // Keep selectedModelName as is - don't clear it to avoid flicker
+                DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
+                // Open values tab in MainContent
+                if (mainContentRef.current) {
+                  mainContentRef.current.openValuesTab();
+                }
+              }} 
+              sqlModels={currentWorkspace?.sqlModels || []}
+              onModelClick={handleModelClick}
+              selectedModelName={selectedModelName}
+              onDecomposeQuery={handleDecomposeQuery}
+              isDecomposing={isDecomposing}
+              workspace={currentWorkspace}
+              activeTabId={activeTabId}
+              showErrorWithDetails={addError}
+              showSuccess={showSuccess}
+              mainContentRef={mainContentRef}
+            />
+            
+            {/* Main Content Area */}
+            <MainContent 
+              ref={mainContentRef}
+              workspace={currentWorkspace}
+              onActiveTabChange={(tabId) => {
+                setActiveTabId(tabId);
+                // Update selectedModelName if it's a SQL model tab
+                if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
+                  setSelectedModelName(tabId);
+                }
+              }}
+              showSuccess={showSuccess}
+              showError={showError}
+              showErrorWithDetails={addError}
+              onAnalysisUpdated={() => {
+                // Force re-render of LeftSidebar when static analysis completes
+                // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
+              }}
+            />
+          </ResizableSplitter>
+        ) : rightSidebarVisible ? (
+          // Two-panel layout with only right sidebar
+          <ResizableSplitter
+            direction="horizontal"
+            initialSizes={[75, 25]}
+            minSizes={[400, 250]}
+            className="h-full"
+          >
+            {/* Main Content Area */}
+            <MainContent 
+              ref={mainContentRef}
+              workspace={currentWorkspace}
+              onActiveTabChange={(tabId) => {
+                setActiveTabId(tabId);
+                // Update selectedModelName if it's a SQL model tab
+                if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
+                  setSelectedModelName(tabId);
+                }
+              }}
+              showSuccess={showSuccess}
+              showError={showError}
+              showErrorWithDetails={addError}
+              onAnalysisUpdated={() => {
+                // Force re-render of LeftSidebar when static analysis completes
+                // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
+              }}
+            />
+            
+            {/* Right Sidebar */}
+            <RightSidebar 
+              lastExecutedSql={lastExecutedSql}
+              workspace={currentWorkspace}
+            />
+          </ResizableSplitter>
+        ) : (
+          // Single panel - only main content
+          <div className="h-full flex">
+            <MainContent 
+              ref={mainContentRef}
+              workspace={currentWorkspace}
+              onActiveTabChange={(tabId) => {
+                setActiveTabId(tabId);
+                // Update selectedModelName if it's a SQL model tab
+                if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
+                  setSelectedModelName(tabId);
+                }
+              }}
+              showSuccess={showSuccess}
+              showError={showError}
+              showErrorWithDetails={addError}
+              onAnalysisUpdated={() => {
+                // Force re-render of LeftSidebar when static analysis completes
+                // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
+              }}
+            />
+          </div>
         )}
       </div>
       
