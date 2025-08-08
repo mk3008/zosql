@@ -75,10 +75,9 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
 
     
     return (
-      <div className="flex flex-col h-full">
+      <div className="h-full overflow-auto scrollbar-thin">
         {/* Single table with sticky header */}
-        <div className="flex-1 overflow-auto scrollbar-thin">
-          <table className="text-sm table-auto w-full">
+        <table className="text-sm table-auto w-full">
             <thead className="bg-dark-tertiary sticky top-0 z-10">
               <tr>
                 <th 
@@ -119,7 +118,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                   }}
                 >
                   <td 
-                    className="px-2 py-1 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap sticky left-0 z-10"
+                    className="px-2 py-1 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap sticky left-0"
                     style={{ 
                       backgroundColor: selectedRowIndex === rowIndex 
                         ? 'rgba(37, 99, 235, 0.3)' 
@@ -160,7 +159,8 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
               ))}
             </tbody>
           </table>
-        </div>
+          {/* Bottom padding to ensure last row is visible */}
+          <div style={{ height: '80px' }}></div>
       </div>
     );
   };

@@ -69,7 +69,7 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
     
     return (
-      <div className="overflow-x-auto overflow-y-visible scrollbar-thin">
+      <div className="overflow-auto scrollbar-thin" style={{ maxHeight: '400px' }}>
         <table className="text-sm table-auto w-full">
           <thead className="bg-dark-tertiary sticky top-0 z-10">
             <tr>
