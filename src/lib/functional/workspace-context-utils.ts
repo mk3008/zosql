@@ -5,7 +5,7 @@
 
 import * as Option from './option.js';
 import * as Result from './result.js';
-import type { WorkspaceModel } from '../../types/WorkspaceModel.js';
+import type { WorkspaceEntity } from '@shared/types';
 
 /**
  * Workspace loading states
@@ -13,7 +13,7 @@ import type { WorkspaceModel } from '../../types/WorkspaceModel.js';
 export type WorkspaceLoadingState = 
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'loaded'; workspace: WorkspaceModel }
+  | { status: 'loaded'; workspace: WorkspaceEntity }
   | { status: 'error'; error: string };
 
 /**
@@ -43,7 +43,7 @@ export const WorkspaceContextUtils = {
   /**
    * Create loaded state
    */
-  createLoadedState: (workspace: WorkspaceModel): WorkspaceLoadingState => ({
+  createLoadedState: (workspace: WorkspaceEntity): WorkspaceLoadingState => ({
     status: 'loaded',
     workspace
   }),
@@ -59,7 +59,7 @@ export const WorkspaceContextUtils = {
   /**
    * Check if workspace is loaded
    */
-  isLoaded: (state: WorkspaceLoadingState): state is { status: 'loaded'; workspace: WorkspaceModel } =>
+  isLoaded: (state: WorkspaceLoadingState): state is { status: 'loaded'; workspace: WorkspaceEntity } =>
     state.status === 'loaded',
 
   /**
@@ -77,7 +77,7 @@ export const WorkspaceContextUtils = {
   /**
    * Get workspace from state
    */
-  getWorkspace: (state: WorkspaceLoadingState): Option.Option<WorkspaceModel> =>
+  getWorkspace: (state: WorkspaceLoadingState): Option.Option<WorkspaceEntity> =>
     WorkspaceContextUtils.isLoaded(state) ? Option.some(state.workspace) : Option.none,
 
   /**
@@ -103,12 +103,12 @@ export const WorkspaceContextUtils = {
   /**
    * Validate workspace model
    */
-  validateWorkspace: (workspace: unknown): Result.Result<WorkspaceModel, string> => {
+  validateWorkspace: (workspace: unknown): Result.Result<WorkspaceEntity, string> => {
     if (!workspace || typeof workspace !== 'object') {
       return Result.err('Workspace must be an object');
     }
 
-    const ws = workspace as Partial<WorkspaceModel>;
+    const ws = workspace as Partial<WorkspaceEntity>;
     if (!ws.id || typeof ws.id !== 'string') {
       return Result.err('Workspace must have a valid id');
     }
@@ -117,15 +117,15 @@ export const WorkspaceContextUtils = {
       return Result.err('Workspace must have a valid name');
     }
 
-    return Result.ok(workspace as WorkspaceModel);
+    return Result.ok(workspace as WorkspaceEntity);
   },
 
   /**
    * Safe workspace loader
    */
   safeLoadWorkspace: async (
-    loader: () => Promise<WorkspaceModel>
-  ): Promise<Result.Result<WorkspaceModel, string>> => {
+    loader: () => Promise<WorkspaceEntity>
+  ): Promise<Result.Result<WorkspaceEntity, string>> => {
     try {
       const workspace = await loader();
       return WorkspaceContextUtils.validateWorkspace(workspace);

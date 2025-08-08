@@ -93,7 +93,7 @@ export interface UseSqlFormatterReturn {
   readonly formatOptions: SqlFormatOptions;
   
   // Actions
-  readonly formatSql: (sql: string, options?: Partial<SqlFormatOptions>) => Promise<FormatResult>;
+  readonly formatSql: (sql: string, _options?: Partial<SqlFormatOptions>) => Promise<FormatResult>;
   readonly setFormatOptions: (options: Partial<SqlFormatOptions>) => void;
   readonly resetOptions: () => void;
   readonly clearResult: () => void;
@@ -116,14 +116,14 @@ export const useSqlFormatter = (
   // Format SQL with current options
   const formatSql = useCallback(async (
     sql: string, 
-    options?: Partial<SqlFormatOptions>
+    _options?: Partial<SqlFormatOptions>
   ): Promise<FormatResult> => {
-    const effectiveOptions = { ...formatOptions, ...options };
+    
     
     setIsFormatting(true);
     
     try {
-      const result = await formatSqlQuery(sql, effectiveOptions);
+      const result = await formatSqlQuery(sql);
       setLastFormatResult(result);
       return result;
     } finally {

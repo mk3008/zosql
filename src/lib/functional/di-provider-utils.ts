@@ -3,23 +3,22 @@
  * Extracted for React Fast Refresh compatibility
  */
 
-import type { Container } from '../../core/di/Container.js';
-import type { SqlExecutor } from '../../core/interfaces/SqlExecutor.js';
-import type { WorkspaceRepository } from '../../core/interfaces/WorkspaceRepository.js';
-import type { TabModelMap } from '../../types/TabModel.js';
+import type { DIContainer } from '../../core/di/container.js';
+import type { SqlExecutorPort } from '../../core/ports/sql-executor-port.js';
+import type { WorkspaceRepositoryPort } from '../../core/ports/workspace-repository-port.js';
 
 /**
  * Type definitions for DI Provider utilities
  */
 export interface DIBootstrapConfig {
-  container: Container;
+  container: DIContainer;
   options: Record<string, unknown>;
 }
 
 export interface DIProviderHelpers {
-  sqlExecutor: SqlExecutor | null;
-  workspaceRepository: WorkspaceRepository | null;
-  tabModelMap: TabModelMap | null;
+  sqlExecutor: SqlExecutorPort | null;
+  workspaceRepository: WorkspaceRepositoryPort | null;
+  tabModelMap: Record<string, unknown> | null;
 }
 
 /**
@@ -32,42 +31,25 @@ export const createDIProviderHelpers = (): DIProviderHelpers => ({
 });
 
 /**
- * Bootstrap DI container with error handling
+ * Extract services from DI container
  */
-export const bootstrapContainer = async (
-  container: Container,
-  options: Record<string, unknown>
-): Promise<void> => {
-  try {
-    // Perform container bootstrap operations
-    await container.bootstrap?.(options);
-  } catch (error) {
-    console.error('DI container bootstrap failed:', error);
-    throw error;
+export const extractServicesFromContainer = (container: DIContainer | null): DIProviderHelpers => {
+  if (!container) {
+    return createDIProviderHelpers();
   }
+
+  return {
+    sqlExecutor: container.sqlExecutor || null,
+    workspaceRepository: container.workspaceRepository || null,
+    tabModelMap: null
+  };
 };
 
 /**
- * Safely resolve service from container
+ * Check if container has required services
  */
-export const safeResolve = <T>(
-  container: Container | null,
-  serviceKey: string
-): T | null => {
-  try {
-    if (!container) return null;
-    return container.resolve<T>(serviceKey);
-  } catch (error) {
-    console.error(`Failed to resolve service '${serviceKey}':`, error);
-    return null;
-  }
-};
-
-/**
- * Check if container is ready for use
- */
-export const isContainerReady = (container: Container | null): boolean => {
-  return container !== null && typeof container.resolve === 'function';
+export const isDIContainerReady = (container: DIContainer | null): boolean => {
+  return container !== null && !!container.sqlExecutor && !!container.workspaceRepository;
 };
 
 /**
@@ -75,7 +57,7 @@ export const isContainerReady = (container: Container | null): boolean => {
  */
 export const DIProviderErrors = {
   containerNotFound: (serviceKey: string) => 
-    new Error(`Container not available when resolving ${serviceKey}`),
+    new Error(`DIContainer not available when resolving ${serviceKey}`),
     
   serviceNotFound: (serviceKey: string) =>
     new Error(`Service '${serviceKey}' not found in container`),
