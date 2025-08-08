@@ -54,9 +54,9 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
   const [selectedModelName, setSelectedModelName] = useState<string>();
   const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceEntity | null>(null);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(false);
-  const [lastExecutedSql, _setLastExecutedSql] = useState<string>('');
+  const [lastExecutedSql] = useState<string>('');
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [leftSidebarKey, _setLeftSidebarKey] = useState(0); // Force re-render key
+  const [leftSidebarKey] = useState(0); // Force re-render key
   const hasLoadedWorkspace = useRef(false);
   const mainContentRef = useRef<MainContentHandle>(null);
   

@@ -37,7 +37,7 @@ const formatExecutionTime = (startTime: number): number =>
   Date.now() - startTime;
 
 // SQL formatting service function (pure)
-const formatSqlQuery = async (sql: string, _options: SqlFormatOptions): Promise<FormatResult> => {
+const formatSqlQuery = async (sql: string): Promise<FormatResult> => {
   const startTime = Date.now();
   
   if (!validateSqlForFormatting(sql)) {
@@ -51,7 +51,7 @@ const formatSqlQuery = async (sql: string, _options: SqlFormatOptions): Promise<
   try {
     // Dynamic import to avoid dependencies
     // FormatQueryCommand removed - functionality moved to functional services
-    const { SqlFormatterEntity: _SqlFormatterEntity } = await import('@core/entities/sql-formatter');
+    await import('@core/entities/sql-formatter');
     
     // Create formatter with options (currently unused in functional implementation)
     // const formatterOptions = {

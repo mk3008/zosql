@@ -41,7 +41,7 @@ export function useCommands({
   commandContextRef.current = { workspace, tabModelMap, activeTab };
   
   const executeQuery = useCallback(async () => {
-    const { workspace: _workspace, tabModelMap: _tabModelMap, activeTab } = commandContextRef.current;
+    const { activeTab } = commandContextRef.current;
     
     if (!activeTab || !activeTab.content.trim()) {
       setLastError('No query to execute');

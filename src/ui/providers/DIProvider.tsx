@@ -174,7 +174,7 @@ interface MyComponentProps extends Record<string, unknown> {
 const MyComponent: React.FC<MyComponentProps & {
   workspaceRepository: DIContainer['workspaceRepository'];
   sqlExecutor: DIContainer['sqlExecutor'];
-}> = ({ title, workspaceRepository: _workspaceRepository, sqlExecutor: _sqlExecutor }) => {
+}> = ({ title }) => {
   // Component has access to injected services
   return <div>{title}</div>;
 };

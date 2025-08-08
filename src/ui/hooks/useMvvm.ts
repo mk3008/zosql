@@ -17,7 +17,7 @@ export function useMvvmBinding<T extends BaseViewModel>(viewModel: T): T {
 
   useEffect(() => {
     // Subscribe to ViewModel changes
-    unsubscribeRef.current = viewModel.subscribe((_propertyName, _value) => {
+    unsubscribeRef.current = viewModel.subscribe(() => {
       // Force React re-render when ViewModel properties change
       forceUpdate({});
     });
@@ -40,8 +40,7 @@ export function useMvvmBinding<T extends BaseViewModel>(viewModel: T): T {
  * @returns The ViewModel instance
  */
 export function useViewModel<T extends BaseViewModel>(
-  ViewModelClass: new (...args: unknown[]) => T,
-  _deps: unknown[] = []
+  ViewModelClass: new (...args: unknown[]) => T
 ): T {
   const viewModelRef = useRef<T | null>(null);
 

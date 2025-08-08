@@ -769,7 +769,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   direction="vertical"
                   initialSizes={[20, 80]} // Start with 20% editor, 80% results for maximum grid space
                   minSizes={[40, 150]} // Minimum 40px for collapsed editor header, 150px for results
-                  onResize={(_sizes) => {
+                  onResize={() => {
                     // Optional: save splitter state if needed
                   }}
                   className="h-full"
