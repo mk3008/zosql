@@ -151,3 +151,8 @@ vite.config.ts.timestamp-*
 
 # GitHub Pages build output
 /docs/
+
+# Claude Code conversation logs (contains sensitive conversation data)
+.claude/conversation_logs/
+*.transcript.json
+*.conversation.log

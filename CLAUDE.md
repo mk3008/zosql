@@ -2,6 +2,9 @@
 
 This file serves as an agent directory for Claude Code when working with this repository. Choose the appropriate main agent based on your development task.
 
+## 作業履歴の自動記録
+@.claude/work-history.md
+
 ## Project Structure
 - **Agents**: `.claude/agents/` - Agent implementation files
 - **Rules**: `rules/` - Development rules and guidelines  
@@ -38,6 +41,16 @@ This file serves as an agent directory for Claude Code when working with this re
 **Purpose**: Documentation and rule management specialist  
 **Use for**: Organizing project documentation, optimizing rules, cleaning up guidelines  
 **What it does**: Optimizes project documentation for AI comprehension by organizing, consolidating, and streamlining rules and guidelines.
+
+### 💡 claude-code-expert
+**Purpose**: Claude Code features and workflow optimization specialist  
+**Use for**: Tool selection, workflow optimization, troubleshooting, best practices  
+**What it does**: Provides expert guidance on Claude Code capabilities, maintains up-to-date knowledge from official documentation, and helps design efficient multi-tool workflows.
+
+### 🔍 retrospective-analyzer
+**Purpose**: Automatic work history recording and retrospective analysis  
+**Use for**: Session recording, pattern analysis, continuous improvement  
+**What it does**: Automatically records work activities, decisions, and outcomes using Claude Code's Memory feature. Provides retrospective analysis for identifying patterns, recurring issues, and improvement opportunities. Operates with zero configuration - simply use the agent to begin automatic recording.
 
 ---
 

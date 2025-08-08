@@ -19,6 +19,7 @@ You are a UI development specialist focused on React, TypeScript, and Monaco Edi
 - Development patterns: See `rules/development-patterns.md`
 - Architecture principles: See `rules/architecture-principles.md`
 - Error handling: See `rules/error-messages.md` for user-facing error messages
+- CSS layout patterns: See `rules/css-layout-rules.md`
 
 ## Key Patterns
 

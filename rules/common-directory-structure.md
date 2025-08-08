@@ -1,72 +1,43 @@
-# Common Directory Structure
+# Directory Structure Rules
 
-Standard directory structure for zosql TypeScript projects.
+## Follow Standard Layer-Based Directory Structure
+**Why**: Consistent structure makes navigation easier and enforces architectural boundaries between layers.
 
-## Standard Project Layout
-
+**How**:
 ```
 src/
-├── core/                    # Domain Layer (Business Logic)
-│   ├── entities/           # Domain entities (<200 lines/file)
-│   ├── usecases/          # Business use cases (<300 lines/file)
-│   ├── commands/          # Command pattern implementations
-│   ├── services/          # Domain services
-│   └── ports/             # Interfaces for external dependencies
-├── adapters/              # Infrastructure Layer
-│   ├── storage/          # LocalStorage implementations
-│   ├── sql/              # PGlite SQL executor
-│   ├── parsers/          # rawsql-ts integration
-│   └── repositories/     # Data access implementations
-├── ui/                   # Presentation Layer
-│   ├── components/       # React components (<200 lines/file)
-│   ├── hooks/           # Custom hooks (<150 lines/file)
-│   ├── viewmodels/      # MVVM ViewModels
-│   └── context/         # React Context providers
-├── shared/              # Shared utilities and types
-│   ├── types/          # Shared type definitions
-│   └── utils/          # Helper functions
-└── di/                 # Dependency Injection
-    └── container.ts    # DI container configuration
-```
-
-## zosql-Specific Structure
-
-```
-src/
+├── api/                   # HTTP endpoints
 ├── core/
-│   ├── entities/
-│   │   ├── workspace.ts           # Workspace entity
-│   │   ├── sql-query.ts          # SQL query representations
-│   │   └── filter-conditions.ts  # Query filtering logic  
-│   ├── usecases/
-│   │   ├── sql-decomposer-usecase.ts  # CTE decomposition
-│   │   └── sql-composer-usecase.ts    # SQL composition
-│   └── commands/
-│       ├── execute-query-command.ts   # Query execution
-│       └── format-sql-command.ts      # SQL formatting
-├── adapters/
-│   ├── sql/
-│   │   └── pglite-executor.ts     # PGlite integration
-│   └── parsers/
-│       └── rawsql-adapter.ts      # rawsql-ts integration
-└── ui/
-    ├── components/
-    │   ├── sql-editor/             # Monaco Editor integration
-    │   └── workspace-panel/        # Workspace management
-    └── viewmodels/
-        ├── sql-editor-viewmodel.ts     # Editor logic
-        └── workspace-viewmodel.ts      # Workspace logic
+│   ├── services/         # PRIMARY - Pure business functions
+│   ├── entities/         # Domain models
+│   ├── usecases/         # Complex workflows
+│   └── di/               # Dependency injection
+├── adapters/             # External integrations
+├── ui/                   # React components
+└── shared/               # Cross-layer utilities
 ```
 
-## Layer Responsibilities
+### Place Business Logic in Services Layer
+**Why**: Services layer using pure functions creates testable, maintainable business logic separated from infrastructure concerns.
+**How**: 
+- `src/core/services/` - Primary business logic
+- `src/core/entities/` - Domain models  
+- `src/core/usecases/` - Complex workflows
 
-- **Core Layer**: Business logic, entities, use cases (no external dependencies)
-- **Adapters Layer**: External integrations, data persistence, API calls
-- **UI Layer**: React components, ViewModels, user interaction
-- **Shared Layer**: Common utilities, types, helper functions
+### Separate Infrastructure from Core Logic  
+**Why**: External dependencies in adapters layer prevents vendor lock-in and enables easy testing.
+**How**:
+- `src/adapters/sql/` - Database integrations
+- `src/adapters/storage/` - File system operations
+- `src/adapters/parsers/` - External library integrations
 
-## File Size Guidelines
+### Keep UI Layer Minimal
+**Why**: Thin UI layer with Context providers keeps business logic out of components.
+**How**:
+- `src/ui/components/` - Pure React components
+- `src/ui/context/` - State management
+- `src/ui/hooks/` - UI-specific logic
 
-- **Recommended**: 500 lines per file
-- **Maximum**: 1000 lines per file (excluding comments)
-- Split files by responsibility when exceeding limits
+### Limit File Size to 500 Lines
+**Why**: Smaller files are easier to understand, test, and maintain. Forces single responsibility.
+**How**: Split files when exceeding 500 lines by extracting related functions or components.

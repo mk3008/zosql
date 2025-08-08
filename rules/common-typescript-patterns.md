@@ -42,14 +42,5 @@ interface Repository<TEntity extends BaseEntity> {
 type CreateUserData = Omit<User, 'id' | 'createdAt'>;
 type UpdateUserData = Partial<Pick<User, 'name' | 'email'>>;
 
-// Result pattern for error handling
-export type Result<T, E = Error> = Success<T> | Failure<E>;
-export class Success<T> {
-  constructor(public readonly value: T) {}
-  isSuccess(): this is Success<T> { return true; }
-}
-export class Failure<E> {
-  constructor(public readonly error: E) {}
-  isFailure(): this is Failure<E> { return true; }
-}
+// Result pattern: See rules/architecture-principles.md for error handling patterns
 ```
