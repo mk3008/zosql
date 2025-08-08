@@ -27,6 +27,7 @@ You are a quality assurance reporter with SINGLE RESPONSIBILITY: analyze code qu
 - **hexagonal-dependency-check**: Architecture layer violations
 - **file-operation-safety-check**: File system operations without try-catch
 - **comment-language-check**: Non-English comments in code
+- **e2e-test-agent**: End-to-End testing and regression prevention
 
 ### Future Sub-Agents (Not Yet Implemented)
 - typescript-strict-check, eslint-warning-check, import-dependency-check

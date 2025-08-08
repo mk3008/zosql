@@ -52,6 +52,16 @@ This file serves as an agent directory for Claude Code when working with this re
 **Use for**: Session recording, pattern analysis, continuous improvement  
 **What it does**: Automatically records work activities, decisions, and outcomes using Claude Code's Memory feature. Provides retrospective analysis for identifying patterns, recurring issues, and improvement opportunities. Operates with zero configuration - simply use the agent to begin automatic recording.
 
+### 🎭 e2e-test-agent
+**Purpose**: End-to-End testing and regression prevention specialist  
+**Use for**: Playwright E2E tests, regression scenarios, UI interaction validation  
+**What it does**: Creates and maintains E2E tests using Playwright, focuses on preventing regressions, validates critical user flows, and handles browser automation troubleshooting.
+
+### 🎬 playwright-export-agent
+**Purpose**: Playwright test recording and export functionality specialist  
+**Use for**: Test recording via codegen, automated test generation, export management  
+**What it does**: Records user interactions to generate test code, optimizes exported tests for maintainability, manages test artifacts and reports, and maintains export configurations.
+
 ---
 
 **How to Choose**: Start with **dev-orchestrator** for most development tasks - it will automatically route you to the right specialist. Use specific agents directly when you have focused needs in their domain.
