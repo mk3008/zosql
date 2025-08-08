@@ -8,6 +8,8 @@ import { CTEDecomposer } from '../utils/cte-decomposer.js';
 import { WorkspaceStorageInterface, WorkspaceInfo, PrivateCte } from '../storage/workspace-storage-interface.js';
 import { FilesystemWorkspaceStorage } from '../storage/filesystem-workspace-storage.js';
 import { LocalStorageWorkspaceStorage } from '../storage/localstorage-workspace-storage.js';
+import { pipe } from '../lib/functional/index.js';
+import * as Result from '../lib/functional/result.js';
 
 interface FormatterConfig {
   indentSize: number;
@@ -615,3 +617,412 @@ ${formattedQuery}`;
   }
 
 }
+
+// ===== NEW FUNCTIONAL VERSIONS - BACKWARD COMPATIBLE =====
+
+/**
+ * Functional version: Load formatter configuration
+ * Returns Result type for explicit error handling
+ */
+export const loadFormatterConfigFunc = async (): Promise<Result.Result<FormatterConfig, Error>> => {
+  return Result.asyncTryCatch(async () => {
+    const formatterConfigPath = path.join(process.cwd(), 'zosql.formatter.json');
+    const fsSync = await import('fs');
+    
+    if (fsSync.default.existsSync(formatterConfigPath)) {
+      const configContent = await fs.readFile(formatterConfigPath, 'utf8');
+      return JSON.parse(configContent);
+    } else {
+      return getDefaultFormatterConfigFunc();
+    }
+  });
+};
+
+/**
+ * Functional version: Get default formatter configuration
+ * Pure function returning default formatter config
+ */
+export const getDefaultFormatterConfigFunc = (): FormatterConfig => {
+  return {
+    identifierEscape: {
+      start: "",
+      end: ""
+    },
+    parameterSymbol: ":",
+    parameterStyle: "named",
+    indentSize: 4,
+    indentChar: " ",
+    newline: "\n",
+    keywordCase: "lower",
+    commaBreak: "before",
+    andBreak: "before",
+    withClauseStyle: "full-oneline",
+    preserveComments: true
+  };
+};
+
+/**
+ * Functional version: Parse CTE metadata from content
+ * Pure function for extracting CTE information from file content
+ */
+export const parseCTEMetadataFunc = (content: string, fileName: string): PrivateCte => {
+  const nameMatch = content.match(/\/\* name: (.*?) \*\//);
+  const descMatch = content.match(/\/\* description: (.*?) \*\//);
+  const depsMatch = content.match(/\/\* dependencies: (.*?) \*\//);
+  
+  const fullQuery = content.replace(/\/\*[\s\S]*?\*\/\s*/g, '').trim();
+  const cteName = nameMatch ? nameMatch[1] : path.basename(fileName, '.sql');
+  
+  let dependencies: string[] = [];
+  if (depsMatch) {
+    try {
+      dependencies = JSON.parse(depsMatch[1]);
+    } catch {
+      dependencies = [];
+    }
+  }
+  
+  return {
+    name: cteName,
+    query: fullQuery,
+    description: descMatch ? descMatch[1] : '',
+    dependencies,
+    columns: []
+  };
+};
+
+/**
+ * Functional version: Transform CTEs to composed format
+ * Pure function for converting PrivateCte to composer format
+ */
+export const transformCTEsToComposerFormatFunc = (privateCtes: Record<string, PrivateCte>): Array<{ name: string; query: string }> => {
+  return pipe(
+    Object.values(privateCtes),
+    (ctes: PrivateCte[]) => ctes.map((cte: PrivateCte) => ({
+      name: cte.name,
+      query: cte.query
+    }))
+  );
+};
+
+/**
+ * Functional version: Load private CTEs from directory
+ * Returns Result with loaded CTEs or error
+ */
+export const loadPrivateCTEsFunc = async (privateCteDir: string): Promise<Result.Result<Record<string, PrivateCte>, Error>> => {
+  return Result.asyncTryCatch(async () => {
+    const files = await fs.readdir(privateCteDir);
+    const privateCtes: Record<string, PrivateCte> = {};
+    
+    for (const file of files) {
+      if (file.endsWith('.sql')) {
+        const filePath = path.join(privateCteDir, file);
+        const content = await fs.readFile(filePath, 'utf8');
+        const cte = parseCTEMetadataFunc(content, file);
+        privateCtes[cte.name] = cte;
+      }
+    }
+    
+    return privateCtes;
+  });
+};
+
+/**
+ * Functional version: Compose query with CTEs
+ * Returns Result with composed SQL or error
+ */
+export const composeQueryWithCTEsFunc = (options?: { preset?: string; withClauseStyle?: string }) => 
+  (decomposedQuery: string, privateCtes: Record<string, PrivateCte>): Result.Result<string, Error> => {
+    if (Object.keys(privateCtes).length === 0) {
+      return Result.ok(decomposedQuery);
+    }
+    
+    return Result.tryCatch(() => {
+      const composer = new CTEComposer({
+        preset: options?.preset as 'postgres' | 'mysql' | 'sqlite' || 'postgres',
+        withClauseStyle: options?.withClauseStyle as 'standard' | 'cte-oneline' | 'full-oneline' || 'full-oneline'
+      });
+      
+      const editedCTEs = transformCTEsToComposerFormatFunc(privateCtes);
+      return composer.compose(editedCTEs, decomposedQuery);
+    });
+  };
+
+/**
+ * Functional version: Format SQL with configuration
+ * Returns Result with formatted SQL or error
+ */
+export const formatSqlWithConfigFunc = (formatterConfig: FormatterConfig) => 
+  (sql: string): Result.Result<string, Error> => {
+    return Result.tryCatch(() => {
+      const sqlFormatterOptions = {
+        ...formatterConfig,
+        keywordCase: formatterConfig.keywordCase as "upper" | "lower" | "none" | undefined
+      };
+      const formatter = new SqlFormatter(sqlFormatterOptions);
+      const parsedQuery = SelectQueryParser.parse(sql);
+      const formatResult = formatter.format(parsedQuery);
+      
+      return typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
+    });
+  };
+
+/**
+ * Functional version: Generate flow diagram
+ * Returns Result with mermaid diagram or error
+ */
+export const generateFlowDiagramFunc = (sql: string, options?: { direction?: string; title?: string }): Result.Result<string, Error> => {
+  return Result.tryCatch(() => {
+    const diagramGenerator = new QueryFlowDiagramGenerator();
+    return diagramGenerator.generateMermaidFlow(sql, {
+      direction: (options?.direction as 'TD' | 'LR' | 'TB' | 'RL') || 'TD',
+      title: options?.title || 'Query Flow Diagram'
+    });
+  });
+};
+
+/**
+ * Functional version: Extract CTEs and decompose query
+ * Returns Result with extraction results or error
+ */
+export const extractCTEsAndDecomposeQueryFunc = (cteDecomposer: CTEDecomposer, fileManager: FileManager) => 
+  async (sql: string): Promise<Result.Result<{
+    privateCtes: Record<string, PrivateCte>;
+    decomposedQuery: string;
+    flowDiagram?: string;
+  }, Error>> => {
+    return Result.asyncTryCatch(async () => {
+      fileManager.clear();
+      
+      const result = await cteDecomposer.decompose(sql, fileManager);
+      
+      // Convert decomposer results to PrivateCte format
+      const privateCtes: Record<string, PrivateCte> = {};
+      for (const cte of result.decomposedCTEs) {
+        privateCtes[cte.name] = {
+          name: cte.name,
+          query: cte.query,
+          description: `Extracted CTE: ${cte.name}`,
+          dependencies: cte.dependencies || [],
+          columns: []
+        };
+      }
+      
+      // Format the main query
+      const formatterConfigResult = await loadFormatterConfigFunc();
+      const formatterConfig = Result.isOk(formatterConfigResult) 
+        ? formatterConfigResult.value 
+        : getDefaultFormatterConfigFunc();
+      
+      const formatSqlResult = formatSqlWithConfigFunc(formatterConfig)(sql);
+      const decomposedQuery = Result.isOk(formatSqlResult) ? formatSqlResult.value : sql;
+      
+      // Generate flow diagram
+      const flowDiagramResult = generateFlowDiagramFunc(sql);
+      const flowDiagram = Result.isOk(flowDiagramResult) ? flowDiagramResult.value : undefined;
+      
+      return {
+        privateCtes,
+        decomposedQuery,
+        flowDiagram
+      };
+    });
+  };
+
+/**
+ * Functional version: Create workspace info
+ * Pure function for creating WorkspaceInfo object
+ */
+export const createWorkspaceInfoFunc = (
+  queryName: string,
+  originalQuery: string,
+  originalFilePath: string,
+  decomposedQuery: string,
+  privateCtes: Record<string, PrivateCte>
+): WorkspaceInfo => {
+  const now = new Date().toISOString();
+  
+  return {
+    name: queryName || 'decomposed_query',
+    originalQuery,
+    originalFilePath: originalFilePath || '',
+    decomposedQuery,
+    privateCtes,
+    created: now,
+    lastModified: now
+  };
+};
+
+/**
+ * Functional version: Validate file path security
+ * Returns Result with validated path or security error
+ */
+export const validateFilePathSecurityFunc = (filePath: string, projectRoot: string): Result.Result<string, string> => {
+  const fullPath = path.resolve(projectRoot, filePath.replace(/^\//, ''));
+  const resolvedProjectRoot = path.resolve(projectRoot);
+  
+  if (!fullPath.startsWith(resolvedProjectRoot)) {
+    return Result.err('Access denied: file outside project directory');
+  }
+  
+  return Result.ok(fullPath);
+};
+
+/**
+ * Functional version: Read and validate SQL file
+ * Returns Result with file content or error
+ */
+export const readAndValidateSqlFileFunc = async (filePath: string): Promise<Result.Result<{
+  content: string;
+  filePath: string;
+  size: number;
+}, string>> => {
+  const projectRoot = process.cwd();
+  const pathValidation = validateFilePathSecurityFunc(filePath, projectRoot);
+  
+  if (Result.isErr(pathValidation)) {
+    return pathValidation;
+  }
+  
+  const fullPath = pathValidation.value;
+  
+  const fileReadResult = await Result.asyncTryCatch(async () => {
+    const content = await fs.readFile(fullPath, 'utf8');
+    return {
+      content,
+      filePath,
+      size: content.length
+    };
+  });
+  
+  if (Result.isErr(fileReadResult)) {
+    return Result.err(`File not found: ${filePath}`);
+  }
+  
+  return fileReadResult;
+};
+
+/**
+ * Functional version: Process decompose query request
+ * Functional pipeline for complete query decomposition
+ */
+export const processDecomposeQueryRequestFunc = (
+  storage: WorkspaceStorageInterface,
+  cteDecomposer: CTEDecomposer,
+  fileManager: FileManager
+) => async (request: {
+  sql: string;
+  queryName?: string;
+  originalFilePath?: string;
+}): Promise<Result.Result<{
+  workspace: WorkspaceInfo;
+  privateCteCount: number;
+  decomposedQuery: string;
+  flowDiagram?: string;
+}, string>> => {
+  // Clear existing workspace
+  await storage.clearWorkspace();
+  
+  // Extract CTEs and decompose query
+  const extractionResult = await extractCTEsAndDecomposeQueryFunc(
+    cteDecomposer,
+    fileManager
+  )(request.sql);
+  
+  if (Result.isErr(extractionResult)) {
+    return Result.err(extractionResult.error.message);
+  }
+  
+  const { privateCtes, decomposedQuery, flowDiagram } = extractionResult.value;
+  
+  // Create workspace info
+  const workspaceInfo = createWorkspaceInfoFunc(
+    request.queryName || 'decomposed_query',
+    request.sql,
+    request.originalFilePath || '',
+    decomposedQuery,
+    privateCtes
+  );
+  
+  // Save workspace
+  const saveResult = await Result.asyncTryCatch(async () => {
+    await storage.saveWorkspace(workspaceInfo);
+    return workspaceInfo;
+  });
+  
+  if (Result.isErr(saveResult)) {
+    return Result.err(saveResult.error.message);
+  }
+  
+  return Result.ok({
+    workspace: workspaceInfo,
+    privateCteCount: Object.keys(privateCtes).length,
+    decomposedQuery,
+    flowDiagram
+  });
+};
+
+/**
+ * Functional version: Create CTE file content with metadata
+ * Pure function for generating CTE file content
+ */
+export const createCTEFileContentFunc = (cteName: string, query: string, description?: string): string => {
+  return pipe(
+    [
+      `/* name: ${cteName} */`,
+      `/* description: ${description || 'No description'} */`,
+      `/* dependencies: [] */`,
+      '',
+      query
+    ],
+    lines => lines.join('\n')
+  );
+};
+
+/**
+ * Functional version: Update workspace timestamp
+ * Returns Result with updated workspace info or error
+ */
+export const updateWorkspaceTimestampFunc = (workspaceInfo: WorkspaceInfo): WorkspaceInfo => {
+  return {
+    ...workspaceInfo,
+    lastModified: new Date().toISOString()
+  };
+};
+
+/**
+ * Functional version: Filter SQL files from directory listing
+ * Pure function for filtering .sql files
+ */
+export const filterSqlFilesFunc = (files: string[]): string[] => {
+  return files.filter(file => file.endsWith('.sql'));
+};
+
+/**
+ * Functional version: Aggregate CTE loading results
+ * Combines multiple CTE loading results into summary
+ */
+export const aggregateCTELoadingResultsFunc = (
+  results: Array<Result.Result<PrivateCte, Error>>
+): { 
+  successful: PrivateCte[]; 
+  failed: string[]; 
+  totalCount: number;
+} => {
+  return results.reduce(
+    (acc, result) => {
+      if (Result.isOk(result)) {
+        acc.successful.push(result.value);
+      } else {
+        acc.failed.push(result.error.message);
+      }
+      acc.totalCount++;
+      return acc;
+    },
+    { successful: [], failed: [], totalCount: 0 } as { 
+      successful: PrivateCte[]; 
+      failed: string[]; 
+      totalCount: number;
+    }
+  );
+};
