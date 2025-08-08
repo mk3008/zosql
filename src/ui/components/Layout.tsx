@@ -290,7 +290,7 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
     };
 
     loadSavedWorkspace();
-  }, [forceDemo, showError, showSuccess]);
+  }, [forceDemo, showError, showSuccess, isWorkspaceLoading]);
 
   // Watch for decomposition errors
   useEffect(() => {

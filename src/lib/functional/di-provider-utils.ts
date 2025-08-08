@@ -3,6 +3,7 @@
  * Extracted for React Fast Refresh compatibility
  */
 
+import React from 'react';
 import type { DIContainer } from '../../core/di/container.js';
 import type { SqlExecutorPort } from '../../core/ports/sql-executor-port.js';
 import type { WorkspaceRepositoryPort } from '../../core/ports/workspace-repository-port.js';
@@ -29,6 +30,29 @@ export const createDIProviderHelpers = (): DIProviderHelpers => ({
   workspaceRepository: null,
   tabModelMap: null
 });
+
+/**
+ * DI Provider hook utilities
+ */
+export const DIHooks = {
+  /**
+   * Create DI container hook
+   */
+  createUseDI: <T>(context: React.Context<T | null>) => {
+    return (): T => {
+      const container = React.useContext(context);
+      
+      if (!container) {
+        throw new Error(
+          'useDI must be used within a DIProvider. ' +
+          'Make sure your component is wrapped with <DIProvider>'
+        );
+      }
+      
+      return container;
+    };
+  }
+};
 
 /**
  * Extract services from DI container

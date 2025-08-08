@@ -30,13 +30,6 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
-export const useWorkspace = (): WorkspaceContextType => {
-  const context = useContext(WorkspaceContext);
-  if (!context) {
-    throw new Error('useWorkspace must be used within a WorkspaceProvider');
-  }
-  return context;
-};
 
 interface WorkspaceProviderProps {
   children: React.ReactNode;
@@ -269,7 +262,7 @@ export const WorkspaceProviderFunc: React.FC<WorkspaceProviderProps> = ({ childr
     }
   };
 
-  const loadWorkspace = async (): Promise<void> => {
+  const loadWorkspace = useCallback(async (): Promise<void> => {
     dispatch(WorkspaceActions.loadStart());
     
     try {
@@ -282,7 +275,7 @@ export const WorkspaceProviderFunc: React.FC<WorkspaceProviderProps> = ({ childr
       const errorMessage = err instanceof Error ? err.message : 'Failed to load workspace';
       dispatch(WorkspaceActions.loadError(errorMessage));
     }
-  };
+  }, [workspaceUseCase]);
 
   const updateCTE = async (cteName: string, query: string, description?: string): Promise<void> => {
     dispatch(WorkspaceActions.updateCTEStart());
@@ -363,7 +356,7 @@ export const WorkspaceProviderFunc: React.FC<WorkspaceProviderProps> = ({ childr
   // Load workspace on mount
   useEffect(() => {
     loadWorkspace();
-  }, []);
+  }, [loadWorkspace]);
 
   const value: WorkspaceContextFunctionalType = {
     // Original interface
@@ -396,3 +389,12 @@ export const WorkspaceProviderFunc: React.FC<WorkspaceProviderProps> = ({ childr
     </WorkspaceContext.Provider>
   );
 };
+// eslint-disable-next-line react-refresh/only-export-components
+export const useWorkspace = (): WorkspaceContextType => {
+  const context = useContext(WorkspaceContext);
+  if (!context) {
+    throw new Error('useWorkspace must be used within a WorkspaceProvider');
+  }
+  return context;
+};
+

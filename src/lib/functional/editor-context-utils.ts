@@ -3,6 +3,7 @@
  * Extracted for React Fast Refresh compatibility
  */
 
+import React from 'react';
 import * as Option from './option.js';
 
 /**
@@ -86,3 +87,21 @@ export const createDefaultEditorState = () => ({
   cursorPosition: Option.none,
   isReady: false
 });
+
+/**
+ * Editor context hook utilities
+ */
+export const EditorHooks = {
+  /**
+   * Create editor context hook
+   */
+  createUseEditor: <T>(context: React.Context<T | null>) => {
+    return (): T => {
+      const contextValue = React.useContext(context);
+      if (!contextValue) {
+        throw new Error('useEditor must be used within an EditorProvider');
+      }
+      return contextValue;
+    };
+  }
+};

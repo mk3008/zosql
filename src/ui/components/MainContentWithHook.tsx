@@ -80,7 +80,7 @@ const MainContentWithHookComponent = forwardRef<MainContentRef, MainContentProps
       // MainContentMvvm should NOT interfere with tab management during workspace loading
       DebugLogger.debug('MainContentMvvm', 'Workspace set, Layout.tsx will handle tab restoration');
     }
-  }, [workspaceId, vm]); // workspaceId is stable, prevents infinite updates
+  }, [workspaceId, vm, workspace]); // Include workspace dependency
 
   // Set SQL execution callback
   useEffect(() => {

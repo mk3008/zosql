@@ -196,7 +196,7 @@ export function useBootstrap(options?: BootstrapOptions): {
         shutdownApplication(container).catch(console.error);
       }
     };
-  }, []);
+  }, [container, options]);
   
   return { container, loading, error };
 }

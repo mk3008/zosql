@@ -45,7 +45,7 @@ export const ErrorPanel: React.FC<ErrorPanelProps> = ({ errors, onClearError, on
       setIsExpanded(true);
       setSelectedError(errors[errors.length - 1].id);
     }
-  }, [errors.length]);
+  }, [errors.length, errors, isExpanded]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.panel-header')) {
@@ -285,7 +285,7 @@ export const ErrorPanelFunc: React.FC<ErrorPanelFuncProps> = ({
       }
     }
     setPreviousErrorCount(errors.length);
-  }, [errors.length, previousErrorCount, state, autoExpand]);
+  }, [errors.length, previousErrorCount, state, autoExpand, errors]);
 
   // Drag event handlers
   const handleMouseDown = useCallback((event: React.MouseEvent) => {

@@ -115,8 +115,7 @@ export const useSqlFormatter = (
 
   // Format SQL with current options
   const formatSql = useCallback(async (
-    sql: string, 
-    _options?: Partial<SqlFormatOptions>
+    sql: string
   ): Promise<FormatResult> => {
     
     
@@ -129,7 +128,7 @@ export const useSqlFormatter = (
     } finally {
       setIsFormatting(false);
     }
-  }, [formatOptions]);
+  }, []);
 
   // Update format options
   const setFormatOptions = useCallback((options: Partial<SqlFormatOptions>) => {

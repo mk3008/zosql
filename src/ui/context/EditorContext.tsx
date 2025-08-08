@@ -21,13 +21,6 @@ interface EditorContextType {
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
 
-export const useEditor = (): EditorContextType => {
-  const context = useContext(EditorContext);
-  if (!context) {
-    throw new Error('useEditor must be used within an EditorProvider');
-  }
-  return context;
-};
 
 interface EditorProviderProps {
   children: React.ReactNode;
@@ -333,4 +326,13 @@ export const EditorProviderFunc: React.FC<EditorProviderProps> = ({ children }) 
       {children}
     </EditorContext.Provider>
   );
+};
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const useEditor = (): EditorContextType => {
+  const context = useContext(EditorContext);
+  if (!context) {
+    throw new Error('useEditor must be used within an EditorProvider');
+  }
+  return context;
 };

@@ -47,7 +47,7 @@ class MockSqlFormatter implements SqlFormatterPort {
     this.shouldThrowError = shouldThrow;
   }
 
-  async format(sql: string, _config: FormatterConfig): Promise<string> {
+  async format(sql: string): Promise<string> {
     if (this.shouldThrowError) {
       throw new Error('Formatter error');
     }
