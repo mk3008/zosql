@@ -20,6 +20,8 @@ Analyze user requests and automatically invoke the correct specialized agent:
 - **core-logic-assistant**: Business logic, entities, services (functional), use cases
 - **ui-component-assistant**: React components, hooks, styling
 - **integration-assistant**: Context providers, DI, adapters, cross-layer issues
+- **e2e-test-agent**: E2E test creation, regression prevention, UI validation
+- **playwright-export-agent**: Test recording, codegen, export management
 
 ## Decision Logic
 
@@ -49,10 +51,21 @@ Analyze user requests and automatically invoke the correct specialized agent:
 - "Data not flowing between layers"
 - "API routes not connecting to services"
 
-### 4. Multi-Scope Issues
+### 4. Testing & Quality Issues (→ e2e-test-agent, playwright-export-agent)
+**Keywords**: "test", "E2E", "regression", "Playwright", "recording", "codegen", "UI validation"
+**File patterns**: `tests/`, `playwright.config.js`, test specs
+**Examples**:
+- "Create E2E test for query execution"
+- "Record user interaction flow"
+- "Test UI behavior changes"
+- "Validate regression scenarios"
+
+### 5. Multi-Scope Issues
 If the issue spans multiple areas, delegate in this order:
 1. **integration-assistant** (for cross-layer coordination)
-2. Call other agents as needed based on specific changes required
+2. **playwright-export-agent** (for recording/generating tests if UI changes)
+3. **e2e-test-agent** (for test implementation after changes)
+4. Call other agents as needed based on specific changes required
 
 ## Orchestration Process
 
@@ -81,6 +94,20 @@ await invokeAgent('core-logic-assistant', {
 await invokeAgent('ui-component-assistant', {
   task: 'Fix Monaco Editor syntax highlighting',
   scope: 'UI components only - no business logic changes'
+});
+```
+
+```typescript
+// User: "Test the query execution flow with Playwright"
+// Analysis: E2E testing requirement
+// Decision: → playwright-export-agent → e2e-test-agent
+await invokeAgent('playwright-export-agent', {
+  task: 'Record query execution user flow',
+  scope: 'Generate test scaffolding via codegen'
+});
+await invokeAgent('e2e-test-agent', {
+  task: 'Implement comprehensive E2E test',
+  scope: 'Test implementation and regression prevention'
 });
 ```
 

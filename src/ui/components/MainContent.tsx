@@ -766,7 +766,7 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                     })()}
                   </div>
                 </ResizableSplitter>
-              ) : vm.activeTab && vm.activeTab.type === 'values' && vm.dataTabResults.size > 0 ? (
+              ) : vm.activeTab && vm.activeTab.type === 'values' && (vm.dataTabResults.size > 0 || vm.resultsVisible) ? (
                 // Split view for values tab with results
                 <ResizableSplitter
                   direction="vertical"
@@ -812,7 +812,13 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
                   
                   {/* Data Tab Results - bottom pane with single vertical scroll */}
                   <div className="h-full overflow-y-auto overflow-x-hidden bg-dark-secondary p-4">
-                    <DataTabResults results={vm.dataTabResults} workspace={workspace} />
+                    {vm.dataTabResults.size > 0 ? (
+                      <DataTabResults results={vm.dataTabResults} workspace={workspace} />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-dark-text-muted">
+                        {vm.isExecuting ? 'Executing queries...' : 'Click Run to execute queries and see results'}
+                      </div>
+                    )}
                   </div>
                 </ResizableSplitter>
               ) : (

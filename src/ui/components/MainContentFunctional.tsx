@@ -115,6 +115,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
         if (state.activeTab && !state.isExecuting) {
           if (state.activeTab.type === 'values' && workspace) {
             state.setIsExecuting(true);
+            state.setResultsVisible(true); // Show results area immediately
             execution.executeDataTabQueries(
               workspace,
               (results) => {
@@ -130,6 +131,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
             );
           } else {
             state.setIsExecuting(true);
+            state.setResultsVisible(true); // Show results area immediately
             execution.executeQuery(
               state.activeTab,
               workspace,
@@ -244,6 +246,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
       if (state.activeTab && !state.isExecuting) {
         if (state.activeTab.type === 'values' && workspace) {
           state.setIsExecuting(true);
+          state.setResultsVisible(true); // Show results area immediately
           execution.executeDataTabQueries(
             workspace,
             (results) => {
@@ -259,6 +262,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
           );
         } else if (workspace) {
           state.setIsExecuting(true);
+          state.setResultsVisible(true); // Show results area immediately
           execution.executeQuery(
             state.activeTab,
             workspace,
@@ -361,7 +365,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
   };
   
   // Check display conditions - unified logic for all tab types  
-  const showDataTabResults = state.activeTab?.type === 'values' && state.dataTabResults.size > 0;
+  const showDataTabResults = state.activeTab?.type === 'values' && (state.resultsVisible || state.dataTabResults.size > 0);
   const showQueryResults = state.resultsVisible && state.activeTab?.queryResult && state.activeTab?.type !== 'values';
   
   
@@ -463,6 +467,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                       onClick={() => {
                         if (workspace) {
                           state.setIsExecuting(true);
+          state.setResultsVisible(true); // Show results area immediately
                           execution.executeDataTabQueries(
                             workspace,
                             (results) => {
@@ -592,6 +597,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
                       onClick={() => {
                         if (state.activeTab && workspace && !state.isExecuting) {
                           state.setIsExecuting(true);
+          state.setResultsVisible(true); // Show results area immediately
                           execution.executeQuery(
                             state.activeTab,
                             workspace,
