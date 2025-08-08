@@ -65,13 +65,16 @@ const MainContentMvvmComponent = forwardRef<MainContentRef, MainContentProps>(({
   const workspaceId = workspace?.id;
   useEffect(() => {
     if (workspace) {
+      console.log('[DEBUG] MainContent: Setting workspace in ViewModel, workspace ID:', workspace.id);
+      console.log('[DEBUG] MainContent: Current tabs before workspace set:', vm.tabs.map(t => t.id));
       vm.workspace = workspace;
+      console.log('[DEBUG] MainContent: Current tabs after workspace set:', vm.tabs.map(t => t.id));
       
       // Workspace is set - Layout.tsx should handle all tab restoration
       // MainContentMvvm should NOT interfere with tab management during workspace loading
       DebugLogger.debug('MainContentMvvm', 'Workspace set, Layout.tsx will handle tab restoration');
     }
-  }, [workspaceId, vm, workspace]); // Include workspace dependency
+  }, [workspaceId, vm]); // eslint-disable-line react-hooks/exhaustive-deps -- Intentionally excluding workspace to prevent cascade effects
 
   // Set SQL execution callback
   useEffect(() => {

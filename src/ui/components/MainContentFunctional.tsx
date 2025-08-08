@@ -75,7 +75,7 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
       state.loadWorkspaceTabs(workspace);
       DebugLogger.debug('MainContentFunctional', 'Workspace loaded');
     }
-  }, [workspaceId, state, workspace]); // Include state and workspace dependencies
+  }, [workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps -- Only depend on workspaceId to prevent infinite loops
   
   // Notify parent of active tab changes
   useEffect(() => {
