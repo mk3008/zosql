@@ -49,11 +49,12 @@ export const validateSqlFormatting = (params: SqlFormattingParams): string[] => 
 const createDefaultFormatter = (): SqlFormatterEntity => new SqlFormatterEntity();
 
 // Pure function to attempt SQL parsing with rawsql-ts
-const tryParseSql = (sql: string): { success: boolean; query?: any; error?: string } => {
+const tryParseSql = (sql: string): { success: boolean; query?: unknown; error?: string } => {
   try {
     const query = SelectQueryParser.parse(sql);
     return { success: true, query };
   } catch (error) {
+    console.debug('[SQL Parser] Failed to parse SQL:', sql.substring(0, 100), '...', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'SQL parsing failed'
@@ -62,16 +63,17 @@ const tryParseSql = (sql: string): { success: boolean; query?: any; error?: stri
 };
 
 // Pure function to format parsed SQL
-const formatParsedSql = (query: any, formatter: SqlFormatterEntity): { success: boolean; formatted?: string; error?: string } => {
+const formatParsedSql = (query: unknown, formatter: SqlFormatterEntity): { success: boolean; formatted?: string; error?: string } => {
   try {
     const sqlFormatter = formatter.getSqlFormatter();
-    const formatted = sqlFormatter.format(query);
+    const formatted = sqlFormatter.format(query as never);
     
     // Handle both string and object return types from formatter
     const formattedSql = typeof formatted === 'string' ? formatted : formatted.formattedSql;
     
     return { success: true, formatted: formattedSql };
   } catch (error) {
+    console.debug('[SQL Formatter] Failed to format query:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'SQL formatting failed'

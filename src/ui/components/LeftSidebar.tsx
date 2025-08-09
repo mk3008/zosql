@@ -4,6 +4,7 @@ import { SqlModelEntity } from '@shared/types';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { useWorkspace } from '@ui/context/WorkspaceContext';
 import { SqlModelsList } from './SqlModelsList';
+import { MainContentRef } from './MainContentFunctional';
 
 interface LeftSidebarProps {
   onOpenValuesTab?: () => void;
@@ -16,7 +17,7 @@ interface LeftSidebarProps {
   activeTabId?: string | null;
   showErrorWithDetails?: (message: string, details?: string, stack?: string) => void;
   showSuccess?: (message: string) => void;
-  mainContentRef?: React.RefObject<unknown>;
+  mainContentRef?: React.RefObject<MainContentRef>;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
@@ -83,10 +84,12 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     
     _setIsValidating(true);
     try {
-      DebugLogger.info('LeftSidebar', 'MainContentViewModel removed - static analysis needs functional implementation');
-      // TODO: Implement static analysis using functional services
-      console.warn('[LEFT-SIDEBAR] MainContentViewModel removed - needs functional implementation');
-      DebugLogger.info('LeftSidebar', 'Static analysis delegation completed');
+      DebugLogger.info('LeftSidebar', 'Running static analysis via MainContentFunctional ref');
+      
+      // Call static analysis function through MainContent ref
+      mainContentRef.current.runStaticAnalysis();
+      
+      DebugLogger.info('LeftSidebar', 'Static analysis completed');
       
       // Force component re-render to show updated validation icons
       forceUpdate({});
