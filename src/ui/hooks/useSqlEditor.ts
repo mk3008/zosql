@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck - This file will be removed in Phase 4
 /**
  * useSqlEditor Hook - Functional Programming Approach
  * Composable hooks for SQL Editor functionality
@@ -8,6 +6,7 @@
 
 import { useReducer, useCallback, useMemo } from 'react';
 import { QueryExecutionResult, WorkspaceEntity } from '@shared/types';
+import { createErrorResult } from "@core/types/query-types";
 
 // Pure functions for SQL operations
 const validateSqlQuery = (sql: string): boolean => sql.trim().length > 0;
@@ -66,21 +65,18 @@ const sqlEditorReducer = (
       return {
         ...state,
         isExecuting: false,
-        result: {
-          ...action.payload,
-          executionTime: Date.now() - state.lastExecutionTime,
-        },
+        result: action.payload,
       };
     
     case 'EXECUTION_ERROR':
       return {
         ...state,
         isExecuting: false,
-        result: {
-          success: false,
-          error: action.payload,
-          executionTime: Date.now() - state.lastExecutionTime,
-        },
+        result: createErrorResult(state.sql, {
+          code: "EXECUTION_ERROR",
+          message: action.payload,
+          severity: "error"
+        }),
       };
     
     case 'CLEAR_RESULT':
@@ -135,9 +131,9 @@ export const useSqlEditor = (
 
   const hasResult = useMemo(() => state.result !== null, [state.result]);
   
-  const isSuccessful = useMemo(() => state.result?.success === true, [state.result]);
+  const isSuccessful = useMemo(() => state.result?.status === "completed" && state.result.errors.length === 0, [state.result]);
   
-  const executionTime = useMemo(() => state.result?.executionTime ?? 0, [state.result]);
+  const executionTime = useMemo(() => state.result?.stats.executionTimeMs ?? 0, [state.result]);
 
   // Action creators as pure functions
   const setSql = useCallback((sql: string) => {

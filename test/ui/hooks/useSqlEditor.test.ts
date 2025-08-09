@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck - This test file will be removed/rewritten in Phase 4
 /**
  * useSqlEditor Hook Test - Functional Programming Approach
  * Tests for the functional SQL Editor Hook implementation
@@ -30,9 +28,20 @@ describe('useSqlEditor Hook - Functional Approach', () => {
   );
 
   const mockSuccessResult: QueryExecutionResult = {
-    success: true,
-    data: [{ id: 1, name: 'Test' }],
-    executionTime: 100,
+    status: "completed" as const,
+    context: {
+      startTime: new Date(),
+      executionId: "test-123"
+    },
+    stats: {
+      rowsAffected: 0,
+      rowsReturned: 1,
+      executionTimeMs: 100
+    },
+    errors: [],
+    warnings: [],
+    sql: "SELECT 1",
+    rows: [{ id: 1, name: "Test" }]
   };
 
   const mockQueryExecutor = vi.fn();
@@ -179,7 +188,7 @@ describe('useSqlEditor Hook - Functional Approach', () => {
         await result.current.executeQuery();
       });
       
-      expect(result.current.result?.success).toBe(true);
+      expect(result.current.result?.status).toBe("completed");
       expect(result.current.isSuccessful).toBe(true);
       expect(result.current.hasResult).toBe(true);
       expect(result.current.isExecuting).toBe(false);
@@ -201,8 +210,8 @@ describe('useSqlEditor Hook - Functional Approach', () => {
         await result.current.executeQuery();
       });
       
-      expect(result.current.result?.success).toBe(false);
-      expect(result.current.result?.error).toBe('Query failed');
+      expect(result.current.result?.errors[0]?.message).toBe("Query failed");
+      expect(result.current.result?.status).toBe("failed");
       expect(result.current.isSuccessful).toBe(false);
       expect(result.current.hasResult).toBe(true);
       expect(result.current.isExecuting).toBe(false);
@@ -237,7 +246,7 @@ describe('useSqlEditor Hook - Functional Approach', () => {
 
   describe('計算されたプロパティ', () => {
     it('実行時間が正しく計算される', async () => {
-      const resultWithTime = { ...mockSuccessResult, executionTime: 150 };
+      const resultWithTime = { ...mockSuccessResult, stats: { ...mockSuccessResult.stats, executionTimeMs: 150 } };
       mockQueryExecutor.mockResolvedValueOnce(resultWithTime);
       
       const { result } = renderHook(() => useSqlEditor(mockQueryExecutor));
