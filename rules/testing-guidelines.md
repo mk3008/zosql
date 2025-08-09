@@ -1,146 +1,79 @@
 # Testing Guidelines
 
-## Test Strategy Hierarchy
+## Test Strategy Implementation
 
-### 1. Unit Tests (Vitest)
-- **Purpose**: Test individual functions and components in isolation
-- **Location**: `src/**/*.test.ts`
-- **Command**: `npm run test`, `npm run test:run`
-- **Coverage**: Business logic, utility functions, pure components
+### Use Three-Tier Testing Approach
+**Why**: Provides comprehensive coverage while maintaining fast feedback loops and preventing test overlap
+**How**: 
+- Unit tests (`src/**/*.test.ts`) for isolated functions
+- Integration tests (`src/**/*.integration.test.ts`) for component interactions  
+- E2E tests (`tests/e2e/**/*.spec.js`) for user journeys
 
-### 2. Integration Tests (Vitest)
-- **Purpose**: Test interactions between components and services
-- **Location**: `src/**/*.integration.test.ts`
-- **Coverage**: ViewModels, service interactions, data flow
-
-### 3. E2E Tests (Playwright)
-- **Purpose**: Test complete user journeys and prevent regressions
-- **Location**: `tests/e2e/**/*.spec.js`
-- **Command**: `npm run test:e2e`
-- **Coverage**: Critical user flows, regression scenarios
-
-## Quality Gates
-
-### Pre-Commit Checks
+### Execute Quality Gates in Development Order
+**Why**: Catches issues early with faster feedback, reduces CI pipeline costs
+**How**:
 ```bash
-npm run ci:essential  # TypeScript + ESLint
+# Pre-commit: npm run ci:essential (TypeScript + ESLint)
+# Pre-push: npm run ci:check (+ Unit Tests)  
+# CI/CD: npm run quality (+ E2E Tests)
 ```
 
-### Pre-Push Checks  
-```bash
-npm run ci:check     # TypeScript + ESLint + Unit Tests
-```
+## Regression Prevention
 
-### CI/CD Pipeline
-```bash
-npm run quality      # Full test suite including E2E
-```
+### Create Failing E2E Test Before Bug Fixes
+**Why**: Ensures bug actually gets fixed and prevents regression reoccurrence
+**How**: 
+1. Write E2E test that reproduces the bug (fails)
+2. Implement fix until test passes
+3. Keep test as permanent regression guard
 
-## Regression Prevention Protocol
+### Test Critical User Interaction Points
+**Why**: These areas cause the most user-visible failures when broken
+**How**: Focus E2E tests on navigation flows, state persistence, input handling, error boundaries, loading states
 
-### When Fixing Bugs
-1. **Reproduce the Bug**: Create a failing E2E test first
-2. **Fix the Issue**: Implement the solution
-3. **Verify the Fix**: Ensure the E2E test passes
-4. **Document**: Update test descriptions with bug context
+## Test Stability
 
-### Critical Scenarios to Test
-- Left menu navigation → Tab creation
-- Component state persistence
-- User input handling
-- Error boundary behavior
-- Data loading states
-
-## Test Naming Conventions
-
-### E2E Test Names
+### Use Condition-Based Waits with Strategic Timeouts
+**Why**: Condition-based waits prevent flaky tests, but React state updates may need minimal timeout for stability
+**How**:
 ```javascript
-// Pattern: [test type]: [specific behavior] 
+// Preferred: Wait for specific conditions
+await page.waitForSelector('[data-testid="element"]');
+await page.waitForLoadState('networkidle');
+await expect(element).toBeVisible({ timeout: 3000 });
+
+// E2E Only: Minimal timeout for React state settling (avoid in unit/integration tests)
+await page.waitForTimeout(1000); // Use sparingly, only when condition waits fail
+```
+
+### Use Semantic Test Selectors
+**Why**: CSS classes and element positioning break when UI changes, causing maintenance overhead
+**How**: Priority order: `data-testid` → `aria-label` → `.class:not([disabled])` → element type
+
+### Verify Element State Before Interaction  
+**Why**: Prevents test failures from attempting actions on disabled or hidden elements
+**How**: Use `:not([disabled])` filters and `toBeVisible()` assertions before clicks/fills
+
+## Test Organization
+
+### Name Tests with Context and Specificity
+**Why**: Enables quick understanding of test purpose and failure impact during debugging
+**How**: 
+```javascript
 test('regression: tabs should not disappear after creation', ...)
 test('navigation: left menu items create visible tabs', ...)
-test('user flow: complete SQL query execution', ...)
 ```
 
-### Test File Organization
-```
-tests/e2e/
-├── navigation/           # UI navigation tests
-├── regression/          # Specific bug prevention tests
-├── user-flows/         # Complete user journey tests
-└── components/         # Component-specific E2E tests
-```
+### Organize Tests by Functional Domain
+**Why**: Reduces test maintenance burden and improves test discoverability
+**How**: Structure as `tests/e2e/[navigation|regression|user-flows|components]/`
 
-## Test Data Strategy
+## Performance Optimization
 
-### Test Selectors Priority
-1. `data-testid="specific-element"` (Preferred)
-2. `[aria-label="Action"]` (Semantic)
-3. `.component-class:not([disabled])` (State-aware)
-4. `button:visible` (Fallback)
+### Run Tests in Parallel with Conflict Prevention
+**Why**: Reduces total test execution time while avoiding resource conflicts
+**How**: Use `reuseExistingServer` for development, group related tests, minimize setup/teardown
 
-### Avoid Fragile Selectors
-- ❌ CSS class names only: `.btn-primary`
-- ❌ Element positioning: `div:nth-child(3)`
-- ❌ Text content: `'Click here'`
-- ✅ Semantic attributes: `[data-testid="submit-button"]`
-
-## Error Handling in Tests
-
-### Expected Error Handling
-```javascript
-test('error handling: invalid input shows error message', async ({ page }) => {
-  await page.fill('[data-testid="input"]', 'invalid-data');
-  await page.click('[data-testid="submit"]');
-  
-  await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
-  await expect(page.locator('[data-testid="error-message"]')).toContainText('Invalid');
-});
-```
-
-### Test Stability
-- Always use appropriate waits (`waitForLoadState`, `waitForTimeout`)
-- Filter out disabled elements: `:not([disabled])`
-- Verify element state before interaction
-- Take screenshots for debugging failed tests
-
-## Performance Considerations
-
-### Test Execution Speed
-- Run tests in parallel where possible (but avoid conflicts)
-- Use `reuseExistingServer` for development
-- Minimize unnecessary waits and timeouts
-- Group related tests to reduce setup/teardown
-
-### Resource Management
-- Close browser contexts properly
-- Clean up test data
-- Avoid memory leaks in long-running test suites
-
-## Documentation Requirements
-
-### Test Documentation
-- Describe WHY the test exists (especially for regression tests)
-- Include bug ticket references where applicable
-- Document any special setup or prerequisites
-- Explain expected behavior vs actual behavior
-
-### Bug Prevention
-- Create E2E test BEFORE fixing the bug
-- Ensure test fails initially (red)
-- Fix the bug to make test pass (green)
-- Keep test as regression prevention (maintain)
-
-## Maintenance Guidelines
-
-### Test Review Criteria
-- Does the test validate actual user behavior?
-- Is the test name descriptive and specific?
-- Are selectors stable and semantic?
-- Does the test include appropriate waits and error handling?
-- Is there sufficient documentation for future maintainers?
-
-### Test Cleanup
-- Remove obsolete tests for deprecated features
-- Update tests when UI changes
-- Refactor common test patterns into utilities
-- Keep test suite execution time reasonable
+### Document Test Purpose and Requirements
+**Why**: Enables efficient maintenance and prevents removal of critical regression tests
+**How**: Include bug references, expected vs actual behavior, special prerequisites in test comments

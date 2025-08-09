@@ -33,8 +33,9 @@ const semantic = page.locator('button[aria-label="Action"]'); // Accessible
 ```javascript
 // Wait for application stability
 await page.waitForLoadState('networkidle');
-await page.waitForTimeout(1000); // React state updates
 await expect(element).toBeVisible({ timeout: 5000 });
+// Use timeout sparingly for React state settling when condition waits fail
+await page.waitForTimeout(1000); // Last resort for timing issues
 ```
 
 ### Test Structure
