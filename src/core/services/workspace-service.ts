@@ -11,6 +11,207 @@ import { SqlDecomposerUseCase } from '@core/usecases/sql-decomposer-usecase';
 import { SqlDecomposerParser } from '@adapters/parsers/sql-decomposer-parser';
 import { CteDependencyAnalyzerAdapter } from '@adapters/dependency-analyzer/cte-dependency-analyzer-adapter';
 
+/**
+ * SQL Formatting Service - Functional Programming Approach  
+ * Pure functions for SQL query formatting, replacing FormatQueryCommand
+ */
+
+import { SelectQueryParser } from 'rawsql-ts';
+
+// Types for SQL formatting functionality
+export interface SqlFormattingParams {
+  readonly sql: string;
+  readonly formatter?: SqlFormatterEntity;
+}
+
+export interface SqlFormattingOptions {
+  readonly timeout?: number;
+  readonly fallbackToOriginal?: boolean;
+  readonly validateSyntax?: boolean;
+}
+
+export type SqlFormattingResult = 
+  | { success: true; formattedSql: string; originalSql: string }
+  | { success: false; error: string; originalSql: string };
+
+// Pure validation functions
+export const validateSqlFormatting = (params: SqlFormattingParams): string[] => {
+  const errors: string[] = [];
+  
+  if (!params.sql || params.sql.trim().length === 0) {
+    errors.push('SQL query is required');
+  }
+  
+  return errors;
+};
+
+// Pure function to create default formatter if none provided
+const createDefaultFormatter = (): SqlFormatterEntity => new SqlFormatterEntity();
+
+// Pure function to attempt SQL parsing with rawsql-ts
+const tryParseSql = (sql: string): { success: boolean; query?: any; error?: string } => {
+  try {
+    const query = SelectQueryParser.parse(sql);
+    return { success: true, query };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'SQL parsing failed'
+    };
+  }
+};
+
+// Pure function to format parsed SQL
+const formatParsedSql = (query: any, formatter: SqlFormatterEntity): { success: boolean; formatted?: string; error?: string } => {
+  try {
+    const sqlFormatter = formatter.getSqlFormatter();
+    const formatted = sqlFormatter.format(query);
+    
+    // Handle both string and object return types from formatter
+    const formattedSql = typeof formatted === 'string' ? formatted : formatted.formattedSql;
+    
+    return { success: true, formatted: formattedSql };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'SQL formatting failed'
+    };
+  }
+};
+
+// Main SQL formatting function (pure, testable)
+export const formatSqlQuery = (
+  params: SqlFormattingParams, 
+  options: SqlFormattingOptions = {}
+): SqlFormattingResult => {
+  // Validate input
+  const validationErrors = validateSqlFormatting(params);
+  if (validationErrors.length > 0) {
+    return {
+      success: false,
+      error: `Validation failed: ${validationErrors.join(', ')}`,
+      originalSql: params.sql
+    };
+  }
+
+  // Use provided formatter or create default
+  const formatter = params.formatter || createDefaultFormatter();
+  
+  // Attempt to parse SQL
+  const parseResult = tryParseSql(params.sql);
+  if (!parseResult.success) {
+    const errorMessage = parseResult.error || 'Unknown parsing error';
+    
+    // Return original SQL if fallback is enabled (default behavior)
+    if (options.fallbackToOriginal !== false) {
+      console.warn('Failed to format SQL, returning original:', errorMessage);
+      return {
+        success: true,
+        formattedSql: params.sql,
+        originalSql: params.sql
+      };
+    }
+    
+    return {
+      success: false,
+      error: `SQL parsing failed: ${errorMessage}`,
+      originalSql: params.sql
+    };
+  }
+
+  // Attempt to format parsed SQL
+  const formatResult = formatParsedSql(parseResult.query, formatter);
+  if (!formatResult.success) {
+    const errorMessage = formatResult.error || 'Unknown formatting error';
+    
+    // Return original SQL if fallback is enabled (default behavior)
+    if (options.fallbackToOriginal !== false) {
+      console.warn('Failed to format SQL, returning original:', errorMessage);
+      return {
+        success: true,
+        formattedSql: params.sql,
+        originalSql: params.sql
+      };
+    }
+    
+    return {
+      success: false,
+      error: `SQL formatting failed: ${errorMessage}`,
+      originalSql: params.sql
+    };
+  }
+
+  return {
+    success: true,
+    formattedSql: formatResult.formatted || params.sql,
+    originalSql: params.sql
+  };
+};
+
+// Safe formatting wrapper with comprehensive error handling
+export const formatSqlSafely = (
+  params: SqlFormattingParams,
+  options: SqlFormattingOptions = {}
+): SqlFormattingResult => {
+  try {
+    return formatSqlQuery(params, options);
+  } catch (error) {
+    return {
+      success: false,
+      error: `Safe formatting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      originalSql: params.sql
+    };
+  }
+};
+
+// Utility function to check if SQL can be formatted
+export const canFormatSql = (sql: string): boolean => {
+  if (!sql || sql.trim().length === 0) {
+    return false;
+  }
+  
+  const parseResult = tryParseSql(sql);
+  return parseResult.success;
+};
+
+// Utility function to get SQL formatting info
+export const getSqlFormattingInfo = (sql: string): {
+  canFormat: boolean;
+  sqlType: string;
+  complexity: 'LOW' | 'MEDIUM' | 'HIGH';
+  estimatedTokens: number;
+} => {
+  const canFormat = canFormatSql(sql);
+  
+  // Basic SQL type detection
+  const normalizedSql = sql.trim().toUpperCase();
+  let sqlType = 'UNKNOWN';
+  
+  if (normalizedSql.startsWith('SELECT') || normalizedSql.startsWith('WITH')) {
+    sqlType = 'SELECT';
+  } else if (normalizedSql.startsWith('INSERT')) {
+    sqlType = 'INSERT';
+  } else if (normalizedSql.startsWith('UPDATE')) {
+    sqlType = 'UPDATE';
+  } else if (normalizedSql.startsWith('DELETE')) {
+    sqlType = 'DELETE';
+  }
+  
+  // Simple complexity estimation
+  const keywordCount = (sql.match(/\b(SELECT|FROM|WHERE|JOIN|GROUP|ORDER|HAVING|WITH)\b/gi) || []).length;
+  const complexity = keywordCount <= 5 ? 'LOW' : keywordCount <= 15 ? 'MEDIUM' : 'HIGH';
+  
+  // Rough token estimation
+  const estimatedTokens = sql.split(/\s+/).length;
+  
+  return {
+    canFormat,
+    sqlType,
+    complexity,
+    estimatedTokens
+  };
+};
+
 // Types for functional approach
 export interface CreateWorkspaceParams {
   readonly name: string;

@@ -1,6 +1,21 @@
 /**
- * Command Executor Service
+ * Command Executor Service - DEPRECATED
  * Core Layer - Command Execution Management
+ * 
+ * @deprecated Phase 3: Command Pattern → Service Pattern migration
+ * This service is being replaced by functional services:
+ * - ExecuteQueryCommand → executeSqlQuery from sql-execution-service
+ * - FormatQueryCommand → formatSqlQuery from workspace-service  
+ * 
+ * New usage:
+ * ```
+ * // Old: 
+ * const command = new ExecuteQueryCommand(context);
+ * const result = await commandExecutor.execute(command);
+ * 
+ * // New:
+ * const result = await executeSqlSafely(params);
+ * ```
  */
 
 import { Command, CommandResult } from '@core/commands/base';

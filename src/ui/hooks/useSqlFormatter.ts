@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { formatSqlSafely } from '@core/services/workspace-service';
 
 // Types for SQL formatting
 export interface SqlFormatOptions {
@@ -49,31 +50,28 @@ const formatSqlQuery = async (sql: string): Promise<FormatResult> => {
   }
 
   try {
-    // Dynamic import to avoid dependencies
-    // FormatQueryCommand removed - functionality moved to functional services
-    await import('@core/entities/sql-formatter');
+    // Use functional service for formatting
+    const { SqlFormatterEntity } = await import('@core/entities/sql-formatter');
     
-    // Create formatter with options (currently unused in functional implementation)
-    // const formatterOptions = {
-    //   indentSize: options.indent,
-    //   keywordCase: options.uppercase ? 'upper' as const : 'lower' as const,
-    //   indentChar: " " as const,
-    //   newline: "\n" as const,
-    //   commaBreak: "after" as const,
-    //   andBreak: "before" as const,
-    // };
-    // const formatter = new SqlFormatterEntity(JSON.stringify(formatterOptions)); // TODO: Use when implementing functional formatting
+    // Create formatter with default options
+    const formatter = new SqlFormatterEntity();
     
-    // FormatQueryCommand removed - implementing functional approach
-    console.warn('[SQL-FORMATTER] FormatQueryCommand removed - needs functional implementation');
+    // Use service function
+    const result = formatSqlSafely({ sql, formatter });
     
-    // TODO: Implement formatting using functional services
-    return {
-      success: false,
-      formattedSql: sql, // Return original SQL as fallback
-      executionTime: formatExecutionTime(startTime),
-      error: 'SQL formatting functionality needs to be reimplemented without Command pattern'
-    };
+    if (result.success) {
+      return {
+        success: true,
+        formattedSql: result.formattedSql,
+        executionTime: formatExecutionTime(startTime),
+      };
+    } else {
+      return {
+        success: false,
+        error: result.error,
+        executionTime: formatExecutionTime(startTime),
+      };
+    }
   } catch (error) {
     return {
       success: false,

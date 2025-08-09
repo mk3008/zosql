@@ -6,9 +6,8 @@
 import { useCallback } from 'react';
 import { WorkspaceEntity, Tab, QueryExecutionResult } from '@shared/types';
 import { SqlModelEntity } from '@core/entities/sql-model';
-import { ExecuteQueryCommand } from '@core/commands/execute-query-command';
-import { FormatQueryCommand } from '@core/commands/format-query-command';
-import { commandExecutor } from '@core/services/command-executor';
+import { executeSqlSafely } from '@core/services/sql-execution-service';
+import { formatSqlSafely } from '@core/services/workspace-service';
 import { createErrorResult } from '@core/types/query-types';
 import { DebugLogger } from '../../utils/debug-logger';
 
@@ -73,25 +72,23 @@ export function useMainContentExecution(): UseMainContentExecutionReturn {
           return;
         }
         
-        // Create ExecuteQueryCommand context
-        const context = {
+        // Create SQL execution parameters (functional approach)
+        const executionParams = {
+          sql: activeTab.content,
           workspace,
           sqlModel: model,
-          tabContent: activeTab.content,
           tabType: activeTab.type
         };
         
-        // Execute using the command
-        const command = new ExecuteQueryCommand(context);
+        // Execute using service function
+        const result = await executeSqlSafely(executionParams);
         
-        const result = await commandExecutor.execute(command);
-        
-        if (result) {
-          // Result is already in core QueryExecutionResult format
+        if (result.status === 'completed' && result.errors.length === 0) {
           onSuccess(result);
           onSqlExecuted?.(activeTab.content);
         } else {
-          onError('Query execution failed');
+          const errorMessage = result.errors[0]?.message || 'Query execution failed';
+          onError(errorMessage);
         }
       } else {
         onError('Cannot execute non-SQL tab');
@@ -119,24 +116,20 @@ export function useMainContentExecution(): UseMainContentExecutionReturn {
         try {
           console.log('[DEBUG] Processing model:', model.name, 'type:', model.type);
           
-          // Create ExecuteQueryCommand context
-          const context = {
+          // Create SQL execution parameters (functional approach)
+          const executionParams = {
+            sql: model.editorContent || model.sqlWithoutCte,
             workspace,
             sqlModel: model,
-            tabContent: model.editorContent || model.sqlWithoutCte,
             tabType: model.type as 'main' | 'cte'
           };
           
-          console.log('[DEBUG] Context created, executing command...');
-          const command = new ExecuteQueryCommand(context);
+          console.log('[DEBUG] Parameters created, executing service...');
+          const result = await executeSqlSafely(executionParams);
+          console.log('[DEBUG] Service executed, result status:', result.status, 'errors:', result.errors.length);
           
-          const result = await commandExecutor.execute(command);
-          console.log('[DEBUG] Command executed, result:', result);
+          results.set(model.name, result);
           
-          if (result) {
-            // Result is already in core QueryExecutionResult format
-            results.set(model.name, result);
-          }
         } catch (error) {
           console.error('[DEBUG] Error executing model:', model.name, error);
           // Create error result for this model
@@ -174,20 +167,18 @@ export function useMainContentExecution(): UseMainContentExecutionReturn {
     }
     
     try {
-      // Create FormatQueryCommand context
-      const context = {
+      // Create SQL formatting parameters (functional approach)
+      const formatParams = {
         sql: activeTab.content,
         formatter: workspace.formatter
       };
       
-      const command = new FormatQueryCommand(context);
+      const result = formatSqlSafely(formatParams);
       
-      const formattedSql = await commandExecutor.execute(command);
-      
-      if (formattedSql) {
-        onSuccess(formattedSql);
+      if (result.success) {
+        onSuccess(result.formattedSql);
       } else {
-        onError('Formatting failed');
+        onError(result.error);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Format failed';

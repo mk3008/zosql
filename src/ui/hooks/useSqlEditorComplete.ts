@@ -44,8 +44,8 @@ export const useSqlEditorComplete = (
     const params: SqlExecutionParams = {
       sql,
       workspace,
-      tabType: 'main',
-      timeout: 30000,
+      sqlModel: null,
+      tabType: 'main'
     };
     
     return await executeSqlSafely(params);

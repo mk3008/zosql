@@ -4,10 +4,9 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-// CommandExecutor removed
-// ExecuteQueryCommand removed
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { SqlModelEntity } from '@core/entities/sql-model';
+import { executeSqlSafely } from '@core/services/sql-execution-service';
 
 export interface UseCommandsProps {
   workspace: WorkspaceEntity | null;
@@ -41,10 +40,15 @@ export function useCommands({
   commandContextRef.current = { workspace, tabModelMap, activeTab };
   
   const executeQuery = useCallback(async () => {
-    const { activeTab } = commandContextRef.current;
+    const { workspace, tabModelMap, activeTab } = commandContextRef.current;
     
     if (!activeTab || !activeTab.content.trim()) {
       setLastError('No query to execute');
+      return;
+    }
+    
+    if (!workspace) {
+      setLastError('No workspace available');
       return;
     }
     
@@ -52,18 +56,23 @@ export function useCommands({
     setLastError(null);
     
     try {
-      // Command pattern removed - implementing functional approach
-      console.warn('[HOOKS] ExecuteQueryCommand removed - needs functional implementation');
+      // Get the SQL model for the active tab
+      const sqlModel = tabModelMap.get(activeTab.id);
       
-      // TODO: Implement query execution using functional services
-      // For now, return placeholder result
-      const result = {
-        success: false,
-        error: 'Query execution functionality needs to be reimplemented without Command pattern'
+      // Create execution parameters
+      const executionParams = {
+        sql: activeTab.content,
+        workspace,
+        sqlModel: sqlModel || null,
+        tabType: activeTab.type
       };
       
-      if (!result.success) {
-        setLastError(result.error || 'Query execution failed');
+      // Execute using functional service
+      const result = await executeSqlSafely(executionParams);
+      
+      if (result.status !== 'completed' || result.errors.length > 0) {
+        const errorMessage = result.errors[0]?.message || 'Query execution failed';
+        setLastError(errorMessage);
       }
       
       // The result should be handled by the parent component

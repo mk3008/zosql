@@ -9,9 +9,8 @@ import { QueryExecutionResult, migrateLegacyResult, hasQueryResultCapability } f
 import { SqlModelEntity } from '@core/entities/sql-model';
 import { OpenedObject } from '@core/entities/workspace';
 import { TestValuesModel } from '@core/entities/test-values-model';
-import { ExecuteQueryCommand } from '@core/commands/execute-query-command';
-import { FormatQueryCommand } from '@core/commands/format-query-command';
-import { commandExecutor } from '@core/services/command-executor';
+import { executeSqlSafely } from '@core/services/sql-execution-service';
+import { formatSqlSafely } from '@core/services/workspace-service';
 import { PromptGenerator } from '@core/usecases/prompt-generator';
 import { SchemaExtractor } from '@adapters/parsers/schema-extractor';
 import { DebugLogger } from '../../utils/debug-logger';
@@ -220,16 +219,21 @@ export class MainContentViewModel extends BaseViewModel {
           }
           
           // Use the EXACT same context structure as regular executeQuery()
-          const context = {
+          const _context = {
             workspace: this.workspace,
             sqlModel: model,
             tabContent: tabContent,
             tabType: model.type as 'main' | 'cte'
           };
 
-          // Use the same ExecuteQueryCommand that works for individual tabs
-          const command = new ExecuteQueryCommand(context);
-          const result = await commandExecutor.execute(command);
+          // Use functional service approach
+          const executionParams = {
+            sql: tabContent,
+            workspace: this._workspace!,
+            sqlModel: model,
+            tabType: model.type as 'main' | 'cte'
+          };
+          const result = await executeSqlSafely(executionParams);
           const migratedResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
           
           // Store result with model name as key
@@ -305,9 +309,14 @@ export class MainContentViewModel extends BaseViewModel {
         sqlModelDependentNames: context.sqlModel?.dependents?.map(d => d.name)
       });
 
-      // Execute command
-      const command = new ExecuteQueryCommand(context);
-      const result = await commandExecutor.execute(command);
+      // Execute using functional service
+      const executionParams = {
+        sql: context.tabContent,
+        workspace: context.workspace,
+        sqlModel: context.sqlModel,
+        tabType: context.tabType
+      };
+      const result = await executeSqlSafely(executionParams);
 
       const migratedResult = migrateLegacyResult(result as unknown as Record<string, unknown>);
       
@@ -404,12 +413,18 @@ export class MainContentViewModel extends BaseViewModel {
     }
 
     try {
-      const command = new FormatQueryCommand({
+      const formatParams = {
         sql: this.activeTab.content,
         formatter: this.workspace.formatter
-      });
+      };
 
-      const formattedSql = await commandExecutor.execute(command);
+      const formatResult = formatSqlSafely(formatParams);
+      
+      if (!formatResult.success) {
+        throw new Error(formatResult.error);
+      }
+      
+      const formattedSql = formatResult.formattedSql;
       
       // Update tab content
       this.updateTabContent(this.activeTab.id, formattedSql);
