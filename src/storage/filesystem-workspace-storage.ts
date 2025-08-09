@@ -14,7 +14,9 @@ export class FilesystemWorkspaceStorage implements WorkspaceStorageInterface {
 
   constructor() {
     this.logger = Logger.getInstance();
-    this.workspaceBasePath = path.join(process.cwd(), 'zosql', 'workspace');
+    // NOTE: FilesystemWorkspaceStorage is deprecated for GitHub Pages deployment
+    // Use LocalStorageWorkspaceStorage instead
+    this.workspaceBasePath = path.join(process.cwd(), 'temp-workspace');
   }
 
   async hasWorkspace(): Promise<boolean> {

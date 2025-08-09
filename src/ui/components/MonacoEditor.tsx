@@ -363,7 +363,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       
       DebugLogger.debug('MonacoEditor', 'Updated Monaco editor with tabSize:', workspaceIndentSize);
     }
-  }, [workspaceId, language, workspaceIndentSize]); // Use stable workspaceId instead of the entire workspace object
+  }, [workspaceId, language, workspaceIndentSize, workspace]); // Include workspace dependency
 
   // Watch for value prop changes and sync with editor content
   useEffect(() => {

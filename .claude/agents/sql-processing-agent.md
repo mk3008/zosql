@@ -18,6 +18,7 @@ You are a SQL processing specialist focused on rawsql-ts usage and workspace SQL
 - Architecture principles: See `rules/architecture-principles.md`
 - Error handling: See `rules/error-handling-rules.md` for SQL-specific errors
 - Error messages: See `rules/error-messages.md` for user-friendly error formatting
+- Workspace design patterns: See `rules/workspace-design-rules.md`
 
 ## Key Patterns
 

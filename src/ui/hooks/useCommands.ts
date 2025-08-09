@@ -3,11 +3,10 @@
  * UI Layer - React hook for command execution
  */
 
-import { useState, useCallback, useRef } from 'react';
-import { commandExecutor } from '@core/services/command-executor';
-import { ExecuteQueryCommand, ExecuteQueryContext } from '@core/commands/execute-query-command';
+import { useState, useRef, useCallback } from 'react';
 import { WorkspaceEntity } from '@core/entities/workspace';
 import { SqlModelEntity } from '@core/entities/sql-model';
+import { executeSqlSafely } from '@core/services/sql-execution-service';
 
 export interface UseCommandsProps {
   workspace: WorkspaceEntity | null;
@@ -48,25 +47,32 @@ export function useCommands({
       return;
     }
     
+    if (!workspace) {
+      setLastError('No workspace available');
+      return;
+    }
+    
     setIsExecuting(true);
     setLastError(null);
     
     try {
-      // Create command context
-      const context: ExecuteQueryContext = {
+      // Get the SQL model for the active tab
+      const sqlModel = tabModelMap.get(activeTab.id);
+      
+      // Create execution parameters
+      const executionParams = {
+        sql: activeTab.content,
         workspace,
-        sqlModel: tabModelMap.get(activeTab.id) || null,
-        tabContent: activeTab.content,
+        sqlModel: sqlModel || null,
         tabType: activeTab.type
       };
       
-      // Create and execute command
-      const command = new ExecuteQueryCommand(context);
-      const result = await commandExecutor.execute(command);
+      // Execute using functional service
+      const result = await executeSqlSafely(executionParams);
       
-      // Handle result (this would be passed to a callback or state setter)
-      if (!result.success) {
-        setLastError(result.error || 'Query execution failed');
+      if (result.status !== 'completed' || result.errors.length > 0) {
+        const errorMessage = result.errors[0]?.message || 'Query execution failed';
+        setLastError(errorMessage);
       }
       
       // The result should be handled by the parent component

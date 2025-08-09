@@ -34,6 +34,81 @@ zosqlは、SQL文の分解・構成を支援するSQLデバッグツールです
 2. Filter Conditionsの内容を編集（例：`{"name": {"ilike": "%a%"}}`）
 3. **Run** ボタンでフィルター適用後の結果を確認
 
+#### Filter Conditions仕様
+
+Filter Conditionsはrawsql-tsの仕様を使用し、動的なWHERE句生成のためのさまざまな演算子をサポートしています：
+
+**空の条件（無視される）：**
+```json
+{
+  "user_id": {},
+  "name": {},
+  "status": {}
+}
+```
+生成されるSQL: WHERE句は追加されません（空の条件は無視されます）
+
+**基本演算子：**
+```json
+{
+  "user_id": {"=": 123},
+  "age": {">": 18, "<=": 65},
+  "status": {"!=": "inactive"}
+}
+```
+生成されるSQL: `WHERE user_id = $1 AND age > $2 AND age <= $3 AND status != $4`
+
+**テキスト検索：**
+```json
+{
+  "name": {"ilike": "%john%"},
+  "description": {"like": "important%"}
+}
+```
+生成されるSQL: `WHERE name ILIKE $1 AND description LIKE $2`
+
+**配列操作：**
+```json
+{
+  "status": {"in": ["active", "pending"]},
+  "tags": {"any": ["urgent", "priority"]}
+}
+```
+生成されるSQL: `WHERE status IN ($1, $2) AND tags = ANY($3)`
+
+**範囲条件：**
+```json
+{
+  "price": {"min": 10, "max": 100}
+}
+```
+生成されるSQL: `WHERE price >= $1 AND price <= $2`
+
+**複雑な論理演算：**
+```json
+{
+  "premium_or_high_score": {
+    "or": [
+      {"column": "type", "=": "premium"},
+      {"column": "score", ">": 80}
+    ]
+  }
+}
+```
+生成されるSQL: `WHERE (type = $1 OR score > $2)`
+
+注: キー `premium_or_high_score` は条件グループ名として使用され、生成されるSQLには現れません。
+
+**複数条件（自動的にANDで結合）：**
+```json
+{
+  "name": {"ilike": "%john%"},
+  "age": {">": 18},
+  "status": {"in": ["active", "verified"]}
+}
+```
+生成されるSQL: `WHERE name ILIKE $1 AND age > $2 AND status IN ($3, $4)`
+
 ### 3. テストデータを変更する
 
 1. 画面上部の **data** タブを開く

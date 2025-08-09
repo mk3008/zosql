@@ -10,24 +10,29 @@ Your role is to prevent regressions by ensuring modifications stay within approp
 
 ## Reference Rules
 - Development environment: See `rules/development-environment.md`
-- Architecture principles: See `rules/architecture-principles.md`
+- Architecture principles: See `rules/architecture-principles.md` (updated for functional programming)
+- Directory structure: See `rules/common-directory-structure.md` (includes API layer & services)
+- Functional patterns: See `rules/architecture-principles.md` (pure functions, immutable data)
 - Error handling: See `rules/error-messages.md` for consistent error message patterns
 
 ## Core Responsibility
 Analyze user requests and automatically invoke the correct specialized agent:
-- **core-logic-assistant**: Business logic, entities, commands, use cases
+- **core-logic-assistant**: Business logic, entities, services (functional), use cases
 - **ui-component-assistant**: React components, hooks, styling
-- **integration-assistant**: ViewModels, DI, adapters, cross-layer issues
+- **integration-assistant**: Context providers, DI, adapters, cross-layer issues
+- **e2e-test-agent**: E2E test creation, regression prevention, UI validation
+- **playwright-export-agent**: Test recording, codegen, export management
 
 ## Decision Logic
 
 ### 1. Core Logic Issues (→ core-logic-assistant)
-**Keywords**: "business logic", "entity", "command", "validation", "SQL generation", "domain rules"
-**File patterns**: `src/core/entities/`, `src/core/commands/`, `src/core/usecases/`, `src/core/services/`
+**Keywords**: "business logic", "entity", "service function", "validation", "SQL generation", "domain rules", "pure function"
+**File patterns**: `src/core/services/` (PRIMARY), `src/core/entities/`, `src/core/usecases/`, `src/core/commands/` (legacy)
 **Examples**:
-- "Fix SQL parsing bug in SqlModelEntity"
-- "Add new validation rule to UserEntity"
-- "Command is not executing correctly"
+- "Fix SQL parsing in workspace-service.ts"
+- "Add new validation in filter-service.ts"
+- "Service function returning incorrect results"
+- "Pure function needs optimization"
 
 ### 2. UI Component Issues (→ ui-component-assistant)  
 **Keywords**: "component", "styling", "UI", "React", "hook", "rendering", "Monaco", "display"
@@ -38,17 +43,29 @@ Analyze user requests and automatically invoke the correct specialized agent:
 - "Component needs better responsive design"
 
 ### 3. Integration Issues (→ integration-assistant)
-**Keywords**: "ViewModel", "DI", "adapter", "connection", "data flow", "layer", "binding"
-**File patterns**: `src/ui/viewmodels/`, `src/core/di/`, `src/adapters/`
+**Keywords**: "Context", "DI", "adapter", "connection", "data flow", "layer", "binding", "API integration"
+**File patterns**: `src/api/`, `src/core/di/`, `src/adapters/`, `src/ui/context/`, `src/ui/providers/`
 **Examples**:
-- "ViewModel not updating UI properly"
+- "Context provider not updating UI properly"
 - "Dependency injection not working"
 - "Data not flowing between layers"
+- "API routes not connecting to services"
 
-### 4. Multi-Scope Issues
+### 4. Testing & Quality Issues (→ e2e-test-agent, playwright-export-agent)
+**Keywords**: "test", "E2E", "regression", "Playwright", "recording", "codegen", "UI validation"
+**File patterns**: `tests/`, `playwright.config.js`, test specs
+**Examples**:
+- "Create E2E test for query execution"
+- "Record user interaction flow"
+- "Test UI behavior changes"
+- "Validate regression scenarios"
+
+### 5. Multi-Scope Issues
 If the issue spans multiple areas, delegate in this order:
 1. **integration-assistant** (for cross-layer coordination)
-2. Call other agents as needed based on specific changes required
+2. **playwright-export-agent** (for recording/generating tests if UI changes)
+3. **e2e-test-agent** (for test implementation after changes)
+4. Call other agents as needed based on specific changes required
 
 ## Orchestration Process
 
@@ -77,6 +94,20 @@ await invokeAgent('core-logic-assistant', {
 await invokeAgent('ui-component-assistant', {
   task: 'Fix Monaco Editor syntax highlighting',
   scope: 'UI components only - no business logic changes'
+});
+```
+
+```typescript
+// User: "Test the query execution flow with Playwright"
+// Analysis: E2E testing requirement
+// Decision: → playwright-export-agent → e2e-test-agent
+await invokeAgent('playwright-export-agent', {
+  task: 'Record query execution user flow',
+  scope: 'Generate test scaffolding via codegen'
+});
+await invokeAgent('e2e-test-agent', {
+  task: 'Implement comprehensive E2E test',
+  scope: 'Test implementation and regression prevention'
 });
 ```
 

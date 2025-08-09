@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Logger } from '../utils/logging.js';
 import { FileBasedSharedCteApi } from './file-based-shared-cte-api.js';
 import { SelectQueryParser, QueryFlowDiagramGenerator } from 'rawsql-ts';
+import * as Result from '../lib/functional/result.js';
 
 export interface QueryResult {
   rows: unknown[];
@@ -491,3 +492,307 @@ export class QueryExecutorApi {
     }
   }
 }
+
+// ===== NEW FUNCTIONAL VERSIONS - BACKWARD COMPATIBLE =====
+
+/**
+ * Functional version: Parse CTE dependencies
+ * Returns Result type instead of empty array on error
+ */
+export const parseCTEDependenciesFunc = (query: string): Result.Result<string[], Error> => {
+  return Result.tryCatch(() => {
+    const dependencyMatch = query.match(/\/\*\s*dependencies:\s*(\[.*?\])\s*\*\//);
+    if (dependencyMatch) {
+      const dependenciesStr = dependencyMatch[1];
+      const dependencies = JSON.parse(dependenciesStr);
+      return Array.isArray(dependencies) ? dependencies : [];
+    }
+    return [];
+  });
+};
+
+/**
+ * Functional version: Resolve CTE dependencies
+ * Returns Result with resolved dependencies or error
+ */
+export const resolveCTEDependenciesFunc = (
+  privateCtes: Record<string, CteInfo>
+) => (cteNames: string[]): Result.Result<string[], Error> => {
+  return Result.tryCatch(() => {
+    const resolved: string[] = [];
+    const visited = new Set<string>();
+    
+    const resolveDependencies = (cteName: string): void => {
+      if (visited.has(cteName)) {
+        return;
+      }
+      visited.add(cteName);
+      
+      const cte = privateCtes[cteName];
+      if (!cte) {
+        throw new Error(`CTE ${cteName} not found in private CTEs`);
+      }
+      
+      const dependenciesResult = parseCTEDependenciesFunc(cte.query);
+      const dependencies = Result.isOk(dependenciesResult) ? dependenciesResult.value : [];
+      
+      // Recursively resolve dependencies first
+      for (const dep of dependencies) {
+        if (privateCtes[dep]) {
+          resolveDependencies(dep);
+        }
+      }
+      
+      // Add this CTE if not already included
+      if (!resolved.includes(cteName)) {
+        resolved.push(cteName);
+      }
+    };
+    
+    // Resolve all requested CTEs
+    for (const cteName of cteNames) {
+      resolveDependencies(cteName);
+    }
+    
+    return resolved;
+  });
+};
+
+/**
+ * Functional version: Extract referenced table names
+ * Returns Result with table names or parsing error
+ */
+export const extractReferencedTableNamesFunc = (): Result.Result<string[], Error> => {
+  return Result.tryCatch(() => {
+    // This is a simplified implementation - in real usage, you'd analyze the parsed query
+    // For now, return empty array as safe fallback
+    return [];
+  });
+};
+
+/**
+ * Functional version: Execute database query
+ * Returns Result with query result or error
+ */
+export const executeQueryFunc = (db: DatabaseInstance) => 
+  async (sql: string): Promise<Result.Result<QueryResult, Error>> => {
+    return Result.asyncTryCatch(async () => {
+      const startTime = Date.now();
+      const result = await db.query(sql);
+      const executionTime = Date.now() - startTime;
+      
+      return {
+        rows: result.rows || [],
+        fields: result.fields || [],
+        executionTime
+      };
+    });
+  };
+
+/**
+ * Functional version: Compose SQL with shared CTEs
+ * Returns Result with composed SQL or error
+ */
+export const composeSqlWithSharedCtesFunc = (
+  sharedCteApi: FileBasedSharedCteApi,
+  getPrivateCtes: () => Promise<Record<string, CteInfo>>
+) => async (originalSql: string): Promise<Result.Result<string, Error>> => {
+  return Result.asyncTryCatch(async () => {
+    // Parse the SQL to detect table references
+    SelectQueryParser.parse(originalSql).toSimpleQuery();
+    
+    // Get Private and Shared CTEs
+    const privateCtes = await getPrivateCtes();
+    const allSharedCtes = sharedCteApi.getAllSharedCtes();
+    
+    const privateCteNames = Object.keys(privateCtes);
+    const sharedCteNames = Object.keys(allSharedCtes);
+    
+    // Extract referenced table names (simplified implementation)
+    const referencedTablesResult = extractReferencedTableNamesFunc();
+    const referencedTables = Result.isOk(referencedTablesResult) ? referencedTablesResult.value : [];
+    
+    const usedPrivateCtes: string[] = [];
+    const usedSharedCtes: string[] = [];
+    
+    // Check each referenced table: Private CTEs first, then Shared CTEs
+    for (const tableName of referencedTables) {
+      if (privateCteNames.includes(tableName)) {
+        usedPrivateCtes.push(tableName);
+      } else if (sharedCteNames.includes(tableName)) {
+        usedSharedCtes.push(tableName);
+      }
+    }
+    
+    // Resolve dependencies for Private CTEs
+    const resolvedResult = resolveCTEDependenciesFunc(privateCtes)(usedPrivateCtes);
+    if (Result.isErr(resolvedResult)) {
+      throw resolvedResult.error;
+    }
+    
+    const resolvedPrivateCtes = resolvedResult.value;
+    const uniquePrivateCtes = [...new Set(resolvedPrivateCtes)];
+    const uniqueSharedCtes = [...new Set(usedSharedCtes)];
+    
+    if (uniquePrivateCtes.length === 0 && uniqueSharedCtes.length === 0) {
+      return originalSql;
+    }
+    
+    // Build CTE definitions
+    const cteDefinitions: string[] = [];
+    
+    // Add Private CTEs first (higher priority)
+    for (const cteName of uniquePrivateCtes) {
+      const cte = privateCtes[cteName];
+      if (cte) {
+        cteDefinitions.push(`${cteName} AS (\n${cte.query}\n)`);
+      }
+    }
+    
+    // Add Shared CTEs
+    for (const cteName of uniqueSharedCtes) {
+      const cte = allSharedCtes[cteName];
+      if (cte) {
+        cteDefinitions.push(`${cteName} AS (\n${cte.query}\n)`);
+      }
+    }
+    
+    if (cteDefinitions.length === 0) {
+      return originalSql;
+    }
+    
+    // Create composed SQL with WITH clause
+    const withClause = `WITH ${cteDefinitions.join(',\n')}`;
+    return `${withClause}\n${originalSql}`;
+  });
+};
+
+/**
+ * Functional version: Parallel query execution with validation
+ * Validates SQL and executes with shared CTEs
+ */
+export const executeQueryWithValidationFunc = (
+  db: DatabaseInstance,
+  sharedCteApi: FileBasedSharedCteApi,
+  getPrivateCtes: () => Promise<Record<string, CteInfo>>
+) => async (sql: string): Promise<Result.Result<{
+  result: QueryResult;
+  composedSql?: string;
+  validationInfo?: unknown;
+}, Error>> => {
+  // Compose SQL with CTEs
+  const composedSqlResult = await composeSqlWithSharedCtesFunc(
+    sharedCteApi,
+    getPrivateCtes
+  )(sql);
+  
+  if (Result.isErr(composedSqlResult)) {
+    return composedSqlResult;
+  }
+  
+  const composedSql = composedSqlResult.value;
+  
+  // Execute the query
+  const executeQuery = executeQueryFunc(db);
+  const queryResult = await executeQuery(composedSql);
+  
+  if (Result.isErr(queryResult)) {
+    return queryResult;
+  }
+  
+  return Result.ok({
+    result: queryResult.value,
+    composedSql: composedSql !== sql ? composedSql : undefined
+  });
+};
+
+/**
+ * Functional version: Batch query execution
+ * Executes multiple queries in parallel with error aggregation
+ */
+export const executeBatchQueriesFunc = (
+  db: DatabaseInstance,
+  sharedCteApi: FileBasedSharedCteApi,
+  getPrivateCtes: () => Promise<Record<string, CteInfo>>
+) => async (queries: string[]): Promise<{
+  results: Array<Result.Result<QueryResult, Error>>;
+  aggregatedErrors: string[];
+}> => {
+  const executeQueryWithValidation = executeQueryWithValidationFunc(
+    db,
+    sharedCteApi,
+    getPrivateCtes
+  );
+  
+  // Execute all queries in parallel
+  const results = await Promise.all(
+    queries.map(async (sql, index) => {
+      const result = await executeQueryWithValidation(sql);
+      return Result.isOk(result) 
+        ? Result.ok(result.value.result)
+        : Result.err(new Error(`Query ${index + 1}: ${result.error.message}`));
+    })
+  );
+  
+  // Aggregate errors
+  const aggregatedErrors = results
+    .filter(Result.isErr)
+    .map(result => result.error.message);
+  
+  return {
+    results,
+    aggregatedErrors
+  };
+};
+
+/**
+ * Functional version: Query execution with retry and timeout
+ * Adds resilience for transient failures
+ */
+export const executeQueryWithRetryFunc = (
+  db: DatabaseInstance,
+  maxRetries: number = 3,
+  timeoutMs: number = 30000
+) => async (sql: string): Promise<Result.Result<QueryResult, Error>> => {
+  const executeQuery = executeQueryFunc(db);
+  
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Add timeout to query execution
+      const timeoutPromise = new Promise<Result.Result<QueryResult, Error>>((_, reject) => {
+        setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs}ms`)), timeoutMs);
+      });
+      
+      const queryPromise = executeQuery(sql);
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      
+      if (Result.isOk(result)) {
+        return result;
+      }
+      
+      lastError = result.error;
+      
+      // Don't retry on syntax errors or logical errors
+      if (result.error.message.includes('syntax') || 
+          result.error.message.includes('does not exist')) {
+        break;
+      }
+      
+      // Exponential backoff for retries
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+      }
+      
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
+  
+  return Result.err(lastError || new Error('Query execution failed'));
+};

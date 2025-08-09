@@ -50,6 +50,5 @@ interface WorkspaceRepository {
   findById(id: string): Promise<Workspace | null>;
 }
 
-// Result: Type-safe error handling
-type Result<T, E = Error> = { success: true; value: T } | { success: false; error: E };
+// Result: See rules/architecture-principles.md for error handling patterns
 ```

@@ -7,6 +7,9 @@ import { SelectQueryParser, CTEQueryDecomposer, SqlFormatter } from 'rawsql-ts';
 import { FileManager } from './file-manager.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { pipe } from '../lib/functional/index.js';
+import * as Result from '../lib/functional/result.js';
+import * as Option from '../lib/functional/option.js';
 
 export interface CTEDecomposerOptions {
     addComments?: boolean;
@@ -238,3 +241,185 @@ export class CTEDecomposer {
         await fileManager.flushToFileSystem(basePath);
     }
 }
+
+// ===== NEW FUNCTIONAL VERSIONS - BACKWARD COMPATIBLE =====
+
+/**
+ * Functional version: Load formatter configuration
+ */
+export const loadFormatterConfigFunc = async (): Promise<Result.Result<Record<string, unknown>, Error>> => {
+    return Result.asyncTryCatch(async () => {
+        const configPath = path.join(process.cwd(), 'zosql.formatter.json');
+        const configContent = await fs.readFile(configPath, 'utf8');
+        return JSON.parse(configContent);
+    }).then(result => 
+        Result.isErr(result) 
+            ? Result.ok({
+                identifierEscape: { start: "", end: "" },
+                parameterSymbol: ":",
+                parameterStyle: "named",
+                indentSize: 4,
+                indentChar: " ",
+                newline: "\n",
+                keywordCase: "lower",
+                commaBreak: "before",
+                andBreak: "before",
+                withClauseStyle: "full-oneline",
+                preserveComments: true
+            })
+            : result
+    );
+};
+
+/**
+ * Functional version: Format CTE query
+ */
+export const formatCteQueryFunc = (options: CTEDecomposerOptions) => 
+    async (query: string): Promise<Result.Result<string, Error>> => {
+        if (!options.useCustomFormatter) {
+            return Result.ok(query);
+        }
+
+        return Result.asyncTryCatch(async () => {
+            const configResult = await loadFormatterConfigFunc();
+            if (Result.isErr(configResult)) {
+                return query;
+            }
+            
+            const formatter = new SqlFormatter(configResult.value);
+            const parsedQuery = SelectQueryParser.parse(query);
+            const formatResult = formatter.format(parsedQuery);
+            
+            return typeof formatResult === 'string' ? formatResult : formatResult.formattedSql;
+        });
+    };
+
+/**
+ * Functional version: Create CTE file content
+ */
+export const createCTEFileContentFunc = (cte: DecomposedCTE): string => {
+    return pipe(
+        [
+            `/* name: ${cte.name} */`,
+            `/* description: Extracted CTE: ${cte.name} */`,
+            `/* dependencies: ${JSON.stringify(cte.dependencies)} */`,
+            '',
+            ...(cte.comment ? [`/* ${cte.comment} */`, ''] : []),
+            cte.query
+        ],
+        lines => lines.join('\n')
+    );
+};
+
+/**
+ * Functional version: Parse CTE from file content
+ */
+export const parseCTEFromContentFunc = (content: string, fileName: string): Option.Option<DecomposedCTE> => {
+    const cteName = fileName.replace('.sql', '');
+    
+    const nameMatch = content.match(/\/\*\s*name:\s*(.*?)\s*\*\//);
+    const descMatch = content.match(/\/\*\s*description:\s*(.*?)\s*\*\//);
+    const depsMatch = content.match(/\/\*\s*dependencies:\s*(\[.*?\])\s*\*\//);
+    
+    const dependencies = pipe(
+        Option.fromNullable(depsMatch?.[1]),
+        Option.map(depsStr => {
+            try {
+                return JSON.parse(depsStr) as string[];
+            } catch {
+                return [] as string[];
+            }
+        }),
+        Option.getOrElse([] as string[])
+    );
+    
+    const lastCommentEnd = content.lastIndexOf('*/');
+    const query = lastCommentEnd >= 0 
+        ? content.substring(lastCommentEnd + 2).trim()
+        : content;
+    
+    return Option.some({
+        name: nameMatch?.[1] || cteName,
+        query,
+        dependencies,
+        comment: descMatch?.[1]
+    });
+};
+
+/**
+ * Functional version: Load private CTE
+ */
+export const loadPrivateCTEFunc = (fileManager: FileManager) => 
+    (filePath: string): Option.Option<DecomposedCTE> => {
+        const content = fileManager.readFile(filePath);
+        if (!content) {
+            return Option.none;
+        }
+        
+        const fileName = filePath.split('/').pop() || '';
+        return parseCTEFromContentFunc(content, fileName);
+    };
+
+/**
+ * Functional version: Load all private CTEs
+ */
+export const loadAllPrivateCTEsFunc = (fileManager: FileManager, targetDir: string = 'zosql/workspace/private-cte'): DecomposedCTE[] => {
+    const files = fileManager.glob(`${targetDir}/*.sql`);
+    const ctes: DecomposedCTE[] = [];
+    
+    for (const filePath of files) {
+        const cteOption = loadPrivateCTEFunc(fileManager)(filePath);
+        if (Option.isSome(cteOption)) {
+            ctes.push(cteOption.value);
+        }
+    }
+    
+    return ctes;
+};
+
+/**
+ * Functional version: Decompose SQL with Result type
+ */
+export const decomposeFunc = (options: CTEDecomposerOptions) => 
+    async (sql: string, fileManager: FileManager, targetDir: string = 'zosql/workspace/private-cte'): 
+    Promise<Result.Result<DecomposeResult, Error>> => {
+        return Result.asyncTryCatch(async () => {
+            const query = SelectQueryParser.parse(sql);
+            const simpleQuery = query.toSimpleQuery();
+            
+            const decomposer = new CTEQueryDecomposer(options);
+            const decomposedCTEs = decomposer.decompose(simpleQuery);
+            
+            const result: DecomposeResult = {
+                privateCtesCreated: 0,
+                mainQuery: sql,
+                decomposedCTEs: []
+            };
+            
+            const formatter = formatCteQueryFunc(options);
+            
+            for (const cteData of decomposedCTEs) {
+                const formattedQueryResult = await formatter(cteData.query);
+                const formattedQuery = Result.isOk(formattedQueryResult) 
+                    ? formattedQueryResult.value 
+                    : cteData.query;
+                
+                const decomposedCTE: DecomposedCTE = {
+                    name: cteData.name,
+                    query: formattedQuery,
+                    dependencies: cteData.dependencies || [],
+                    comment: (cteData as { comment?: string }).comment
+                };
+                
+                const fileContent = createCTEFileContentFunc(decomposedCTE);
+                const filePath = `${targetDir}/${cteData.name}.sql`;
+                
+                fileManager.writeFile(filePath, fileContent);
+                
+                result.decomposedCTEs.push(decomposedCTE);
+                result.privateCtesCreated++;
+            }
+            
+            return result;
+        });
+    };

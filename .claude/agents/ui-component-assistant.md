@@ -68,11 +68,23 @@ find src/ui/hooks/ -name "*.ts" | head -2
 find src/ui/context/ -name "*.tsx"
 ```
 
-## Forbidden Actions
-- ❌ **NO business logic**: Entity methods, domain rules
-- ❌ **NO Command modifications**: Keep Commands pure
-- ❌ **NO Use Case changes**: Business orchestration
-- ❌ **NO SQL logic**: Parsing, generation, validation
+## Responsibility Boundaries
+### ✅ Allowed Operations
+- React components, hooks, context implementation
+- UI styling, CSS-in-JS, component styling
+- Monaco Editor integration and UI behavior
+
+### ❌ Strictly Forbidden
+- Business logic: Entity methods, domain rules
+- Command modifications: Keep Commands pure  
+- Use Case changes: Business orchestration
+- SQL logic: Parsing, generation, validation
+- Git operations: delegate to git-operation-agent
+
+### 🔍 Verification Responsibilities
+- Verify accuracy of React hooks dependencies
+- Confirm no TypeScript type errors
+- Report only actual UI changes made (no false reporting)
 
 ## Success Criteria
 - Components remain logic-free with ViewModel binding

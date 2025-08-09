@@ -104,6 +104,7 @@ export class ContainerFactory {
    * Create test container with mock implementations
    */
   static createTestContainer(_config: ContainerConfig): DIContainer {
+    void _config; // Suppress ESLint warning
     console.log(`[DI] Creating test container`);
     
     // TODO: Create mock implementations for testing

@@ -2,13 +2,11 @@
 
 Core React patterns for hooks and state.
 
-## useState Patterns
-- Minimal state, calculate derived values
-- Group related state, use functional updates
-- Avoid stale closures with functional setters
+## Hook Patterns
 
+### useState
 ```typescript
-// State grouping + derived values
+// Minimal state + derived values
 function ShoppingCart() {
   const [items, setItems] = useState<CartItem[]>([]);
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -17,7 +15,7 @@ function ShoppingCart() {
 }
 ```
 
-## useEffect Patterns
+### useEffect
 ```typescript
 // Data fetching with cleanup
 function UserProfile({ userId }: { userId: string }) {
@@ -28,37 +26,80 @@ function UserProfile({ userId }: { userId: string }) {
     return () => { cancelled = true; };
   }, [userId]);
 }
-
-// Event listeners
-function WindowSize() {
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    const updateSize = () => setSize({width: window.innerWidth, height: window.innerHeight});
-    window.addEventListener('resize', updateSize);
-    updateSize();
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
-}
 ```
 
-## Performance Patterns
+### Performance Hooks
 ```typescript
 // useMemo for expensive calculations
-function ExpensiveComponent({ items }: { items: Item[] }) {
-  const expensiveValue = useMemo(() => 
-    items.filter(item => item.isActive).reduce((sum, item) => sum + item.complexCalculation(), 0)
-  , [items]);
-}
+const expensiveValue = useMemo(() => 
+  items.filter(item => item.isActive).reduce((sum, item) => sum + item.total, 0), [items]);
 
-// useCallback for stable references
-function TodoList({ todos }: { todos: Todo[] }) {
-  const [filter, setFilter] = useState('all');
-  const handleToggle = useCallback((id: string) => {/* toggle logic */}, []);
-  const filteredTodos = useMemo(() => todos.filter(/* filter logic */), [todos, filter]);
-}
+// useCallback for stable references  
+const handleToggle = useCallback((id: string) => {/* logic */}, []);
 ```
 
-## Component Patterns
+## Functional Programming Core
+
+### Function over Class
+```typescript
+// Use hooks instead of classes
+const useSqlEditor = () => {
+  const [sql, setSql] = useState('');
+  const [isExecuting, setIsExecuting] = useState(false);
+  
+  const executeSql = useCallback(async () => {
+    setIsExecuting(true);
+    try {
+      return await executeQuery(sql);
+    } finally {
+      setIsExecuting(false);
+    }
+  }, [sql]);
+  
+  return { sql, setSql, executeSql, isExecuting };
+};
+```
+
+### Pure State Updates
+```typescript
+// useReducer for complex state
+type State = { isLoading: boolean; data: string | null; error: string | null };
+type Action = 
+  | { type: 'START' }
+  | { type: 'SUCCESS'; payload: string }
+  | { type: 'ERROR'; payload: string };
+
+const reducer = (state: State, action: Action): State => {
+  switch (action.type) {
+    case 'START': return { ...state, isLoading: true, error: null };
+    case 'SUCCESS': return { ...state, isLoading: false, data: action.payload };
+    case 'ERROR': return { ...state, isLoading: false, error: action.payload };
+  }
+};
+```
+
+### Immutable Updates
+```typescript
+// Create new objects/arrays instead of mutating
+const addItem = (items: Item[], newItem: Item) => [...items, newItem];
+const updateItem = (items: Item[], id: string, updates: Partial<Item>) =>
+  items.map(item => item.id === id ? { ...item, ...updates } : item);
+```
+
+### Function Composition
+```typescript
+// Compose pure functions in hooks
+const validateSql = (sql: string): boolean => sql.trim().length > 0;
+const formatSql = (sql: string): string => sql.trim().toUpperCase();
+
+const useSqlProcessor = (sql: string) => {
+  const isValid = useMemo(() => validateSql(sql), [sql]);
+  const formatted = useMemo(() => formatSql(sql), [sql]);
+  return { isValid, formatted };
+};
+```
+
+## Component Structure
 ```typescript
 // Function components with TypeScript
 interface Props {
@@ -77,15 +118,9 @@ function MyComponent({ title, onSubmit }: Props) {
 }
 ```
 
-## Anti-Patterns
-```typescript
-// Bad: Redundant state
-const [users, setUsers] = useState([]);
-const [userCount, setUserCount] = useState(0); // Calculate instead!
-
-// Bad: Object mutation
-user.name = 'New Name'; setUser(user); // Create new object instead!
-
-// Good: Immutable updates
-setUser({ ...user, name: 'New Name' });
-```
+## Key Rules
+- **Prefer hooks over classes** - Use function components with hooks
+- **Calculate derived state** - Don't store what can be computed
+- **Immutable updates** - Create new objects instead of mutating
+- **Pure functions** - Separate side effects from business logic
+- **Cleanup effects** - Always cleanup subscriptions and async operations

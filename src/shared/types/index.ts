@@ -33,14 +33,8 @@ export interface Workspace {
   lastModified: string;
 }
 
-export interface QueryExecutionResult {
-  success: boolean;
-  data?: unknown[];
-  error?: string;
-  executionTime?: number;
-  rowCount?: number;
-  executedSql?: string; // The actual SQL that was executed (with WITH clauses)
-}
+// Use core QueryExecutionResult type for consistency
+export type { QueryExecutionResult } from '@core/types/query-types';
 
 // Forward declaration for circular reference - use actual class from core/entities
 export type { SqlModelEntity } from '@core/entities/sql-model';

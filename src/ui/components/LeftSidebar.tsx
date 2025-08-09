@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useWorkspace } from '../context/WorkspaceContext';
-import { SqlModelsList } from './SqlModelsList';
-import { SqlModelEntity, WorkspaceEntity } from '@shared/types';
-import { MainContentRef } from './MainContentMvvm';
 import { DebugLogger } from '../../utils/debug-logger';
+import { SqlModelEntity } from '@shared/types';
+import { WorkspaceEntity } from '@core/entities/workspace';
+import { useWorkspace } from '@ui/context/WorkspaceContext';
+import { SqlModelsList } from './SqlModelsList';
+import { MainContentRef } from './MainContentFunctional';
 
 interface LeftSidebarProps {
   onOpenValuesTab?: () => void;
@@ -83,10 +84,12 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     
     _setIsValidating(true);
     try {
-      DebugLogger.info('LeftSidebar', 'Delegating static analysis to MainContentViewModel');
-      // Delegate to MainContentViewModel for unified entity management and UI binding
-      await mainContentRef.current.runStaticAnalysis();
-      DebugLogger.info('LeftSidebar', 'Static analysis delegation completed');
+      DebugLogger.info('LeftSidebar', 'Running static analysis via MainContentFunctional ref');
+      
+      // Call static analysis function through MainContent ref
+      mainContentRef.current.runStaticAnalysis();
+      
+      DebugLogger.info('LeftSidebar', 'Static analysis completed');
       
       // Force component re-render to show updated validation icons
       forceUpdate({});
@@ -147,7 +150,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   );
 
   return (
-    <aside className="w-sidebar bg-dark-secondary border-r border-dark-border-primary p-3 overflow-y-auto flex-shrink-0">
+    <aside className="h-full bg-dark-secondary border-r border-dark-border-primary p-3 overflow-y-auto w-full">
       {/* Workspace Overview */}
       <div className="mb-6">
         <CollapsibleHeader 

@@ -74,7 +74,12 @@ export class SqlDecomposerParser implements SqlParserPort {
 
       return ctes;
     } catch (error) {
-      throw new Error(`CTE extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Check if this is a parse error (syntax error)
+      if (errorMessage.includes('Expected') || errorMessage.includes('Unexpected') || errorMessage.includes('parse')) {
+        throw new Error(`SQL syntax error: ${errorMessage}. Please check your SQL syntax.`);
+      }
+      throw new Error(`CTE extraction failed: ${errorMessage}`);
     }
   }
 
@@ -324,7 +329,14 @@ export class SqlDecomposerParser implements SqlParserPort {
     // Handle subquery
     if (source.datasource?.query) {
       // Recursively process subquery
-      // This is simplified - would need full traversal
+      const subquery = source.datasource.query;
+      
+      // Convert to simple query if possible
+      if (subquery && typeof subquery === 'object' && 'toSimpleQuery' in subquery && typeof subquery.toSimpleQuery === 'function') {
+        const simpleSubquery = subquery.toSimpleQuery();
+        // Recursively extract dependencies from subquery
+        this.extractDependenciesFromSimpleQuery(simpleSubquery, dependencies);
+      }
     }
   }
 

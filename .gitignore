@@ -151,3 +151,20 @@ vite.config.ts.timestamp-*
 
 # GitHub Pages build output
 /docs/
+
+# Claude Code conversation logs (contains sensitive conversation data)
+.claude/conversation_logs/
+*.transcript.json
+*.conversation.log
+
+# Playwright test artifacts (temporary/generated files)
+/test-results/
+/playwright-report/
+/exports/reports/
+/exports/traces/
+/exports/screenshots/
+/exports/videos/
+tests/e2e/screenshots/
+tests/**/test-results/
+playwright/.cache/
+.playwright/

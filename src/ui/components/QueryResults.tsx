@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { QueryExecutionResult } from '@core/types/query-types';
+import React from 'react';
+import { QueryExecutionResult } from '@shared/types';
 
 // Type guard to check if a value is a record (object with string keys)
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -18,13 +18,13 @@ interface QueryResultsProps {
 }
 
 export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, onClose }) => {
-  // Refs for synchronized scrolling
-  const headerScrollRef = useRef<HTMLDivElement>(null);
-  const bodyScrollRef = useRef<HTMLDivElement>(null);
-  
   // Handle both old and new result formats at component level
   const rows = result?.rows || (result as unknown as { data?: readonly unknown[] })?.data || [];
   const status = result?.status || ((result as unknown as { success?: boolean })?.success ? 'completed' : 'failed');
+  
+  // State for selected row and cell
+  const [selectedRowIndex, setSelectedRowIndex] = React.useState<number | null>(null);
+  const [selectedCellColumn, setSelectedCellColumn] = React.useState<string | null>(null);
   
   console.log('[DEBUG] QueryResults component:', {
     isVisible,
@@ -37,33 +37,7 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
     computedStatus: status
   });
   
-  // Synchronized horizontal scrolling between header and body
-  useEffect(() => {
-    const headerElement = headerScrollRef.current;
-    const bodyElement = bodyScrollRef.current;
-    
-    if (!headerElement || !bodyElement) return;
-    
-    const syncHeaderScroll = () => {
-      if (bodyElement) {
-        bodyElement.scrollLeft = headerElement.scrollLeft;
-      }
-    };
-    
-    const syncBodyScroll = () => {
-      if (headerElement) {
-        headerElement.scrollLeft = bodyElement.scrollLeft;
-      }
-    };
-    
-    headerElement.addEventListener('scroll', syncHeaderScroll);
-    bodyElement.addEventListener('scroll', syncBodyScroll);
-    
-    return () => {
-      headerElement.removeEventListener('scroll', syncHeaderScroll);
-      bodyElement.removeEventListener('scroll', syncBodyScroll);
-    };
-  }, []);
+
   
   if (!isVisible) return null;
 
@@ -98,90 +72,75 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
     
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
     
-    // Calculate dynamic column widths based on content
-    const getColumnWidth = (column: string, index: number) => {
-      // Row number column is fixed
-      if (index === -1) return '60px';
-      
-      // Calculate width based on column name and sample data
-      const headerLength = column.length;
-      const maxDataLength = Math.max(
-        ...rows.slice(0, 5).map(row => String(row[column] || '').length)
-      );
-      
-      // Minimum 120px, maximum 300px, with padding
-      const calculatedWidth = Math.min(300, Math.max(120, Math.max(headerLength, maxDataLength) * 8 + 24));
-      return `${calculatedWidth}px`;
-    };
+
     
     return (
-      <div className="flex flex-col h-full">
-        {/* Table Header - Fixed */}
-        <div className="flex-shrink-0 overflow-hidden border-b border-dark-border-primary">
-          <div 
-            ref={headerScrollRef}
-            className="overflow-x-auto scrollbar-thin"
-          >
-            <table className="text-sm table-fixed w-full min-w-max">
-              <thead className="bg-dark-tertiary">
-                <tr>
+      <div className="h-full overflow-auto scrollbar-thin">
+        {/* Single table with sticky header */}
+        <table className="text-sm table-auto w-full">
+            <thead className="bg-dark-tertiary sticky top-0 z-10">
+              <tr>
+                <th 
+                  className="px-2 py-1 text-left border-r border-dark-border-primary text-dark-text-secondary whitespace-nowrap sticky left-0 bg-dark-tertiary z-20"
+                >
+                  #
+                </th>
+                {columns.map((column) => (
                   <th 
-                    className="px-2 py-2 text-left border-r border-dark-border-primary text-dark-text-secondary whitespace-nowrap sticky left-0 bg-dark-tertiary z-10"
-                    style={{ width: getColumnWidth('', -1), minWidth: getColumnWidth('', -1) }}
+                    key={column}
+                    className={`px-3 py-1 text-left text-dark-text-white font-medium whitespace-nowrap border-r border-dark-border-primary ${
+                      selectedCellColumn === column ? 'bg-blue-600 bg-opacity-30' : ''
+                    }`}
                   >
-                    #
+                    {column}
                   </th>
-                  {columns.map((column, index) => (
-                    <th 
-                      key={column}
-                      className={`px-3 py-2 text-left text-dark-text-white font-medium whitespace-nowrap ${
-                        index < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
-                      }`}
-                      style={{ width: getColumnWidth(column, index), minWidth: '120px' }}
-                    >
-                      {column}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-            </table>
-          </div>
-        </div>
-
-        {/* Table Body - Scrollable */}
-        <div 
-          ref={bodyScrollRef}
-          className="flex-1 overflow-auto scrollbar-thin"
-        >
-          <table className="text-sm table-fixed w-full min-w-max">
-            <colgroup>
-              <col style={{ width: getColumnWidth('', -1), minWidth: getColumnWidth('', -1) }} />
-              {columns.map((column, index) => (
-                <col key={column} style={{ width: getColumnWidth(column, index), minWidth: '120px' }} />
-              ))}
-            </colgroup>
+                ))}
+                {/* Layout control column - fills remaining width */}
+                <th className="w-full"></th>
+              </tr>
+            </thead>
             <tbody>
               {rows.map((row, rowIndex) => (
                 <tr 
                   key={rowIndex}
-                  className={`border-b border-dark-border-primary hover:bg-dark-hover ${
-                    rowIndex % 2 === 0 ? 'bg-dark-primary' : 'bg-dark-secondary'
+                  className={`border-b border-dark-border-primary hover:bg-dark-hover cursor-pointer ${
+                    selectedRowIndex === rowIndex 
+                      ? 'bg-blue-600 bg-opacity-30' 
+                      : rowIndex % 2 === 0 ? 'bg-dark-primary' : 'bg-dark-secondary'
                   }`}
+                  onClick={(e) => {
+                    // If clicking on a data cell, don't trigger row selection
+                    if ((e.target as HTMLElement).tagName === 'TD' && (e.target as HTMLElement).closest('td')?.getAttribute('data-column')) {
+                      return;
+                    }
+                    setSelectedRowIndex(rowIndex === selectedRowIndex ? null : rowIndex);
+                    setSelectedCellColumn(null);
+                  }}
                 >
                   <td 
-                    className="px-2 py-2 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap sticky left-0 z-10"
+                    className="px-2 py-1 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap sticky left-0"
                     style={{ 
-                      backgroundColor: rowIndex % 2 === 0 ? '#1a1a1a' : '#2a2a2a'
+                      backgroundColor: selectedRowIndex === rowIndex 
+                        ? 'rgba(37, 99, 235, 0.3)' 
+                        : rowIndex % 2 === 0 ? '#1a1a1a' : '#2a2a2a'
                     }}
                   >
                     {rowIndex + 1}
                   </td>
-                  {columns.map((column, colIndex) => (
+                  {columns.map((column) => (
                     <td 
                       key={column}
-                      className={`px-3 py-2 text-dark-text-primary ${
-                        colIndex < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
+                      data-column={column}
+                      className={`px-3 py-1 text-dark-text-primary border-r border-dark-border-primary cursor-pointer ${
+                        selectedRowIndex === rowIndex && selectedCellColumn === column 
+                          ? 'bg-blue-600 bg-opacity-50' 
+                          : ''
                       }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRowIndex(rowIndex);
+                        setSelectedCellColumn(column === selectedCellColumn && rowIndex === selectedRowIndex ? null : column);
+                      }}
                     >
                       <div className="truncate" title={String(row[column])}>
                         {row[column] === null ? (
@@ -194,11 +153,14 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
                       </div>
                     </td>
                   ))}
+                  {/* Layout control column - fills remaining width */}
+                  <td className="w-full"></td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+          {/* Bottom padding to ensure last row is visible */}
+          <div style={{ height: '80px' }}></div>
       </div>
     );
   };
@@ -206,11 +168,13 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
   const renderError = () => {
     if (!result?.errors || result.errors.length === 0) return null;
     const errorMessage = result.errors[0].message;
+    const executedSql = result.sql || '';
     
     const handleCopyError = () => {
-      navigator.clipboard.writeText(errorMessage || '').then(() => {
+      const fullError = `Error: ${errorMessage}\n\nExecuted Query:\n${executedSql}`;
+      navigator.clipboard.writeText(fullError).then(() => {
         // Could add a toast notification here
-        console.log('Error message copied to clipboard');
+        console.log('Error and query copied to clipboard');
       }).catch(err => {
         console.error('Failed to copy error:', err);
       });
@@ -218,33 +182,56 @@ export const QueryResults: React.FC<QueryResultsProps> = ({ result, isVisible, o
     
     return (
       <div className="p-4 bg-error bg-opacity-10 border border-error border-opacity-30 rounded m-4">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <h4 className="text-error font-medium">Query Error</h4>
           <button
             onClick={handleCopyError}
             className="text-xs px-2 py-1 bg-dark-tertiary hover:bg-dark-hover text-dark-text-primary rounded border border-dark-border-primary transition-colors"
-            title="Copy error message"
+            title="Copy error message and query"
           >
-            Copy Error
+            Copy Error & Query
           </button>
         </div>
-        <textarea
-          readOnly
-          value={errorMessage}
-          className="w-full text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3 resize-none"
-          style={{ minHeight: '200px', height: 'auto' }}
-          rows={errorMessage.split('\n').length + 1}
-          onClick={(e) => {
-            // Select all text when clicked
-            e.currentTarget.select();
-          }}
-        />
+        
+        {/* Error Message */}
+        <div className="mb-4">
+          <h5 className="text-sm font-medium text-dark-text-white mb-2">Error Message:</h5>
+          <textarea
+            readOnly
+            value={errorMessage}
+            className="w-full text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3 resize-none"
+            style={{ minHeight: '80px', height: 'auto' }}
+            rows={errorMessage.split('\n').length + 1}
+            onClick={(e) => {
+              // Select all text when clicked
+              e.currentTarget.select();
+            }}
+          />
+        </div>
+        
+        {/* Executed Query */}
+        {executedSql && (
+          <div>
+            <h5 className="text-sm font-medium text-dark-text-white mb-2">Executed Query:</h5>
+            <textarea
+              readOnly
+              value={executedSql}
+              className="w-full text-sm text-dark-text-primary font-mono bg-dark-secondary border border-dark-border-primary rounded p-3 resize-none"
+              style={{ minHeight: '120px', height: 'auto' }}
+              rows={Math.max(6, executedSql.split('\n').length + 1)}
+              onClick={(e) => {
+                // Select all text when clicked
+                e.currentTarget.select();
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   };
 
   return (
-    <div className="border-t border-dark-border-primary bg-dark-secondary flex flex-col" style={{ minHeight: '300px', height: '40vh' }}>
+    <div className="h-full border-t border-dark-border-primary bg-dark-secondary flex flex-col">
       {/* Results Header */}
       <div className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">

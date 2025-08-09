@@ -35,14 +35,21 @@ No type errors found.
 ### Failure
 ```markdown
 ❌ TypeScript Compilation: FAIL
-Found 3 errors:
-- src/api/handler.ts: 2 errors
-- src/utils/helper.ts: 1 error
+Found X errors:
+
+[Include the exact error output from tsc --noEmit]
+
+Critical Issues Detected:
+- String literal syntax errors (unterminated strings)
+- Type errors
+- Import/export errors
+- Any TypeScript compilation failures
 ```
 
 ## Important
-- ONLY run tsc --noEmit
-- DO NOT attempt to fix errors
-- DO NOT read source files
-- DO NOT provide detailed error messages
-- Just report pass/fail and error count per file
+- ALWAYS run `tsc --noEmit` command
+- CAPTURE and INCLUDE the full error output from TypeScript compiler
+- String literal errors (unterminated strings with line breaks) MUST be detected
+- DO NOT attempt to fix errors - only report them
+- Provide enough detail for developers to locate and fix issues
+- FAIL immediately if ANY TypeScript errors are found

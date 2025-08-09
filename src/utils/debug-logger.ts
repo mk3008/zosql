@@ -60,7 +60,7 @@ class DebugLogger {
 }
 
 // Configuration for development
-DebugLogger.configure('MainContentViewModel', { enabled: true, level: 'warn' });
+// MainContentViewModel removed - functionality moved to hooks
 DebugLogger.configure('WorkspaceEntity', { enabled: true, level: 'error' });
 DebugLogger.configure('SqlModelsList', { enabled: false, level: 'error' });
 DebugLogger.configure('LeftSidebar', { enabled: true, level: 'info' });

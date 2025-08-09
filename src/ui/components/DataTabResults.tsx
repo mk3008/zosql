@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
-import { QueryExecutionResult } from '@core/types/query-types';
+import React from 'react';
+import { QueryExecutionResult } from '@shared/types';
+import { WorkspaceEntity } from '@shared/types';
 
 // Type guard to check if a value is a record (object with string keys)
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -13,6 +14,7 @@ function isRecordArray(data: readonly unknown[]): data is readonly Record<string
 
 interface DataTabResultsProps {
   results: Map<string, QueryExecutionResult>;
+  workspace: WorkspaceEntity | null;
 }
 
 interface ResultGridProps {
@@ -23,50 +25,34 @@ interface ResultGridProps {
 }
 
 const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onToggleCollapse }) => {
-  const headerScrollRef = useRef<HTMLDivElement>(null);
-  const bodyScrollRef = useRef<HTMLDivElement>(null);
-  
   // Handle both old and new result formats at component level
   const rows = result?.rows || (result as unknown as { data?: readonly unknown[] })?.data || [];
   const status = result?.status || ((result as unknown as { success?: boolean })?.success ? 'completed' : 'failed');
   
-  // Synchronized horizontal scrolling between header and body
-  useEffect(() => {
-    const headerElement = headerScrollRef.current;
-    const bodyElement = bodyScrollRef.current;
-    
-    if (!headerElement || !bodyElement) return;
-    
-    const syncHeaderScroll = () => {
-      if (bodyElement) {
-        bodyElement.scrollLeft = headerElement.scrollLeft;
-      }
-    };
-    
-    const syncBodyScroll = () => {
-      if (headerElement) {
-        headerElement.scrollLeft = bodyElement.scrollLeft;
-      }
-    };
-    
-    headerElement.addEventListener('scroll', syncHeaderScroll);
-    bodyElement.addEventListener('scroll', syncBodyScroll);
-    
-    return () => {
-      headerElement.removeEventListener('scroll', syncHeaderScroll);
-      bodyElement.removeEventListener('scroll', syncBodyScroll);
-    };
-  }, []);
+  // State for selected row and cell (same as QueryResults)
+  const [selectedRowIndex, setSelectedRowIndex] = React.useState<number | null>(null);
+  const [selectedCellColumn, setSelectedCellColumn] = React.useState<string | null>(null);
 
   const renderTable = () => {
     const isError = status === 'failed' || !!(result as unknown as { error?: string })?.error;
     
     if (!result || isError || !rows || rows.length === 0) {
+      if (status === 'failed' || isError) {
+        // Display error with proper formatting
+        const errorMessage = result?.errors?.[0]?.message || (result as unknown as { error?: string })?.error || 'Query execution failed';
+        return (
+          <div className="p-4 bg-error bg-opacity-10 border border-error border-opacity-30 rounded m-4">
+            <h4 className="text-error font-medium mb-2">Query Error</h4>
+            <div className="text-sm text-dark-text-primary font-mono bg-dark-primary border border-dark-border-primary rounded p-3">
+              {errorMessage}
+            </div>
+          </div>
+        );
+      }
+      
       return (
         <div className="text-center text-dark-text-muted py-4">
-          {status === 'completed' ? 'No data returned from query' : 
-           status === 'failed' ? `Error: ${result?.errors?.[0]?.message || (result as unknown as { error?: string })?.error || 'Query execution failed'}` :
-           'No result available'}
+          {status === 'completed' ? 'No data returned from query' : 'No result available'}
         </div>
       );
     }
@@ -82,90 +68,72 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
     
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
     
-    // Calculate dynamic column widths based on content
-    const getColumnWidth = (column: string, index: number) => {
-      // Row number column is fixed
-      if (index === -1) return '60px';
-      
-      // Calculate width based on column name and sample data
-      const headerLength = column.length;
-      const maxDataLength = Math.max(
-        ...rows.slice(0, 5).map(row => String(row[column] || '').length)
-      );
-      
-      // Minimum 120px, maximum 300px, with padding
-      const calculatedWidth = Math.min(300, Math.max(120, Math.max(headerLength, maxDataLength) * 8 + 24));
-      return `${calculatedWidth}px`;
-    };
-    
     return (
-      <div className="flex flex-col h-full">
-        {/* Table Header - Fixed */}
-        <div className="flex-shrink-0 overflow-hidden border-b border-dark-border-primary">
-          <div 
-            ref={headerScrollRef}
-            className="overflow-x-auto scrollbar-thin"
-          >
-            <table className="text-sm table-fixed w-full min-w-max">
-              <thead className="bg-dark-tertiary">
-                <tr>
-                  <th 
-                    className="px-2 py-2 text-left border-r border-dark-border-primary text-dark-text-secondary whitespace-nowrap sticky left-0 bg-dark-tertiary z-10"
-                    style={{ width: getColumnWidth('', -1), minWidth: getColumnWidth('', -1) }}
-                  >
-                    #
-                  </th>
-                  {columns.map((column, index) => (
-                    <th 
-                      key={column}
-                      className={`px-3 py-2 text-left text-dark-text-white font-medium whitespace-nowrap ${
-                        index < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
-                      }`}
-                      style={{ width: getColumnWidth(column, index), minWidth: '120px' }}
-                    >
-                      {column}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-            </table>
-          </div>
-        </div>
-
-        {/* Table Body - Horizontally Scrollable */}
-        <div 
-          ref={bodyScrollRef}
-          className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin"
-        >
-          <table className="text-sm table-fixed w-full min-w-max">
-            <colgroup>
-              <col style={{ width: getColumnWidth('', -1), minWidth: getColumnWidth('', -1) }} />
-              {columns.map((column, index) => (
-                <col key={column} style={{ width: getColumnWidth(column, index), minWidth: '120px' }} />
+      <div className="overflow-auto scrollbar-thin" style={{ maxHeight: '400px' }}>
+        <table className="text-sm table-auto w-full">
+          <thead className="bg-dark-tertiary sticky top-0 z-10">
+            <tr>
+              <th 
+                className="px-2 py-1 text-left border-r border-dark-border-primary text-dark-text-secondary whitespace-nowrap sticky left-0 bg-dark-tertiary z-20"
+              >
+                #
+              </th>
+              {columns.map((column) => (
+                <th 
+                  key={column}
+                  className={`px-3 py-1 text-left text-dark-text-white font-medium whitespace-nowrap border-r border-dark-border-primary ${
+                    selectedCellColumn === column ? 'bg-blue-600 bg-opacity-30' : ''
+                  }`}
+                >
+                  {column}
+                </th>
               ))}
-            </colgroup>
-            <tbody>
+              {/* Layout control column - fills remaining width */}
+              <th className="w-full"></th>
+            </tr>
+          </thead>
+          <tbody>
               {rows.map((row, rowIndex) => (
                 <tr 
                   key={rowIndex}
-                  className={`border-b border-dark-border-primary hover:bg-dark-hover ${
-                    rowIndex % 2 === 0 ? 'bg-dark-primary' : 'bg-dark-secondary'
+                  className={`border-b border-dark-border-primary hover:bg-dark-hover cursor-pointer ${
+                    selectedRowIndex === rowIndex 
+                      ? 'bg-blue-600 bg-opacity-30' 
+                      : rowIndex % 2 === 0 ? 'bg-dark-primary' : 'bg-dark-secondary'
                   }`}
+                  onClick={(e) => {
+                    // If clicking on a data cell, don't trigger row selection
+                    if ((e.target as HTMLElement).tagName === 'TD' && (e.target as HTMLElement).closest('td')?.getAttribute('data-column')) {
+                      return;
+                    }
+                    setSelectedRowIndex(rowIndex === selectedRowIndex ? null : rowIndex);
+                    setSelectedCellColumn(null);
+                  }}
                 >
                   <td 
-                    className="px-2 py-2 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap sticky left-0 z-10"
+                    className="px-2 py-1 text-dark-text-secondary border-r border-dark-border-primary whitespace-nowrap sticky left-0 z-10"
                     style={{ 
-                      backgroundColor: rowIndex % 2 === 0 ? '#1a1a1a' : '#2a2a2a'
+                      backgroundColor: selectedRowIndex === rowIndex 
+                        ? 'rgba(37, 99, 235, 0.3)' 
+                        : rowIndex % 2 === 0 ? '#1a1a1a' : '#2a2a2a'
                     }}
                   >
                     {rowIndex + 1}
                   </td>
-                  {columns.map((column, colIndex) => (
+                  {columns.map((column) => (
                     <td 
                       key={column}
-                      className={`px-3 py-2 text-dark-text-primary ${
-                        colIndex < columns.length - 1 ? 'border-r border-dark-border-primary' : ''
+                      data-column={column}
+                      className={`px-3 py-1 text-dark-text-primary border-r border-dark-border-primary cursor-pointer ${
+                        selectedRowIndex === rowIndex && selectedCellColumn === column 
+                          ? 'bg-blue-600 bg-opacity-50' 
+                          : ''
                       }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRowIndex(rowIndex);
+                        setSelectedCellColumn(column === selectedCellColumn && rowIndex === selectedRowIndex ? null : column);
+                      }}
                     >
                       <div className="truncate" title={String(row[column])}>
                         {row[column] === null ? (
@@ -178,17 +146,18 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
                       </div>
                     </td>
                   ))}
+                  {/* Layout control column - fills remaining width */}
+                  <td className="w-full"></td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+          </tbody>
+        </table>
       </div>
     );
   };
 
   return (
-    <div className="border border-dark-border-primary bg-dark-secondary rounded mb-4">
+    <div className="border border-dark-border-primary bg-dark-secondary rounded mb-4 w-full max-w-full overflow-hidden">
       {/* Result Header - Clickable */}
       <div 
         className="bg-dark-tertiary border-b border-dark-border-primary px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-dark-hover"
@@ -227,8 +196,8 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
         </div>
       </div>
 
-      {/* Result Content */}
-      {!isCollapsed && (
+      {/* Result Content - Show errors even when collapsed */}
+      {(!isCollapsed || (status === 'failed' || !!(result as unknown as { error?: string })?.error)) && (
         <div>
           {renderTable()}
         </div>
@@ -237,7 +206,8 @@ const ResultGrid: React.FC<ResultGridProps> = ({ title, result, isCollapsed, onT
   );
 };
 
-export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
+export const DataTabResults: React.FC<DataTabResultsProps> = ({ results, workspace }) => {
+  // All sections expanded by default - simple and predictable
   const [collapsedState, setCollapsedState] = React.useState<Record<string, boolean>>({});
 
   const toggleCollapse = (key: string) => {
@@ -247,10 +217,28 @@ export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
     }));
   };
 
-  // Sort results to show 'root' first, then CTEs alphabetically
+  // Sort results by dependency depth (hierarchy order)
   const sortedEntries = Array.from(results.entries()).sort(([a], [b]) => {
-    if (a === 'root') return -1;
-    if (b === 'root') return 1;
+    // If no workspace, fall back to simple sorting
+    if (!workspace) {
+      if (a === 'root') return 1; // root at bottom
+      if (b === 'root') return -1;
+      return a.localeCompare(b);
+    }
+
+    const depths = workspace.getModelDependencyDepths();
+    const depthA = depths.get(a) ?? 0;
+    const depthB = depths.get(b) ?? 0;
+
+    // CTEs with fewer nesting levels come first
+    // root (highest dependency depth) comes last
+    if (depthA !== depthB) {
+      return depthA - depthB;
+    }
+
+    // Same nesting level: sort alphabetically, but root always last
+    if (a === 'root') return 1;
+    if (b === 'root') return -1;
     return a.localeCompare(b);
   });
 
@@ -263,7 +251,14 @@ export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div 
+      className="absolute inset-0 overflow-y-auto"
+      style={{
+        backgroundColor: '#2a2a2a', // Match parent background
+        paddingBottom: '20px' // Extra padding to ensure last item is fully visible
+      }}
+    >
+      <div className="p-4 space-y-4">
       {sortedEntries.map(([key, result]) => (
         <ResultGrid
           key={key}
@@ -273,6 +268,9 @@ export const DataTabResults: React.FC<DataTabResultsProps> = ({ results }) => {
           onToggleCollapse={() => toggleCollapse(key)}
         />
       ))}
+      {/* Additional bottom margin to ensure last item is fully scrollable */}
+      <div style={{ height: '24px' }}></div>
+      </div>
     </div>
   );
 };

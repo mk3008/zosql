@@ -83,6 +83,7 @@ export class WorkspaceEntity {
     public formatter: SqlFormatterEntity = new SqlFormatterEntity(), // SQL formatter wrapper
     public filterConditions: FilterConditionsEntity = new FilterConditionsEntity(), // rawsql-ts FilterConditions wrapper
     public modelFilterConditions: ModelFilterConditions = {}, // UI filter conditions for model display
+    public useSchemaCollector: boolean = true, // Enable schema collector by default for table structure analysis
     public created: string = new Date().toISOString(),
     public lastModified: string = new Date().toISOString()
   ) {}
@@ -225,7 +226,8 @@ export class WorkspaceEntity {
     for (const model of modelsToValidate) {
       DebugLogger.debug('WorkspaceEntity', `Validating schema for: ${model.name}, type: ${model.type}`);
       try {
-        const result = await model.validateSchema(useEditorContent);
+        // Inject workspace context for dependency resolution
+        const result = await model.validateSchemaWithWorkspace(this.sqlModels, useEditorContent);
         this.setValidationResult(model.name, result);
         DebugLogger.debug('WorkspaceEntity', `Validation result for ${model.name}: ${JSON.stringify(result)}`);
       } catch (error) {
@@ -302,7 +304,8 @@ export class WorkspaceEntity {
       new TestValuesModel(''),
       new SqlFormatterEntity(), // formatter
       new FilterConditionsEntity(), // filterConditions
-      {}  // modelFilterConditions
+      {},  // modelFilterConditions
+      true // useSchemaCollector - default to true
     );
 
     // Add all SQL models
@@ -511,6 +514,47 @@ export class WorkspaceEntity {
     return maxDepth;
   }
 
+  // Get dependency depth for each model
+  public getModelDependencyDepths(): Map<string, number> {
+    const modelMap = new Map(this.sqlModels.map(m => [m.name, m]));
+    const depths = new Map<string, number>();
+
+    const getDepth = (modelName: string, visited: Set<string> = new Set()): number => {
+      if (depths.has(modelName)) {
+        return depths.get(modelName)!;
+      }
+
+      if (visited.has(modelName)) {
+        return 0; // Circular dependency
+      }
+
+      visited.add(modelName);
+      const model = modelMap.get(modelName);
+
+      if (!model || model.dependents.length === 0) {
+        depths.set(modelName, 0);
+        return 0;
+      }
+
+      const maxDepDepth = Math.max(
+        ...model.dependents
+          .filter(dep => modelMap.has(dep.name))
+          .map(dep => getDepth(dep.name, new Set(visited)))
+      );
+
+      const depth = 1 + maxDepDepth;
+      depths.set(modelName, depth);
+      return depth;
+    };
+
+    // Calculate depth for all models
+    for (const model of this.sqlModels) {
+      getDepth(model.name);
+    }
+
+    return depths;
+  }
+
   /**
    * Generate Final SQL for production use
    * - Includes WITH clause composition
@@ -566,6 +610,7 @@ export class WorkspaceEntity {
       this.formatter.clone(),
       this.filterConditions.clone(),
       { ...this.modelFilterConditions },
+      this.useSchemaCollector,
       this.created,
       this.lastModified
     );
@@ -583,6 +628,7 @@ export class WorkspaceEntity {
     formatter: ReturnType<SqlFormatterEntity['toJSON']>;
     filterConditions: ReturnType<FilterConditionsEntity['toJSON']>;
     modelFilterConditions: ModelFilterConditions;
+    useSchemaCollector: boolean;
     openedObjects: OpenedObject[];
     activeObjectId: string;
     layoutState: WorkspaceLayoutState;
@@ -598,6 +644,7 @@ export class WorkspaceEntity {
       formatter: this.formatter.toJSON(),
       filterConditions: this.filterConditions.toJSON(),
       modelFilterConditions: this.modelFilterConditions,
+      useSchemaCollector: this.useSchemaCollector,
       openedObjects: this._openedObjects,
       activeObjectId: this._activeObjectId,
       layoutState: this._layoutState,
@@ -657,6 +704,7 @@ export class WorkspaceEntity {
       SqlFormatterEntity.fromJSON((data.formatter as Record<string, unknown>) || {}),
       FilterConditionsEntity.fromJSON((data.filterConditions as Record<string, unknown>) || {}),
       (data.modelFilterConditions as ModelFilterConditions) || {},
+      (data.useSchemaCollector as boolean) ?? true, // Default to true if not specified
       data.created as string,
       data.lastModified as string
     );

@@ -67,6 +67,22 @@ class LocalStorageWorkspaceRepository implements WorkspaceRepositoryPort {
 - ViewModels expose UI-appropriate methods only
 - Adapters implement domain ports correctly
 
+## Responsibility Boundaries
+### ✅ Allowed Operations
+- ViewModel, DI container, adapters implementation
+- Cross-layer connections and data flow coordination
+- Interface implementation and port definition
+
+### ❌ Strictly Forbidden
+- Pure UI component modifications (delegate to ui-component-assistant)
+- Pure business logic modifications (delegate to core-logic-assistant)
+- Git operations (delegate to git-operation-agent)
+
+### 🔍 Verification Responsibilities
+- Verify accuracy of cross-layer dependencies
+- Validate interface implementation consistency
+- Report only actual integration changes made (no false reporting)
+
 ## Success Criteria
 - ViewModels properly mediate between UI and Core
 - DI container correctly wires dependencies
