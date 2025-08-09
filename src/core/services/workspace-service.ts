@@ -150,6 +150,7 @@ export const formatSqlQuery = (
   };
 };
 
+
 // Safe formatting wrapper with comprehensive error handling
 export const formatSqlSafely = (
   params: SqlFormattingParams,
