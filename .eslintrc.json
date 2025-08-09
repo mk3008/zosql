@@ -31,6 +31,27 @@
       "parserOptions": {
         "project": "./tsconfig.node.json"
       }
+    },
+    {
+      "files": ["tests/e2e/**/*.spec.js"],
+      "parser": "espree",
+      "parserOptions": {
+        "ecmaVersion": 2022,
+        "sourceType": "module"
+      },
+      "env": {
+        "node": true,
+        "es2022": true
+      },
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.type='MemberExpression'][callee.property.name='waitForTimeout']",
+            "message": "❌ Avoid waitForTimeout in E2E tests. Use condition-based waits like waitForSelector(), expect().toBeVisible(), or waitForLoadState() instead. See rules/testing-guidelines.md"
+          }
+        ]
+      }
     }
   ]
 }

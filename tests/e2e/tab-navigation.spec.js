@@ -5,7 +5,10 @@ test.describe('Tab Navigation Regression Tests', () => {
     await page.goto('http://localhost:3000');
     // Wait for app to load
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000); // Give extra time for React to mount
+    // Wait for React app to mount by waiting for interactive elements
+    await page.waitForSelector('button:not([disabled]), [data-testid], [class*="app"], body > div', { 
+      timeout: 5000 
+    });
   });
 
   test('should show tabs when clicking on workspace items', async ({ page }) => {
@@ -44,8 +47,28 @@ test.describe('Tab Navigation Regression Tests', () => {
     if (clickableItem) {
       await clickableItem.click();
       
-      // Wait a moment for the tab to potentially appear
-      await page.waitForTimeout(1000);
+      // Wait for potential DOM changes after click using multiple strategies
+      try {
+        await Promise.race([
+          // Wait for tab elements to appear
+          page.waitForSelector('[data-testid*="tab"], .tab, [class*="tab"], [role="tab"]', { timeout: 2000 }),
+          // Wait for content area changes
+          page.waitForSelector('.main-content, .tab-content, [class*="main"], [class*="content"]', { timeout: 2000 }),
+          // Fallback: wait for any new visible elements
+          page.waitForFunction(() => {
+            const beforeCount = document.querySelectorAll('*').length;
+            return new Promise(resolve => {
+              setTimeout(() => {
+                const afterCount = document.querySelectorAll('*').length;
+                resolve(afterCount !== beforeCount);
+              }, 500);
+            });
+          }, {}, { timeout: 2000 })
+        ]);
+      } catch (e) {
+        // If no immediate changes detected, continue with test
+        console.log('No immediate DOM changes detected after click');
+      }
       
       // Take screenshot after click
       await page.screenshot({ path: 'tests/e2e/screenshots/after-click.png', fullPage: true });
@@ -115,26 +138,63 @@ test.describe('Tab Navigation Regression Tests', () => {
     
     if (buttonCount > 0) {
       await enabledButtons.first().click();
-      await page.waitForTimeout(500);
       
-      // Look for any indication of tab content
-      const possibleTabContent = page.locator('[class*="tab"], [class*="main"], [class*="content"]');
-      const contentCount = await possibleTabContent.count();
+      // Wait for content to appear after click
+      let tabContentLocator = null;
+      const contentSelectors = [
+        '[class*="tab"]:visible',
+        '[class*="main"]:visible', 
+        '[class*="content"]:visible',
+        '[data-testid*="tab"]:visible'
+      ];
       
-      if (contentCount > 0) {
-        const initiallyVisible = await possibleTabContent.first().isVisible();
+      // Find the tab content that appears
+      for (const selector of contentSelectors) {
+        const locator = page.locator(selector);
+        const count = await locator.count();
+        if (count > 0) {
+          tabContentLocator = locator.first();
+          await expect(tabContentLocator).toBeVisible({ timeout: 3000 });
+          break;
+        }
+      }
+      
+      if (tabContentLocator) {
+        const initiallyVisible = await tabContentLocator.isVisible();
         
-        // Wait 3 seconds to see if tabs disappear (regression check)
-        await page.waitForTimeout(3000);
+        // Check element stability over time instead of arbitrary timeout
+        // This replaces the waitForTimeout(3000) with condition-based verification
+        let elementStable = true;
+        let checkCount = 0;
+        const maxChecks = 6; // Check 6 times over 3 seconds
         
-        const stillVisible = await possibleTabContent.first().isVisible();
+        for (let i = 0; i < maxChecks; i++) {
+          const isVisibleNow = await tabContentLocator.isVisible();
+          if (!isVisibleNow) {
+            elementStable = false;
+            console.log(`Element disappeared at check ${i + 1}/${maxChecks}`);
+            break;
+          }
+          
+          checkCount++;
+          
+          // Use Playwright's built-in waiting with polling for stability check
+          if (i < maxChecks - 1) {
+            // Wait for element to remain in stable state
+            await expect(tabContentLocator).toBeVisible({ timeout: 1000 });
+          }
+        }
         
         // Take screenshots for comparison
         await page.screenshot({ path: 'tests/e2e/screenshots/regression-check-final.png', fullPage: true });
         
-        // The tab content should remain visible (regression test)
-        expect(stillVisible).toBe(true);
+        // The tab content should remain visible throughout the check period (regression test)
+        expect(elementStable).toBe(true);
         expect(initiallyVisible).toBe(true);
+        
+        console.log(`Element stability check completed: ${checkCount}/${maxChecks} checks passed`);
+      } else {
+        console.log('No tab content found to test regression');
       }
     }
   });

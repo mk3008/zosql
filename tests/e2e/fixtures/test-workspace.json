@@ -1,0 +1,32 @@
+{
+  "id": "test-workspace-001",
+  "name": "testworkspace",
+  "originalFilePath": "main.sql",
+  "sqlModels": [
+    {
+      "type": "main",
+      "name": "main.sql",
+      "sqlWithoutCte": "SELECT user_id, name FROM users WHERE active = true;",
+      "originalSql": "SELECT user_id, name FROM users WHERE active = true;",
+      "dependencies": [],
+      "columns": []
+    }
+  ],
+  "testValues": {
+    "withClause": "-- Define test data CTEs here\n-- Write WITH clauses, SELECT clauses can be omitted (they will be ignored if written)\n-- Example:\nwith users(user_id, name, active) as (\n  values\n    (1::bigint, 'alice'::text, true::boolean),\n    (2::bigint, 'bob'::text, true::boolean),\n    (3::bigint, 'charlie'::text, false::boolean)\n)"
+  },
+  "formatter": {
+    "displayString": "{\"identifierEscape\":\"dqm\",\"keywordCase\":\"lower\",\"dataTypeCase\":\"lower\",\"functionNameCase\":\"lower\",\"indentStyle\":\"standard\",\"commaStyle\":\"standard\",\"linesBetweenQueries\":1}"
+  },
+  "filterConditions": {
+    "conditions": "{\"user_id\":{\"operator\":\"=\",\"value\":\"\",\"enabled\":false},\"name\":{\"operator\":\"like\",\"value\":\"\",\"enabled\":false},\"active\":{\"operator\":\"=\",\"value\":\"\",\"enabled\":false}}"
+  },
+  "modelFilterConditions": {},
+  "openedObjects": [
+    {
+      "id": "main.sql",
+      "type": "sql"
+    }
+  ],
+  "activeObjectId": "main.sql"
+}
