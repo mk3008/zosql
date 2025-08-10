@@ -1,4 +1,4 @@
-name: Pull Request Checks
+name: Pull Request Quality Gates
 
 on:
   pull_request:
@@ -9,6 +9,9 @@ permissions:
   contents: read
   pull-requests: read
   checks: write
+
+# This workflow enforces quality gates before code can be merged
+# All checks here MUST pass before merging to main branch
 
 jobs:
   test:
@@ -30,8 +33,18 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
         
-      - name: Run core tests
+      - name: ESLint check
+        run: npm run lint
+        
+      - name: Run core tests (critical path)
         run: npm run test:run -- test/sql-formatter-config.test.ts test/sql-parser.test.ts test/integration.test.ts
+        
+      # FIXME: Enable full test suite once test failures are resolved
+      # Currently failing tests are due to API response structure changes (unrelated to UI changes)
+      # Tracking issue: https://github.com/mk3008/zosql/issues/17
+      # Timeline: High priority - Next development cycle
+      # - name: Run comprehensive tests
+      #   run: npm run test:run
         
       - name: Build check
         run: npm run build:github
