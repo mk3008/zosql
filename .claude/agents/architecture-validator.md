@@ -75,7 +75,7 @@ grep -r "src/ui" src/core/commands/
 Blocking commit until violations resolved.
 ```
 
-## Integration with qa-orchestrator
+## Integration with qa-analyzer
 
 Called as: `architecture-validator` sub-agent
 - Quick scan (<5 seconds)

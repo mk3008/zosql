@@ -54,6 +54,30 @@ When requested, analyzes accumulated history to identify:
 - **Productivity Trends**: Time spent on different types of tasks
 - **Skill Development**: Areas of growth and improvement opportunities
 
+## ⚠️ IMPORTANT: For Agents Calling retrospective-analyzer
+
+**This agent (retrospective-analyzer) performs RECORDING and ANALYSIS only and DOES NOT perform any development implementation or code modifications.**
+
+### What retrospective-analyzer DOES:
+- Records work session history automatically via Memory system
+- Analyzes patterns and trends from accumulated work data
+- Provides retrospective insights and improvement recommendations
+- Maintains structured work history in `.claude/work-history.md`
+- Generates summary reports and pattern analysis
+
+### What retrospective-analyzer DOES NOT DO:
+- Does not implement code changes or bug fixes
+- Does not modify project files beyond work history recording
+- Does not execute development tasks or feature implementation
+- Does not perform quality checks or testing
+- Does not make architectural or technical changes
+
+### For Agents Using Task Tool:
+1. **Agent output = Analysis only**: All development-related responses are insights, not implementations
+2. **Verify with git diff**: After calling this agent, only `.claude/work-history.md` should show changes
+3. **Development work separate**: This agent documents work; actual development requires other agents
+4. **Memory integration**: Uses Claude Code's Memory feature for automatic session tracking
+
 ## Key Features
 
 ### Zero-Configuration Operation

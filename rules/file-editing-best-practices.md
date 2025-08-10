@@ -2,6 +2,20 @@
 
 ## Critical Requirements
 
+### Task Tool Agent Delegation Awareness
+**IMPORTANT**: When using Task tool to call agents, understand the implementation behavior:
+
+**Analysis-Only Agents** (NO file changes):
+- `claude-code-advisor`: Provides tool/workflow recommendations only
+- `retrospective-analyzer`: Records work history only (modifies .claude/work-history.md only)
+
+**Implementation Agents** (WILL modify files):
+- `dev-coordinator`, `qa-analyzer`: Delegate to specialists who implement
+- `e2e-test-agent`: Creates/modifies test files
+- `rule-organizer`: Modifies documentation/rule files
+
+**Critical workflow**: Always run `git status` and `git diff` after Task tool calls to verify expected vs actual changes.
+
 ### Read Before Edit
 **MANDATORY**: Always use the Read tool before Edit or MultiEdit. Claude Code requires reading the file first to establish context and line numbers.
 
