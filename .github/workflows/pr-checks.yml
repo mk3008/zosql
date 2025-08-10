@@ -39,8 +39,11 @@ jobs:
       - name: Run core tests (critical path)
         run: npm run test:run -- test/sql-formatter-config.test.ts test/sql-parser.test.ts test/integration.test.ts
         
-      # Skip failing tests temporarily - these need to be fixed in a separate PR
-      # - name: Run all tests
+      # FIXME: Enable full test suite once test failures are resolved
+      # Currently failing tests are due to API response structure changes (unrelated to UI changes)
+      # Tracking issue: https://github.com/mk3008/zosql/issues/17
+      # Timeline: High priority - Next development cycle
+      # - name: Run comprehensive tests
       #   run: npm run test:run
         
       - name: Build check
