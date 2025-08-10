@@ -11,6 +11,7 @@ import { MainContentFunctional as MainContent, MainContentRef as MainContentHand
 import { RightSidebar } from './RightSidebar';
 import { Toast } from './Toast';
 import { ErrorPanel } from './ErrorPanel';
+import { StableResizableLayout } from './StableResizableLayout';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
 import { useToast } from '@ui/hooks/useToast';
 import { useErrorPanel } from '@ui/hooks/useErrorPanel';
@@ -487,44 +488,36 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
         currentWorkspace={currentWorkspace}
       />
       
-      {/* Main Container - Single MainContent with conditional layout */}
+      {/* Main Container - Use wrapper components to maintain MainContent instance */}
       <div className="flex-1 overflow-hidden">
-        <div className="h-full flex">
-          {/* Left Sidebar - conditionally rendered */}
-          {leftSidebarVisible && (
-            <div className="h-full" style={{ width: '250px', minWidth: '250px', flexShrink: 0 }}>
-              <LeftSidebar 
-                key={leftSidebarKey}
-                onOpenValuesTab={() => {
-                  DebugLogger.debug('Layout', 'onOpenValuesTab called');
-                  DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
-                  setActiveTabId('values');
-                  DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
-                  if (mainContentRef.current) {
-                    mainContentRef.current.openValuesTab();
-                  }
-                }} 
-                sqlModels={currentWorkspace?.sqlModels || []}
-                onModelClick={handleModelClick}
-                selectedModelName={selectedModelName}
-                onDecomposeQuery={handleDecomposeQuery}
-                isDecomposing={isDecomposing}
-                workspace={currentWorkspace}
-                activeTabId={activeTabId}
-                showErrorWithDetails={addError}
-                showSuccess={showSuccess}
-                mainContentRef={mainContentRef}
-              />
-            </div>
-          )}
-          
-          {/* Resizable splitter between left sidebar and main content */}
-          {leftSidebarVisible && (
-            <div className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 cursor-col-resize" />
-          )}
-          
-          {/* Main Content Area - Always rendered once */}
-          <div className="flex-1 h-full overflow-hidden">
+        <StableResizableLayout
+          leftSidebarVisible={leftSidebarVisible}
+          rightSidebarVisible={rightSidebarVisible}
+          leftPanel={
+            <LeftSidebar 
+              key={leftSidebarKey}
+              onOpenValuesTab={() => {
+                DebugLogger.debug('Layout', 'onOpenValuesTab called');
+                DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
+                setActiveTabId('values');
+                DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
+                if (mainContentRef.current) {
+                  mainContentRef.current.openValuesTab();
+                }
+              }} 
+              sqlModels={currentWorkspace?.sqlModels || []}
+              onModelClick={handleModelClick}
+              selectedModelName={selectedModelName}
+              onDecomposeQuery={handleDecomposeQuery}
+              isDecomposing={isDecomposing}
+              workspace={currentWorkspace}
+              activeTabId={activeTabId}
+              showErrorWithDetails={addError}
+              showSuccess={showSuccess}
+              mainContentRef={mainContentRef}
+            />
+          }
+          mainPanel={
             <MainContent 
               ref={mainContentRef}
               workspace={currentWorkspace}
@@ -543,23 +536,14 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
                 // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
               }}
             />
-          </div>
-          
-          {/* Resizable splitter between main content and right sidebar */}
-          {rightSidebarVisible && (
-            <div className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 cursor-col-resize" />
-          )}
-          
-          {/* Right Sidebar - conditionally rendered */}
-          {rightSidebarVisible && (
-            <div className="h-full" style={{ width: '250px', minWidth: '250px', flexShrink: 0 }}>
-              <RightSidebar 
-                lastExecutedSql={lastExecutedSql}
-                workspace={currentWorkspace}
-              />
-            </div>
-          )}
-        </div>
+          }
+          rightPanel={
+            <RightSidebar 
+              lastExecutedSql={lastExecutedSql}
+              workspace={currentWorkspace}
+            />
+          }
+        />
       </div>
       
       {/* Toast Notifications */}

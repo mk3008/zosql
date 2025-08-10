@@ -70,12 +70,15 @@ const MainContentFunctionalComponent = forwardRef<MainContentRef, MainContentPro
   
   // Load workspace tabs when workspace changes
   const workspaceId = workspace?.id;
+  const lastWorkspaceIdRef = useRef<string | null>(null);
+  
   useEffect(() => {
-    if (workspace) {
+    if (workspace && workspace.id !== lastWorkspaceIdRef.current) {
+      DebugLogger.debug('MainContentFunctional', 'Loading workspace tabs for new workspace:', workspace.id);
       state.loadWorkspaceTabs(workspace);
-      DebugLogger.debug('MainContentFunctional', 'Workspace loaded');
+      lastWorkspaceIdRef.current = workspace.id;
     }
-  }, [workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps -- Only depend on workspaceId to prevent infinite loops
+  }, [workspaceId, workspace]); // eslint-disable-line react-hooks/exhaustive-deps -- Only depend on workspaceId to prevent infinite loops
   
   // Notify parent of active tab changes
   useEffect(() => {
