@@ -2,12 +2,13 @@
 
 This file serves as an agent directory for Claude Code when working with this repository. Choose the appropriate main agent based on your development task.
 
-## 作業履歴の自動記録
+## Automatic Work History Recording
 @.claude/work-history.md
 
 ## Project Structure
 - **Agents**: `.claude/agents/` - Agent implementation files
-- **Rules**: `rules/` - Development rules and guidelines  
+- **Rules**: `rules/` - Development rules and guidelines
+  - **File Editing**: `rules/file-editing-best-practices.md` - Tool selection and editing guidelines
 - **Configuration**: `CLAUDE.md` - Agent directory and selection guide
 
 ## Available Main Agents

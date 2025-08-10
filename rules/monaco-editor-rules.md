@@ -2,104 +2,34 @@
 
 Rules for Monaco Editor SQL integration, theme management, and remount prevention.
 
-## Theme Management and Flicker Prevention (CRITICAL)
-```typescript
-// MUST: Use global flag to prevent theme re-initialization on remounts
-let globalThemeInitialized = false;
+### Theme Management (CRITICAL)
+**Why**: Re-initializing themes on remounts causes visible flicker
+**How**: Use global flag to define theme once, apply on each mount
 
-export const MonacoEditor: React.FC<Props> = ({ ... }) => {
-  const handleEditorDidMount = (editor: IStandaloneCodeEditor, monaco: Monaco) => {
-    // Define theme ONLY ONCE globally to prevent flicker
-    if (!globalThemeInitialized) {
-      monaco.editor.defineTheme('zosql-dark', { ... });
-      globalThemeInitialized = true;
-    }
-    // Apply theme after ensuring it's defined
-    monaco.editor.setTheme('zosql-dark');
-  };
-};
-```
+### Prevent Unnecessary Remounts  
+**Why**: Inline objects/functions cause editor to recreate and lose state
+**How**: Use `useMemo` for options, `useCallback` for handlers
 
-## Preventing Unnecessary Remounts
-```typescript
-// AVOID: Props that cause unnecessary remounts
-// BAD: Inline objects/functions cause remounts
-<MonacoEditor 
-  options={{ fontSize: 14 }}  // ❌ Creates new object every render
-  onMount={() => {...}}       // ❌ Creates new function every render
-/>
+### Editor Reference Management
+**Why**: Proper cleanup prevents memory leaks and recreation issues
+**How**: Store editor refs, dispose on unmount, avoid recreation
 
-// GOOD: Memoize options and callbacks
-const editorOptions = useMemo(() => ({ fontSize: 14 }), []);
-const handleMount = useCallback((editor, monaco) => {...}, []);
-<MonacoEditor options={editorOptions} onMount={handleMount} />
-```
+### IntelliSense Configuration
+**Why**: SQL completions improve developer productivity and reduce errors  
+**How**: Register SQL language once, provide completion items with workspace context
 
-## Editor Reference Management
-```typescript
-// MUST: Store editor refs to prevent recreation
-const editorRef = useRef<IStandaloneCodeEditor | null>(null);
-const monacoRef = useRef<Monaco | null>(null);
+### Common Issues & Solutions
+- **Dark mode flash**: Define theme globally once, apply on mount
+- **State loss on tab switch**: Hide/show with CSS, don't unmount editor
+- **Missing IntelliSense**: Set language to 'sql', register completion provider
 
-// MUST: Clean up on unmount
-useEffect(() => {
-  return () => {
-    editorRef.current?.dispose();
-  };
-}, []);
-```
+### Performance Optimization  
+**Why**: Debounced updates and virtual scrolling improve responsiveness
+**How**: Debounce onChange (300ms), enable virtual scrolling options
 
-## IntelliSense Configuration
-```typescript
-// Configure SQL language support with workspace context
-export function configureMonacoSql(monaco: Monaco, workspace: Workspace): void {
-  // Register completion provider once per language
-  if (!monaco.languages.getLanguages().some(l => l.id === 'sql')) {
-    monaco.languages.register({ id: 'sql' });
-  }
-  
-  monaco.languages.registerCompletionItemProvider('sql', {
-    provideCompletionItems: (model, position) => {
-      return { suggestions: generateSqlSuggestions(workspace, model, position) };
-    }
-  });
-}
-```
-
-## Common Issues and Solutions
-
-### Dark Mode Flash on Mount
-**Problem**: Editor briefly shows light theme before applying dark theme
-**Solution**: Define theme globally once, apply immediately on mount
-
-### Editor Remounting on Tab Switch
-**Problem**: Editor loses state when switching tabs
-**Solution**: Keep editor instance alive, hide/show with CSS instead of unmounting
-
-### IntelliSense Not Working
-**Problem**: Completions not showing for SQL keywords/tables
-**Solution**: Ensure language is set to 'sql' and completion provider is registered
-
-## Performance Optimization
-```typescript
-// MUST: Debounce onChange to prevent excessive updates
-const debouncedOnChange = useMemo(
-  () => debounce((value: string) => onChange(value), 300),
-  [onChange]
-);
-
-// MUST: Use virtual scrolling for large files
-const options = {
-  scrollBeyondLastLine: false,
-  smoothScrolling: true,
-  fastScrollSensitivity: 5
-};
-```
-
-## Testing Checklist
-- [ ] No theme flicker on initial mount
-- [ ] No theme flicker on tab switches
-- [ ] Editor state preserved on tab switches
-- [ ] IntelliSense shows workspace tables/columns
+### Testing Checklist
+- [ ] No theme flicker on mount/tab switch
+- [ ] Editor state preserved across tabs  
+- [ ] IntelliSense shows workspace context
 - [ ] No memory leaks on unmount
-- [ ] Smooth scrolling for large SQL files
+- [ ] Smooth scrolling for large files

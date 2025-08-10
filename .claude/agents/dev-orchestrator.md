@@ -75,50 +75,15 @@ If the issue spans multiple areas, delegate in this order:
 4. **Monitor Results**: Ensure agent stays within designated scope
 5. **Coordinate**: If multiple agents needed, sequence them appropriately
 
-## Example Delegations
-
-```typescript
-// User: "Fix the SQL query execution bug"
-// Analysis: Likely core logic issue
-// Decision: → core-logic-assistant
-await invokeAgent('core-logic-assistant', {
-  task: 'Fix SQL query execution bug',
-  scope: 'Core logic only - no UI changes'
-});
-```
-
-```typescript
-// User: "The Monaco Editor is not showing syntax highlighting"
-// Analysis: UI component issue
-// Decision: → ui-component-assistant  
-await invokeAgent('ui-component-assistant', {
-  task: 'Fix Monaco Editor syntax highlighting',
-  scope: 'UI components only - no business logic changes'
-});
-```
-
-```typescript
-// User: "Test the query execution flow with Playwright"
-// Analysis: E2E testing requirement
-// Decision: → playwright-export-agent → e2e-test-agent
-await invokeAgent('playwright-export-agent', {
-  task: 'Record query execution user flow',
-  scope: 'Generate test scaffolding via codegen'
-});
-await invokeAgent('e2e-test-agent', {
-  task: 'Implement comprehensive E2E test',
-  scope: 'Test implementation and regression prevention'
-});
-```
-
 ## Scope Enforcement
 - **Always specify scope boundaries** when delegating
 - **Monitor for scope violations** and redirect if needed
 - **Prevent regressions** by keeping changes isolated
-- **Coordinate dependencies** between agents when necessary
+- **File editing**: See `rules/file-editing-best-practices.md` for tool selection guidance
 
 ## Success Criteria
 - Users get solutions without needing to understand agent specializations
 - Modifications stay within appropriate architectural boundaries
 - Reduced regressions from unintended cross-layer changes
 - Clear delegation decisions with proper scope enforcement
+- File edits are successful on first attempt using appropriate tools

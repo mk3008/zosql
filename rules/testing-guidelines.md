@@ -1,5 +1,7 @@
 # Testing Guidelines
 
+Overall testing strategy for E2E, integration, and quality gates. For React component testing specifics, see `testing-standards.md`.
+
 ## Test Strategy Implementation
 
 ### Use Three-Tier Testing Approach
