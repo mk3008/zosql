@@ -5,115 +5,39 @@ Rules for simple DOM structures and common layout issue prevention.
 ## DOM Structure Principles
 
 ### Each DOM Level Must Have Clear Purpose
-**Why**: Meaningless wrapper divs make debugging and maintenance difficult. Each element should solve a specific layout problem.
+**Why**: Meaningless wrapper divs make debugging and maintenance difficult
+**How**: Use semantic components instead of nested divs, each element solves one layout problem
 
-```tsx
-<div className="layout-container">      {/* Layout purpose */}
-  <div className="scroll-area">         {/* Scroll behavior */}
-    <div className="content-padding">   {/* Spacing/padding */}
-      {content}
-    </div>
-  </div>
-</div>
-
-// Better: Use semantic components
-<ContentLayout>  {/* Encapsulates layout logic */}
-  {content}
-</ContentLayout>
-```
-
-### Separate Concerns Into Different Elements
-**Why**: Multiple CSS concerns in one element make it hard to modify one aspect without affecting others.
-
-```tsx
-<div className="layout-container">
-  <div className="scroll-area">
-    {content}
-  </div>
-</div>
-```
+### Separate Concerns Into Different Elements  
+**Why**: Multiple CSS concerns in one element make modifications difficult
+**How**: Split layout, scroll, and styling concerns into separate containers
 
 ## Scroll Issues Prevention
 
 ### Single Scroll Container with Bottom Padding
-**Why**: Nested scroll containers cause the last row to be cut off. Single container with padding ensures all content is visible.
-
-```tsx
-<div className="h-full overflow-auto" style={{ paddingBottom: '80px' }}>
-  <table>...</table>
-  <div style={{ height: '40px' }} />  {/* Extra spacer for visibility */}
-</div>
-```
+**Why**: Nested scroll containers cause last row cutoff, single container with padding ensures visibility
+**How**: `overflow-auto` on parent with `paddingBottom: '80px'`, avoid nested scroll containers
 
 ### Sticky Headers
-**Why**: Headers must have background color to remain visible over content. Padding on scroll container breaks sticky positioning.
+**Why**: Headers need background color to remain visible, padding on scroll container breaks positioning  
+**How**: `position: sticky; top: 0; background: color;` on header, `overflow: auto` on container only
 
-```css
-.container { overflow: auto; }
-.container thead {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #color;  /* Prevents content showing through */
-}
-```
-
-## Z-Index Scale
-**Why**: Arbitrary z-index values create conflicts and make maintenance difficult. Consistent scale prevents layering issues.
-
-```css
-.z-base: 0
-.z-sticky: 10  
-.z-dropdown: 20
-.z-modal: 30
-.z-tooltip: 40
-```
-
-## Common Patterns
+### Z-Index Scale
+**Why**: Consistent scale prevents layering conflicts and eases maintenance
+**How**: Use scale: base(0), sticky(10), dropdown(20), modal(30), tooltip(40)
 
 ### Full Height Layout
-**Why**: Flex layout automatically distributes space and handles overflow correctly.
-
-```tsx
-<div className="h-screen flex flex-col">
-  <header className="flex-shrink-0">...</header>
-  <main className="flex-1 overflow-auto">...</main>
-  <footer className="flex-shrink-0">...</footer>
-</div>
-```
+**Why**: Flex layout automatically distributes space and handles overflow
+**How**: `h-screen flex flex-col` with `flex-shrink-0` headers/footers, `flex-1 overflow-auto` main
 
 ### Text Truncation
-**Why**: Users need to see full text when content is cut off. Title attribute provides hover tooltip.
+**Why**: Title attribute provides hover tooltip for cut-off content
+**How**: `truncate` class with `title={fullText}` attribute
 
-```tsx
-<div className="truncate" title={fullText}>
-  {fullText}
-</div>
-```
-
-## Debug Helpers
-```typescript
-// Quick scroll debug
-const debugScroll = (el: HTMLElement) => ({
-  scrollHeight: el.scrollHeight,
-  clientHeight: el.clientHeight,
-  canScroll: el.scrollHeight > el.clientHeight
-});
-```
-
-## Quick Checklist
-- [ ] Each DOM level has clear purpose (avoid wrapper-1, wrapper-2 names)
-- [ ] Component abstraction used instead of deep nesting
-- [ ] No empty wrapper divs
-- [ ] One scroll container per view
-- [ ] Sticky headers have background color
-- [ ] Bottom padding for scrollable content
-- [ ] Consistent z-index scale used
-- [ ] Title attribute on truncated text
-
-## What to Avoid and Why
-1. **Div soup**: Excessive nesting makes debugging impossible
-2. **Multiple scroll containers**: Causes last row cutoff issues
-3. **Padding on sticky container**: Breaks sticky positioning completely
-4. **Arbitrary z-index**: Creates unpredictable layering conflicts
-5. **Missing backgrounds on sticky**: Content shows through headers
+## Key Rules
+- **Clear Purpose**: Each DOM level solves specific layout problem, use semantic components
+- **Single Scroll**: One scroll container per view with bottom padding
+- **Sticky Headers**: Background color required, no padding on scroll container
+- **Z-Index Scale**: Consistent scale prevents conflicts
+- **Full Height**: Use flexbox for automatic space distribution
+- **Text Truncation**: Include title attribute for accessibility

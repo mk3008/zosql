@@ -2,25 +2,26 @@
 
 This file serves as an agent directory for Claude Code when working with this repository. Choose the appropriate main agent based on your development task.
 
-## 作業履歴の自動記録
+## Automatic Work History Recording
 @.claude/work-history.md
 
 ## Project Structure
 - **Agents**: `.claude/agents/` - Agent implementation files
-- **Rules**: `rules/` - Development rules and guidelines  
+- **Rules**: `rules/` - Development rules and guidelines
+  - **File Editing**: `rules/file-editing-best-practices.md` - Tool selection and editing guidelines
 - **Configuration**: `CLAUDE.md` - Agent directory and selection guide
 
 ## Available Main Agents
 
-### 🎯 dev-orchestrator
-**Purpose**: Primary development task coordinator  
+### 🎯 dev-coordinator
+**Purpose**: Development request analysis and specialist coordination  
 **Use for**: General development tasks, bug fixes, feature implementation  
-**What it does**: Analyzes your request and automatically delegates to the appropriate specialist (core logic, UI components, or integration) to prevent scope creep and regressions.
+**What it does**: Analyzes development requests and coordinates appropriate specialist agents (core-logic, ui-component, or integration) to prevent scope creep and regressions.
 
-### 🔍 qa-orchestrator  
-**Purpose**: Quality assurance and testing coordination  
+### 🔍 qa-analyzer  
+**Purpose**: Code quality analysis and validation coordination  
 **Use for**: Running tests, quality checks, pre-commit validation  
-**What it does**: Orchestrates TypeScript compilation, ESLint checks, tests, builds, and architecture validation in parallel for fast quality assurance.
+**What it does**: Analyzes code quality and coordinates validation processes by running TypeScript compilation, ESLint checks, tests, builds, and architecture validation in parallel for fast quality assurance.
 
 ### 🛠️ development-workflow-agent
 **Purpose**: Development workflow and best practices guidance  
@@ -42,10 +43,10 @@ This file serves as an agent directory for Claude Code when working with this re
 **Use for**: Organizing project documentation, optimizing rules, cleaning up guidelines  
 **What it does**: Optimizes project documentation for AI comprehension by organizing, consolidating, and streamlining rules and guidelines.
 
-### 💡 claude-code-expert
-**Purpose**: Claude Code features and workflow optimization specialist  
+### 💡 claude-code-advisor
+**Purpose**: Claude Code capabilities and workflow guidance specialist  
 **Use for**: Tool selection, workflow optimization, troubleshooting, best practices  
-**What it does**: Provides expert guidance on Claude Code capabilities, maintains up-to-date knowledge from official documentation, and helps design efficient multi-tool workflows.
+**What it does**: Provides expert guidance on Claude Code capabilities and workflows. Maintains up-to-date knowledge by consulting official documentation for optimal tool usage and workflow optimization.
 
 ### 🔍 retrospective-analyzer
 **Purpose**: Automatic work history recording and retrospective analysis  
@@ -64,4 +65,23 @@ This file serves as an agent directory for Claude Code when working with this re
 
 ---
 
-**How to Choose**: Start with **dev-orchestrator** for most development tasks - it will automatically route you to the right specialist. Use specific agents directly when you have focused needs in their domain.
+## ⚠️ Important: Task Tool Usage
+
+When using the Task tool to call agents, be aware of the distinction between **analysis agents** and **implementation agents**:
+
+### Analysis-Only Agents
+These agents provide recommendations and analysis but DO NOT modify files:
+- **claude-code-advisor**: Provides workflow guidance and tool recommendations
+- **retrospective-analyzer**: Records and analyzes work history (only modifies work-history.md)
+
+### Implementation Agents  
+These agents WILL create/modify files when called:
+- **dev-coordinator**, **qa-analyzer**: Delegate to implementation specialists
+- **e2e-test-agent**: Creates/modifies test files
+- **rule-organizer**: Modifies documentation and rule files
+
+**Always check `git diff` after Task tool usage** to verify expected vs actual file changes.
+
+---
+
+**How to Choose**: Start with **dev-coordinator** for most development tasks - it will automatically route you to the right specialist. Use specific agents directly when you have focused needs in their domain.

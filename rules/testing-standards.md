@@ -1,11 +1,11 @@
 # Testing Standards
 
-React testing patterns and requirements for the zosql project.
+React component testing patterns and provider requirements for the zosql project.
 
-## Test Structure
+## Test Structure (See `testing-guidelines.md` for overall strategy)
 - **Unit Tests**: Focus on business logic in `src/core/`
 - **Integration Tests**: Test adapter implementations  
-- **Component Tests**: Minimal UI binding verification only
+- **Component Tests**: Minimal UI binding verification with providers
 
 ## Key Test Files
 - `test/intellisense-regression.test.ts` - 60+ test cases for IntelliSense functionality

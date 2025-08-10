@@ -14,6 +14,7 @@ interface HeaderProps {
   onWorkspaceSave?: () => void;
   onViewFinalSql?: () => Promise<{ sql: string; error?: string }>;
   currentWorkspace?: WorkspaceEntity | null;
+  isDemo?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,7 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   onWorkspaceCreated,
   onWorkspaceSave,
   onViewFinalSql,
-  currentWorkspace
+  currentWorkspace,
+  isDemo
 }) => {
   const [showNewWorkspaceDialog, setShowNewWorkspaceDialog] = useState(false);
   const [showFileOpenDialog, setShowFileOpenDialog] = useState(false);
@@ -83,8 +85,10 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
         
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold text-dark-text-white">zosql</h1>
-          <span className="text-xs text-dark-text-secondary">v1.1</span>
+          <h1 className="text-lg font-bold text-dark-text-white">
+            {isDemo ? 'zosql[demo]' : 'zosql'}
+          </h1>
+          <span className="text-xs text-dark-text-secondary">v1.2</span>
         </div>
       </div>
 

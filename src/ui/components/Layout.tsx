@@ -9,13 +9,13 @@ import { LeftSidebar } from './LeftSidebar';
 // Phase 3: Use MainContentFunctional (complete functional implementation)
 import { MainContentFunctional as MainContent, MainContentRef as MainContentHandle } from './MainContentFunctional';
 import { RightSidebar } from './RightSidebar';
-import { ResizableSplitter } from './ResizableSplitter';
 import { Toast } from './Toast';
 import { ErrorPanel } from './ErrorPanel';
+import { StableResizableLayout } from './StableResizableLayout';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
 import { useToast } from '@ui/hooks/useToast';
 import { useErrorPanel } from '@ui/hooks/useErrorPanel';
-// createValidatedDemoWorkspace removed
+import { createValidatedDemoWorkspace } from '../../core/factories/demo-workspace-factory';
 
 /**
  * Read file content as text
@@ -272,10 +272,33 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
         DebugLogger.debug('Layout', 'Creating new demoworkspace using factory');
         
         try {
-          // createValidatedDemoWorkspace removed - using null for now
-          console.warn('[LAYOUT] createValidatedDemoWorkspace removed - needs functional implementation');
-          showError('Demo workspace creation functionality needs to be reimplemented without Command pattern');
-          return;
+          // Create demo workspace using factory
+          const demoWorkspace = createValidatedDemoWorkspace();
+          setCurrentWorkspace(demoWorkspace);
+          
+          // Set initial selectedModelName for main model
+          const mainModel = demoWorkspace.sqlModels.find(m => m.type === 'main');
+          if (mainModel) {
+            setSelectedModelName(mainModel.name);
+            setActiveTabId(mainModel.name);
+          }
+          
+          // Save to localStorage
+          localStorage.setItem('zosql_workspace_v3', JSON.stringify(demoWorkspace.toJSON()));
+          
+          // Open main.sql tab in the editor
+          setTimeout(() => {
+            if (mainContentRef.current && mainModel) {
+              mainContentRef.current.openSqlModel(
+                mainModel.name,
+                mainModel.sqlWithoutCte,
+                mainModel.type,
+                mainModel
+              );
+            }
+          }, 100);
+          
+          showSuccess('Demo workspace created successfully');
         } catch (error) {
           DebugLogger.error('Layout', 'Failed to create demo workspace:', error);
           showError('Failed to create initial workspace');
@@ -308,6 +331,7 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
         leftSidebarVisible={leftSidebarVisible}
         rightSidebarVisible={rightSidebarVisible}
         onFileOpen={handleFileOpen}
+        isDemo={forceDemo}
         onWorkspaceCreated={(workspace) => {
           try {
             let workspaceEntity;
@@ -464,27 +488,19 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
         currentWorkspace={currentWorkspace}
       />
       
-      {/* Main Container - Resizable Layout */}
+      {/* Main Container - Use wrapper components to maintain MainContent instance */}
       <div className="flex-1 overflow-hidden">
-        {leftSidebarVisible && rightSidebarVisible ? (
-          // Three-panel layout with both sidebars (nested splitters)
-          <ResizableSplitter
-            direction="horizontal"
-            initialSizes={[15, 85]}
-            minSizes={[250, 650]}
-            className="h-full"
-          >
-            {/* Left Sidebar */}
+        <StableResizableLayout
+          leftSidebarVisible={leftSidebarVisible}
+          rightSidebarVisible={rightSidebarVisible}
+          leftPanel={
             <LeftSidebar 
-              key={leftSidebarKey} // Force re-render when static analysis completes
+              key={leftSidebarKey}
               onOpenValuesTab={() => {
                 DebugLogger.debug('Layout', 'onOpenValuesTab called');
                 DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
-                // Update states synchronously to prevent flicker
                 setActiveTabId('values');
-                // Keep selectedModelName as is - don't clear it to avoid flicker
                 DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
-                // Open values tab in MainContent
                 if (mainContentRef.current) {
                   mainContentRef.current.openValuesTab();
                 }
@@ -500,77 +516,8 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
               showSuccess={showSuccess}
               mainContentRef={mainContentRef}
             />
-            
-            {/* Main Content and Right Sidebar in nested splitter */}
-            <ResizableSplitter
-              direction="horizontal"
-              initialSizes={[85, 15]}
-              minSizes={[400, 250]}
-              className="h-full"
-            >
-              {/* Main Content Area */}
-              <MainContent 
-                ref={mainContentRef}
-                workspace={currentWorkspace}
-                onActiveTabChange={(tabId) => {
-                  setActiveTabId(tabId);
-                  // Update selectedModelName if it's a SQL model tab
-                  if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
-                    setSelectedModelName(tabId);
-                  }
-                }}
-                showSuccess={showSuccess}
-                showError={showError}
-                showErrorWithDetails={addError}
-                onAnalysisUpdated={() => {
-                  // Force re-render of LeftSidebar when static analysis completes
-                  // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
-                }}
-              />
-              
-              {/* Right Sidebar */}
-              <RightSidebar 
-                lastExecutedSql={lastExecutedSql}
-                workspace={currentWorkspace}
-              />
-            </ResizableSplitter>
-          </ResizableSplitter>
-        ) : leftSidebarVisible ? (
-          // Two-panel layout with only left sidebar
-          <ResizableSplitter
-            direction="horizontal"
-            initialSizes={[15, 85]}
-            minSizes={[250, 400]}
-            className="h-full"
-          >
-            {/* Left Sidebar */}
-            <LeftSidebar 
-              key={leftSidebarKey} // Force re-render when static analysis completes
-              onOpenValuesTab={() => {
-                DebugLogger.debug('Layout', 'onOpenValuesTab called');
-                DebugLogger.debug('Layout', 'Current state - selectedModelName:', selectedModelName, 'activeTabId:', activeTabId);
-                // Update states synchronously to prevent flicker
-                setActiveTabId('values');
-                // Keep selectedModelName as is - don't clear it to avoid flicker
-                DebugLogger.debug('Layout', 'State updated - selectedModelName: unchanged, activeTabId: values');
-                // Open values tab in MainContent
-                if (mainContentRef.current) {
-                  mainContentRef.current.openValuesTab();
-                }
-              }} 
-              sqlModels={currentWorkspace?.sqlModels || []}
-              onModelClick={handleModelClick}
-              selectedModelName={selectedModelName}
-              onDecomposeQuery={handleDecomposeQuery}
-              isDecomposing={isDecomposing}
-              workspace={currentWorkspace}
-              activeTabId={activeTabId}
-              showErrorWithDetails={addError}
-              showSuccess={showSuccess}
-              mainContentRef={mainContentRef}
-            />
-            
-            {/* Main Content Area */}
+          }
+          mainPanel={
             <MainContent 
               ref={mainContentRef}
               workspace={currentWorkspace}
@@ -589,64 +536,14 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
                 // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
               }}
             />
-          </ResizableSplitter>
-        ) : rightSidebarVisible ? (
-          // Two-panel layout with only right sidebar
-          <ResizableSplitter
-            direction="horizontal"
-            initialSizes={[85, 15]}
-            minSizes={[400, 250]}
-            className="h-full"
-          >
-            {/* Main Content Area */}
-            <MainContent 
-              ref={mainContentRef}
-              workspace={currentWorkspace}
-              onActiveTabChange={(tabId) => {
-                setActiveTabId(tabId);
-                // Update selectedModelName if it's a SQL model tab
-                if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
-                  setSelectedModelName(tabId);
-                }
-              }}
-              showSuccess={showSuccess}
-              showError={showError}
-              showErrorWithDetails={addError}
-              onAnalysisUpdated={() => {
-                // Force re-render of LeftSidebar when static analysis completes
-                // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
-              }}
-            />
-            
-            {/* Right Sidebar */}
+          }
+          rightPanel={
             <RightSidebar 
               lastExecutedSql={lastExecutedSql}
               workspace={currentWorkspace}
             />
-          </ResizableSplitter>
-        ) : (
-          // Single panel - only main content
-          <div className="h-full flex">
-            <MainContent 
-              ref={mainContentRef}
-              workspace={currentWorkspace}
-              onActiveTabChange={(tabId) => {
-                setActiveTabId(tabId);
-                // Update selectedModelName if it's a SQL model tab
-                if (tabId && currentWorkspace?.sqlModels.find(m => m.name === tabId)) {
-                  setSelectedModelName(tabId);
-                }
-              }}
-              showSuccess={showSuccess}
-              showError={showError}
-              showErrorWithDetails={addError}
-              onAnalysisUpdated={() => {
-                // Force re-render of LeftSidebar when static analysis completes
-                // setLeftSidebarKey(prev => prev + 1); // Commented out since _setLeftSidebarKey is unused
-              }}
-            />
-          </div>
-        )}
+          }
+        />
       </div>
       
       {/* Toast Notifications */}
