@@ -14,7 +14,7 @@ import { ErrorPanel } from './ErrorPanel';
 import { useSqlDecomposer } from '@ui/hooks/useSqlDecomposer';
 import { useToast } from '@ui/hooks/useToast';
 import { useErrorPanel } from '@ui/hooks/useErrorPanel';
-// createValidatedDemoWorkspace removed
+import { createValidatedDemoWorkspace } from '../../core/factories/demo-workspace-factory';
 
 /**
  * Read file content as text
@@ -271,10 +271,33 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
         DebugLogger.debug('Layout', 'Creating new demoworkspace using factory');
         
         try {
-          // createValidatedDemoWorkspace removed - using null for now
-          console.warn('[LAYOUT] createValidatedDemoWorkspace removed - needs functional implementation');
-          showError('Demo workspace creation functionality needs to be reimplemented without Command pattern');
-          return;
+          // Create demo workspace using factory
+          const demoWorkspace = createValidatedDemoWorkspace();
+          setCurrentWorkspace(demoWorkspace);
+          
+          // Set initial selectedModelName for main model
+          const mainModel = demoWorkspace.sqlModels.find(m => m.type === 'main');
+          if (mainModel) {
+            setSelectedModelName(mainModel.name);
+            setActiveTabId(mainModel.name);
+          }
+          
+          // Save to localStorage
+          localStorage.setItem('zosql_workspace_v3', JSON.stringify(demoWorkspace.toJSON()));
+          
+          // Open main.sql tab in the editor
+          setTimeout(() => {
+            if (mainContentRef.current && mainModel) {
+              mainContentRef.current.openSqlModel(
+                mainModel.name,
+                mainModel.sqlWithoutCte,
+                mainModel.type,
+                mainModel
+              );
+            }
+          }, 100);
+          
+          showSuccess('Demo workspace created successfully');
         } catch (error) {
           DebugLogger.error('Layout', 'Failed to create demo workspace:', error);
           showError('Failed to create initial workspace');
@@ -307,6 +330,7 @@ export const Layout: React.FC<LayoutProps> = ({ forceDemo }) => {
         leftSidebarVisible={leftSidebarVisible}
         rightSidebarVisible={rightSidebarVisible}
         onFileOpen={handleFileOpen}
+        isDemo={forceDemo}
         onWorkspaceCreated={(workspace) => {
           try {
             let workspaceEntity;

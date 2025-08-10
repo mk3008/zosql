@@ -21,6 +21,11 @@ export const App: React.FC = () => {
   // If demo mode is requested, always show demo workspace
   const [forceDemo] = React.useState(checkDemoMode());
   
+  // Update page title for demo mode
+  React.useEffect(() => {
+    document.title = forceDemo ? 'zosql[demo]' : 'zosql';
+  }, [forceDemo]);
+  
   return (
     <WorkspaceProvider>
       <EditorProvider>
